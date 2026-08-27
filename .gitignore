@@ -1,0 +1,8 @@
+.venv/
+.claude/
+__pycache__/
+*.pyc
+.env
+data/raw/
+data/osm_industrial.geojson
+output/
