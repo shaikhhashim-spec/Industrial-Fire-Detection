@@ -1,5 +1,9 @@
-"""Pull industrial-zone / mining polygons from OpenStreetMap via Overpass."""
+"""Pull industrial-zone / mining polygons from OpenStreetMap via Overpass,
+with a TTL cache so repeated dashboard interactions don't re-query Overpass
+on every run."""
 from __future__ import annotations
+
+import time
 
 import geopandas as gpd
 import osm2geojson
@@ -18,6 +22,8 @@ QUERY_TEMPLATE = """
   way["industrial"]({bbox});
   way["man_made"="mineshaft"]({bbox});
   node["man_made"="mineshaft"]({bbox});
+  way["power"="plant"]({bbox});
+  node["power"="plant"]({bbox});
 );
 out body;
 >;
@@ -30,13 +36,12 @@ class OsmFetchError(RuntimeError):
 
 
 def fetch_industrial_zones() -> gpd.GeoDataFrame:
-    """Query Overpass for industrial/mining polygons in the target bbox.
-
+    """Query Overpass for industrial/mining/power polygons in the target bbox.
     Raises OsmFetchError on network/parse failure; caller should fall back
-    to the cached copy or synthetic sample zones.
-    """
+    to the cached copy or synthetic sample zones (see the fallback hierarchy
+    in src/pipeline.py)."""
     query = QUERY_TEMPLATE.format(timeout=config.OVERPASS_TIMEOUT, bbox=config.OVERPASS_BBOX_STR)
-    headers = {"User-Agent": "SIH26162-thermal-source-detector/1.0 (contact: khotabdurrahman@eng.rizvi.edu.in)"}
+    headers = {"User-Agent": "SIH26162-thermal-source-detector/1.0"}
     try:
         resp = requests.post(
             config.OVERPASS_URL, data={"data": query}, headers=headers, timeout=config.OVERPASS_TIMEOUT + 10
@@ -55,6 +60,13 @@ def fetch_industrial_zones() -> gpd.GeoDataFrame:
     return gdf
 
 
+def _cache_is_fresh() -> bool:
+    if not config.OSM_CACHE_PATH.exists():
+        return False
+    age_hours = (time.time() - config.OSM_CACHE_PATH.stat().st_mtime) / 3600
+    return age_hours < config.OVERPASS_CACHE_TTL_HOURS
+
+
 def load_cached_industrial_zones() -> gpd.GeoDataFrame | None:
     if config.OSM_CACHE_PATH.exists():
         return gpd.read_file(config.OSM_CACHE_PATH)
@@ -62,12 +74,12 @@ def load_cached_industrial_zones() -> gpd.GeoDataFrame | None:
 
 
 def get_industrial_zones(use_cache_first: bool = False) -> tuple[gpd.GeoDataFrame, str]:
-    """Return (gdf, source_label). Tries live Overpass, then cache, then
-    synthetic sample zones so the pipeline always has something to join
-    against."""
+    """Return (gdf, source_label). Tries a fresh cache, then live Overpass,
+    then a stale cache, then synthetic sample zones — so the pipeline always
+    has something to join against (see README "API Failure / Fallback")."""
     from src import sample_data  # local import avoids a hard circular dep
 
-    if use_cache_first:
+    if use_cache_first or _cache_is_fresh():
         cached = load_cached_industrial_zones()
         if cached is not None and not cached.empty:
             return cached, "cache"
@@ -77,14 +89,14 @@ def get_industrial_zones(use_cache_first: bool = False) -> tuple[gpd.GeoDataFram
         if not gdf.empty:
             return gdf, "overpass_live"
     except OsmFetchError as exc:
-        print(f"[osm_industrial] {exc}")
+        print(f"[geospatial.osm] {exc}")
 
     cached = load_cached_industrial_zones()
     if cached is not None and not cached.empty:
-        return cached, "cache"
+        return cached, "cache_stale"
 
-    print("[osm_industrial] falling back to synthetic sample industrial zones")
-    return sample_data.generate_sample_industrial_zones(), "sample"
+    print("[geospatial.osm] falling back to synthetic sample industrial zones")
+    return sample_data.generate_sample_industrial_zones(), "demo"
 
 
 if __name__ == "__main__":

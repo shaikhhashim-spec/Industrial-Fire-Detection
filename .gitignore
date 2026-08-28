@@ -1,8 +1,12 @@
+venv/
 .venv/
 .claude/
 __pycache__/
 *.pyc
 .env
-data/raw/
-data/osm_industrial.geojson
+data/*
+!data/reference/
 output/
+models/*.pkl
+.pytest_cache/
+streamlit_boot.log

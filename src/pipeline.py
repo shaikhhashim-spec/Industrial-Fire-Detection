@@ -1,9 +1,13 @@
-"""End-to-end orchestration: fetch -> persistence -> OSM join -> rule score
--> ML layer -> save output for the dashboard.
+"""Top-level orchestration: fetch -> clean -> geospatial join -> classify ->
+alerts -> persist output.
 
-Falls back to synthetic sample data / cached OSM zones whenever a live
-source is unavailable (no FIRMS key yet, Overpass down, offline demo, etc.)
-so the app always has something to show.
+Implements the fallback hierarchy the platform is required to guarantee:
+
+    LIVE API -> LOCAL CACHE -> DEMO DATASET
+
+so the dashboard never shows a blank or broken page, whether that's because
+no FIRMS key is configured yet, the key is invalid, Overpass is down, or
+there's simply no network at demo time.
 """
 from __future__ import annotations
 
@@ -11,71 +15,100 @@ import geopandas as gpd
 import pandas as pd
 
 import config
-from src import fetch_firms, ml_model, osm_industrial, persistence, sample_data, scoring, zone_join
+from src import classify, sample_data, store
+from src.alerts import engine as alert_engine
+from src.firms import fetch as firms_fetch
+from src.geospatial import landcover, osm, spatial_join
+from src.processing import cleaning
 
 
-def load_hotspots(map_key: str | None = None) -> tuple[pd.DataFrame, str]:
-    """Return (df, source_label) where source_label is 'firms_live' or 'sample_data'."""
-    key = map_key or config.FIRMS_MAP_KEY
-    if key:
-        try:
-            df = fetch_firms.fetch_hotspots(map_key=key)
-            if not df.empty:
-                return df, "firms_live"
-            print("[pipeline] FIRMS returned no rows, falling back to sample data")
-        except fetch_firms.FirmsKeyError as exc:
-            print(f"[pipeline] FIRMS key error: {exc}")
-        except Exception as exc:
-            print(f"[pipeline] FIRMS fetch failed: {exc}")
-    else:
-        print("[pipeline] no FIRMS_MAP_KEY configured, using sample data")
+def load_hotspots(demo_mode: bool, api_key: str | None = None) -> tuple[pd.DataFrame, str]:
+    """LIVE API -> LOCAL CACHE (most recent raw pull) -> DEMO DATASET."""
+    if not demo_mode:
+        key = api_key or config.FIRMS_API_KEY
+        if key:
+            try:
+                df = firms_fetch.fetch_hotspots(api_key=key)
+                if not df.empty:
+                    return df, "firms_live"
+                print("[pipeline] FIRMS returned no rows, falling back")
+            except firms_fetch.FirmsAuthError as exc:
+                print(f"[pipeline] FIRMS auth error: {exc}")
+            except Exception as exc:
+                print(f"[pipeline] FIRMS fetch failed: {exc}")
+        else:
+            print("[pipeline] no FIRMS_API_KEY configured")
 
-    return sample_data.generate_sample_hotspots(), "sample_data"
+        cached = sorted(config.RAW_DIR.glob("firms_*.csv"))
+        if cached:
+            try:
+                df = pd.read_csv(cached[-1])
+                df["acq_date"] = pd.to_datetime(df["acq_date"])
+                return df, "local_cache"
+            except Exception as exc:
+                print(f"[pipeline] local cache read failed: {exc}")
+
+    return sample_data.generate_sample_hotspots(), "demo_data"
 
 
-def run_pipeline(map_key: str | None = None, use_osm_cache_first: bool = False) -> tuple[gpd.GeoDataFrame, dict]:
-    """Run the full pipeline and write output/classified_hotspots.(geojson|csv).
+def run_pipeline(demo_mode: bool = False, api_key: str | None = None, use_osm_cache_first: bool = False) -> dict:
+    """Run the full pipeline once. Returns a dict of everything the
+    dashboard needs — never raises for a data-source failure (that's what
+    the fallback hierarchy is for); only raises if literally nothing usable
+    could be produced at all."""
+    raw_df, hotspot_source = load_hotspots(demo_mode, api_key)
+    if raw_df.empty:
+        raise RuntimeError("No hotspot data available from any source (live, cache, or demo).")
 
-    Returns (geodataframe, run_info) where run_info carries data-source
-    labels and ML metrics for display in the dashboard.
-    """
-    df, hotspot_source = load_hotspots(map_key)
-    if df.empty:
-        raise RuntimeError("No hotspot data available from any source (live or sample).")
+    clean_df, clean_report = cleaning.clean_hotspots(raw_df)
+    if clean_df.empty:
+        raise RuntimeError("All rows were dropped during data cleaning — check the source data.")
 
-    df = persistence.compute_persistence(df)
+    zones, zone_source = osm.get_industrial_zones(use_cache_first=use_osm_cache_first or demo_mode)
+    df = spatial_join.join_zone_type(clean_df, zones)
+    df = spatial_join.add_industrial_distances(df, zones)
 
-    zones, zone_source = osm_industrial.get_industrial_zones(use_cache_first=use_osm_cache_first)
-    df = zone_join.join_zone_type(df, zones)
+    landcover_zones, landcover_source = landcover.get_landcover_zones(use_cache_first=use_osm_cache_first or demo_mode)
+    df = spatial_join.join_landcover_context(df, landcover_zones)
 
-    df = scoring.classify(df)
-    df, ml_metrics = ml_model.train_and_predict(df)
+    detail_df, cluster_df, classify_info = classify.classify_hotspots(df, demo_mode=demo_mode)
+    alerts = alert_engine.generate_alerts(detail_df, cluster_df)
 
-    gdf = gpd.GeoDataFrame(
-        df,
-        geometry=gpd.points_from_xy(df["longitude"], df["latitude"]),
-        crs="EPSG:4326",
-    )
-    gdf["acq_date"] = gdf["acq_date"].astype(str)
+    gdf = gpd.GeoDataFrame(detail_df, geometry=gpd.points_from_xy(detail_df["longitude"], detail_df["latitude"]), crs="EPSG:4326")
+    export = gdf.copy()
+    export["acq_date"] = export["acq_date"].astype(str)
+    export.to_file(config.CLASSIFIED_GEOJSON, driver="GeoJSON")
+    export.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
 
-    gdf.to_file(config.CLASSIFIED_GEOJSON, driver="GeoJSON")
-    gdf.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
+    if not cluster_df.empty:
+        cluster_export = cluster_df.copy()
+        cluster_export["first_detected"] = cluster_export["first_detected"].astype(str)
+        cluster_export["last_detected"] = cluster_export["last_detected"].astype(str)
+        cluster_export.to_csv(config.PROCESSED_DIR / "cluster_summary.csv", index=False)
 
-    run_info = {
+    import json
+    (config.PROCESSED_DIR / "alerts.json").write_text(json.dumps(alerts, default=str))
+
+    return {
+        "detail_gdf": gdf,
+        "cluster_df": cluster_df,
+        "alerts": alerts,
         "hotspot_source": hotspot_source,
         "zone_source": zone_source,
-        "n_hotspots": len(gdf),
         "n_industrial_zones": len(zones),
-        "ml_metrics": ml_metrics,
+        "landcover_source": landcover_source,
+        "n_landcover_zones": len(landcover_zones),
+        "clean_report": clean_report,
+        "ml_metrics": classify_info["ml_metrics"],
+        "n_stored_total": store.count(),
+        "demo_mode": demo_mode,
     }
-    return gdf, run_info
 
 
 if __name__ == "__main__":
-    gdf, info = run_pipeline()
-    print(f"Pipeline complete: {info['n_hotspots']} hotspots classified")
-    print(f"  hotspot source: {info['hotspot_source']}, zone source: {info['zone_source']}")
-    print(gdf["rule_label"].value_counts())
-    if info["ml_metrics"]["trained"]:
+    info = run_pipeline(demo_mode=config.FIRMS_API_KEY == "")
+    print(f"source: {info['hotspot_source']} / {info['zone_source']}")
+    print(f"detections: {len(info['detail_gdf'])}  clusters: {len(info['cluster_df'])}  alerts: {len(info['alerts'])}")
+    print(info["detail_gdf"]["rule_label"].value_counts())
+    if info["ml_metrics"].get("trained"):
         print(f"ML accuracy: {info['ml_metrics']['accuracy']:.2f}")
-        print(f"Feature importances: {info['ml_metrics']['feature_importances']}")
