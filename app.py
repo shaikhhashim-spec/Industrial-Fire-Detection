@@ -66,8 +66,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], p, la
 .header h1{ margin:0 0 .4rem; font-size:1.45rem; font-weight:600; letter-spacing:-.005em; color:var(--ink); }
 .header .sub{ margin:0; color:var(--ink2); font-size:.83rem; max-width:52ch; }
 .header .meta{ text-align:right; font-family:'IBM Plex Mono',monospace; font-size:.72rem; color:var(--ink2); line-height:1.7; }
+<<<<<<< HEAD
 .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; }
 .dot.live{ background:#0ca30c; } .dot.demo{ background:#fab219; } .dot.stale{ background:#6b6e72; }
+=======
+>>>>>>> afd195d (chore: upload project updates)
 
 .statrow{ display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:.7rem; }
 .statrow + .statrow{ border-top:none; }
@@ -461,6 +464,126 @@ def build_timelapse_map(gdf: gpd.GeoDataFrame, label_field: str) -> folium.Map:
 
 # ------------------------------------------------------- investigation panel --
 
+<<<<<<< HEAD
+=======
+PROXIMITY_RADAR_CAP_KM = 10.0  # distances at/beyond this are treated as "no meaningful influence" (radius 0)
+
+
+def _render_proximity_radar(cluster_row: pd.Series):
+    """360-degree proximity hazard matrix: a radar/spider chart of how
+    close this event sits to each of five nearby-feature categories, plus
+    a precise km readout underneath. Radius is an inverted, capped
+    "closeness" score (nearer -> bigger spike) rather than raw distance,
+    since a radar chart reads more intuitively as "bigger = more hazard
+    proximity" than "bigger = farther away" would. Vertices are colored on
+    an emerald -> amber -> crimson gradient by that same closeness score,
+    and the nearest OSM-derived facility name (when the geospatial join
+    found one) is shown in the hover tooltip instead of just the generic
+    category label."""
+    facility_name = cluster_row.get("nearest_industrial_name")
+    # nearest_industrial_name is one shared "nearest OSM industrial-zone
+    # feature" field (not separately named per mine/power/industrial
+    # subtype), so it's only attached to the generic Industrial Facility
+    # entry — attaching it to Mine/Power Plant too would misleadingly imply
+    # that specific name IS the nearest mine or power plant specifically.
+    facility_suffix = f" — {facility_name}" if pd.notna(facility_name) and str(facility_name).strip() else ""
+    # (plain-text label for the radar's own SVG axis text -- Plotly's polar
+    # chart labels are SVG <text>, which can't render a web-font icon
+    # ligature -- distance, ICONS key for the HTML stat card below it)
+    fields = [
+        (f"Industrial Facility{facility_suffix}", cluster_row.get("industrial_distance_km"), "industrial_plant"),
+        ("Mine / Quarry", cluster_row.get("mine_distance_km"), "quarry"),
+        ("Power Plant", cluster_row.get("power_distance_km"), "power_plant"),
+        ("Forest Reserve", cluster_row.get("forest_distance_km"), "forest"),
+        ("Water Body", cluster_row.get("water_distance_km"), "water"),
+    ]
+    if all(pd.isna(d) for _, d, _ in fields):
+        return  # no proximity data at all (e.g. OSM join unavailable) -- nothing to plot
+
+    labels = [f[0] for f in fields]
+    distances = [f[1] for f in fields]
+    closeness = [max(0.0, PROXIMITY_RADAR_CAP_KM - min(float(d), PROXIMITY_RADAR_CAP_KM)) if pd.notna(d) else 0.0
+                 for d in distances]
+    hover = [f"{lbl}<br>{d:.2f} km" if pd.notna(d) else f"{lbl}<br>no data" for lbl, d in zip(labels, distances)]
+    r = closeness + closeness[:1]
+    theta = labels + labels[:1]
+    hover_closed = hover + hover[:1]
+
+    _section_header("360° Proximity Hazard Matrix")
+    fig = go.Figure()
+    # A wider, translucent halo trace underneath the crisp line simulates a
+    # glowing perimeter — Plotly/SVG has no native line-glow, this is the
+    # standard two-trace fake.
+    fig.add_trace(go.Scatterpolar(
+        r=r, theta=theta, mode="lines", line=dict(color=ACCENT_CRIMSON, width=14), opacity=0.18,
+        hoverinfo="skip", showlegend=False,
+    ))
+    fig.add_trace(go.Scatterpolar(
+        r=r, theta=theta, fill="toself", mode="lines+markers",
+        line=dict(color=ACCENT_CRIMSON, width=2.5), fillcolor="rgba(239,68,68,.22)",
+        marker=dict(size=10, color=closeness, cmin=0, cmax=PROXIMITY_RADAR_CAP_KM,
+                    colorscale=[[0, ACCENT_EMERALD], [0.5, ACCENT_AMBER], [1, ACCENT_CRIMSON]],
+                    line=dict(width=1.5, color=THEME_VARS[st.session_state.get("theme", "dark")]["surface"])),
+        hovertext=hover_closed, hoverinfo="text", name="Proximity", showlegend=False,
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, PROXIMITY_RADAR_CAP_KM], showticklabels=False)),
+        showlegend=False, height=340, margin=dict(l=50, r=50, t=20, b=20), **_plot_theme_kwargs(),
+    )
+    st.plotly_chart(fig, width="stretch")
+
+    cols = st.columns(len(fields))
+    for col, (label, d, icon_key) in zip(cols, fields):
+        val = f"{d:.2f} km" if pd.notna(d) else "n/a"
+        col.markdown(f'<div class="stat"><div class="lbl">{_icon_label(icon_key, label)}</div><div class="val">{val}</div></div>',
+                     unsafe_allow_html=True)
+    st.caption(f"Radar capped at {PROXIMITY_RADAR_CAP_KM:.0f} km — distances at or beyond that show as no spike; "
+               "exact figures are in the boxes above and the panel below.")
+
+
+def _render_downwind_hazard(cluster_row: pd.Series):
+    """Heuristic downwind smoke/gas dispersion estimate for high-FRP
+    events (see src/utils/wind.py) — wind speed/direction from Open-Meteo
+    (cached, with an offline fallback), rendered as a small dedicated map
+    plus a compact stat readout. Silently skipped for events below
+    config.PLUME_MIN_FRP_MW (this isn't meaningful for a low-intensity
+    source) or if the wind lookup itself fails outright."""
+    frp = cluster_row.get("max_frp", cluster_row.get("avg_frp", 0))
+    if pd.isna(frp) or frp < config.PLUME_MIN_FRP_MW:
+        return
+    from src.utils import wind as wind_utils
+
+    lat, lon = float(cluster_row["latitude"]), float(cluster_row["longitude"])
+    try:
+        wind_info = wind_utils.get_wind(lat, lon)
+    except Exception as exc:
+        print(f"[app] wind lookup failed for investigation panel: {exc}")
+        return
+
+    bearing = wind_utils.downwind_bearing(wind_info["direction_deg"])
+    length_km = wind_utils.dispersion_cone_length_km(wind_info["speed_kmh"], float(frp))
+
+    _section_header("Downwind Hazard Estimate")
+    st.caption(f"Heuristic downwind dispersion estimate for this high-FRP event (&ge;{config.PLUME_MIN_FRP_MW:.0f} MW) "
+               "— a wind-speed and FRP-scaled cone, **not** a physics-based (Gaussian-plume) dispersion model. "
+               f"Wind data source: {wind_info['source']}.")
+    d1, d2, d3 = st.columns(3)
+    d1.markdown(f'<div class="stat"><div class="lbl">Wind Speed</div><div class="val">{wind_info["speed_kmh"]:.0f} km/h</div></div>', unsafe_allow_html=True)
+    d2.markdown(f'<div class="stat"><div class="lbl">Downwind Bearing</div><div class="val">{bearing:.0f}°</div></div>', unsafe_allow_html=True)
+    d3.markdown(f'<div class="stat"><div class="lbl">Estimated Plume Reach</div><div class="val">{length_km:.1f} km</div></div>', unsafe_allow_html=True)
+
+    m = folium.Map(location=[lat, lon], zoom_start=12, tiles=None, control_scale=True)
+    _add_base_layers(m)
+    cone = wind_utils.dispersion_cone_polygon(lat, lon, wind_info["direction_deg"], wind_info["speed_kmh"], float(frp))
+    folium.Polygon(locations=cone, color="#c98500", weight=1.5, fill=True, fill_color="#c98500", fill_opacity=0.2,
+                   tooltip="Downwind dispersion estimate (heuristic, not a physics-based model)").add_to(m)
+    folium.CircleMarker(location=[lat, lon], radius=6, color="#e66767", weight=2, fill=True,
+                         fill_color="#e66767", fill_opacity=0.9, tooltip="Source hotspot").add_to(m)
+    _add_map_chrome(m)
+    st_folium(m, width=None, height=320, returned_objects=[], key=f"plume_map_{cluster_row['grid_cell']}")
+
+
+>>>>>>> afd195d (chore: upload project updates)
 def render_investigation_panel(cluster_row: pd.Series, detail_rows: pd.DataFrame, analyst_mode: bool):
     label = cluster_row.get("dominant_label", "Requires Verification")
     color = CATEGORY_COLORS.get(label, "#888888")
@@ -828,31 +951,43 @@ def _render_topbar():
     c1, c2, c3, c4, c5 = st.columns([3.2, 1.3, 1.3, 2.2, 1.1])
     with c1:
         st.markdown(
-            '<div class="topbar-brand"><div class="eyebrow">SIH26162 &middot; Ministry: NTRO</div>'
-            '<h1>THERMAL INTELLIGENCE</h1>'
+            f'<div class="topbar-brand"><div class="eyebrow">{_icon(ICONS["badge"], size=".9rem")} '
+            'SIH26162 &middot; Ministry: NTRO</div>'
+            f'<h1>{_icon(ICONS["logo"], size="1.3rem")} THERMAL INTELLIGENCE</h1>'
             '<p class="sub">AI-assisted satellite monitoring &amp; industrial thermal risk analysis.</p></div>',
             unsafe_allow_html=True,
         )
     with c2:
         # Same rationale as nav_radio above: no `index=` once topbar_region
+<<<<<<< HEAD
         # can also be set programmatically via a callback (_navigate).
         st.session_state.setdefault("topbar_region", "India" if region == "india" else "Jharkhand–Odisha Belt")
         region_label = st.selectbox("Region", ["India", "Jharkhand–Odisha Belt"], key="topbar_region")
         new_region = "india" if region_label == "India" else "jharkhand_odisha"
+=======
+        # can also be set programmatically via a callback (_navigate). The
+        # option list comes straight from config.REGIONS, so a new region
+        # (a corridor, say) appears here automatically.
+        region_options = [cfg["name"] for cfg in config.REGIONS.values()]
+        st.session_state.setdefault("topbar_region", _region_label(region))
+        region_label = st.selectbox(f":material/{ICONS['region']}: Region", region_options, key="topbar_region")
+        new_region = _region_key_from_label(region_label)
+>>>>>>> afd195d (chore: upload project updates)
         if new_region != region:
             st.session_state["region"] = new_region
             st.rerun()
     with c3:
-        st.markdown(f'<div class="topbar-meta"><span class="dot {dot}"></span>{src}<br>Updated: {updated}</div>',
-                     unsafe_allow_html=True)
+        dot_color = {"live": ACCENT_EMERALD, "demo": ACCENT_AMBER, "stale": "#64748b"}[dot]
+        st.markdown(f'<div class="topbar-meta">{_icon(ICONS["live_dot"], size=".85rem", color=dot_color)} '
+                    f'{src}<br>Updated: {updated}</div>', unsafe_allow_html=True)
     with c4:
         query = st.text_input("Search", placeholder="Search event ID, location, coordinates...",
-                               label_visibility="collapsed", key="global_search")
+                               label_visibility="collapsed", key="global_search", icon=f":material/{ICONS['search']}:")
         if query:
             _handle_global_search(query, region)
     with c5:
         st.button(f"Alerts ({n_critical})", key="topbar_alerts_btn", width="stretch",
-                  on_click=_navigate(page="Alerts"))
+                  icon=f":material/{ICONS['alerts']}:", on_click=_navigate(page="Alerts"))
         st.caption("Analyst · Administrator")
     st.markdown('<hr class="topbar-rule">', unsafe_allow_html=True)
 
@@ -1651,6 +1786,18 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
     m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles=None, control_scale=True)
     _add_base_layers(m)
 
+<<<<<<< HEAD
+=======
+    belt_tooltip = _icon(ICONS["focus"], size="1rem") + " Jharkhand–Odisha Belt · Click to Access Detailed Map"
+    belt_popup = (
+        f'<div style="font-family:{FONT_STACK};font-size:12.5px;line-height:1.6;min-width:200px;">'
+        f'<b style="color:#fab219;">{_icon(ICONS["focus"], size="1rem")} Jharkhand–Odisha Belt</b><br>'
+        f'<span style="color:#9a9da1;">Full OSM + AI industrial pipeline runs here.</span><br>'
+        f'<span style="color:#9a9da1;">Click anywhere in this box to open the detailed map.</span>'
+        f"</div>"
+    )
+
+>>>>>>> afd195d (chore: upload project updates)
     try:
         from src.national.states import load_states
         states = load_states()
@@ -1841,6 +1988,7 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
     n_critical = int((filtered_events["risk_level"] == "CRITICAL").sum()) if not filtered_events.empty else 0
     satellites = sorted(filtered_detail["satellite"].dropna().unique().astype(str)) if not filtered_detail.empty else []
     _stat_row([
+<<<<<<< HEAD
         ("Satellite Hotspots", len(filtered_detail), False),
         ("Detected Events", len(filtered_events), False),
         ("Persistent Sources", n_persistent, n_persistent > 0),
@@ -1854,6 +2002,40 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
     ])
 
 
+=======
+        (_icon_label("satellite_hotspots", "Satellite Hotspots"), len(filtered_detail), ACCENT_CYAN),
+        (_icon_label("thermal_events", "Detected Events"), len(filtered_events), ACCENT_COBALT),
+        (_icon_label("persistent_sources", "Persistent Sources"), n_persistent, ACCENT_AMBER if n_persistent > 0 else False),
+        (_icon_label("high_risk", "High-Risk Events"), n_high, "#f97316" if n_high > 0 else False),
+    ])
+    _stat_row([
+        (_icon_label("critical_alerts", "Critical Alerts"), n_critical, ACCENT_CRIMSON if n_critical > 0 else False),
+        (_icon_label("industrial_fires", "Industrial Events"), "See Belt view", False),
+        (_icon_label("location", "States Active"), int(filtered_detail["state"].nunique()) if not filtered_detail.empty else 0, False),
+        (_icon_label("hub", "Satellites"), ", ".join(satellites) or "—", False),
+    ])
+
+
+def _render_belt_access_banner():
+    """A prominent, always-visible callout above the national map pointing
+    analysts at the one region that gets the full OSM+AI pipeline — the
+    map itself is clickable too (see `_handle_national_map_click`), but a
+    banner + button doesn't depend on noticing the amber box on a small
+    screen or a busy heatmap view."""
+    with st.container():
+        c1, c2 = st.columns([4, 1.3])
+        c1.markdown(
+            f'<div class="belt-banner"><span class="txt">{_icon(ICONS["region"], size="1rem")} '
+            '<b>Target Region:</b> click on the '
+            'amber Jharkhand–Odisha box on the map below, or use the button to open the full '
+            'industrial-GIS + AI analysis for that belt directly.</span></div>',
+            unsafe_allow_html=True,
+        )
+        c2.button("Access Jharkhand–Odisha Detailed Map →", key="belt_access_banner_btn", width="stretch",
+                  on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+
+
+>>>>>>> afd195d (chore: upload project updates)
 def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
                                 map_mode: str, show_heatmap: bool, key: str):
     map_points = _map_points_for_mode(filtered_detail, filtered_events, map_mode)
@@ -1873,6 +2055,7 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
         elif map_points.empty:
             st.info("No observations match the current filters.")
         else:
+<<<<<<< HEAD
             map_data = st_folium(
                 build_national_map(map_points, map_mode, show_heatmap),
                 width=None,
@@ -1912,6 +2095,13 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
                         st.session_state["page"] = "Live Map" if st.session_state.get("page") == "Live Map" else "Overview"
                         st.toast("🎯 Accessed Jharkhand–Odisha Iron Ore & Steel Belt Map", icon="🗺️")
                         st.rerun()
+=======
+            st.caption(f":material/{ICONS['focus']}: Click anywhere inside the amber Jharkhand–Odisha box "
+                       "to open the detailed industrial map.")
+            map_data = st_folium(build_national_map(map_points, map_mode, show_heatmap), width=None, height=620,
+                                  returned_objects=["last_object_clicked", "last_clicked"], key=key)
+            _handle_national_map_click(map_data, key)
+>>>>>>> afd195d (chore: upload project updates)
 
 
 def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter: list[str]):
@@ -1931,6 +2121,18 @@ def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter:
                            paper_bgcolor="#131415", plot_bgcolor="#131415", yaxis=dict(autorange="reversed"))
         st.plotly_chart(fig, width="stretch")
 
+<<<<<<< HEAD
+=======
+        belt_rows = top_states[top_states["state"].isin(["Jharkhand", "Odisha"])]
+        if not belt_rows.empty:
+            st.caption("Detailed industrial pipeline available for the Jharkhand–Odisha belt:")
+            cols = st.columns(len(belt_rows))
+            for col, (_, row) in zip(cols, belt_rows.iterrows()):
+                col.button(f"{row['state']} — Access Map", key=f"topstate_access_{row['state']}",
+                           icon=f":material/{ICONS['industrial_fires']}:", width="stretch",
+                           on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+
+>>>>>>> afd195d (chore: upload project updates)
 
 def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
                                 state_summary: pd.DataFrame, state_filter: list[str]):
@@ -2154,5 +2356,158 @@ def _render_national_alert_banner(alerts: list[dict]):
     _render_alert_banner(alerts)
 
 
+<<<<<<< HEAD
+=======
+# --------------------------------------------------------- corridor mode --
+# A lightweight secondary monitoring corridor (currently: Singrauli Coal &
+# Power Corridor) — detect + track persistence, scoped to its own small
+# bbox, without the OSM industrial join or rule/ML classification the one
+# flagship belt gets (config.REGIONS' "detailed" flag; src/corridor/
+# pipeline.py). Deliberately its own compact set of functions rather than
+# reusing the national-mode ones directly, since those are coupled to
+# India-specific concepts (state tagging, the whole-country map, the belt
+# highlight overlay) that don't apply to a small corridor.
+
+def build_corridor_map(points: pd.DataFrame, bbox: dict) -> folium.Map:
+    center_lat = (bbox["min_lat"] + bbox["max_lat"]) / 2
+    center_lon = (bbox["min_lon"] + bbox["max_lon"]) / 2
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=10, tiles=None, control_scale=True)
+    _add_base_layers(m)
+    m.fit_bounds([[bbox["min_lat"], bbox["min_lon"]], [bbox["max_lat"], bbox["max_lon"]]])
+    folium.Rectangle(
+        bounds=[[bbox["min_lat"], bbox["min_lon"]], [bbox["max_lat"], bbox["max_lon"]]],
+        color="#4d8fc4", weight=1, fill=False, dash_array="4", tooltip="Corridor bounding box",
+    ).add_to(m)
+
+    if not points.empty:
+        cluster = MarkerCluster(disableClusteringAtZoom=12, maxClusterRadius=45,
+                                 icon_create_function=CLUSTER_ICON_JS).add_to(m)
+        for _, row in points.iterrows():
+            color = RISK_COLORS.get(row.get("risk_level"), "#4d8fc4")
+            risk_pct = max(0, min(100, row.get("risk_score", 0)))
+            popup = (
+                f'<div style="font-family:{FONT_STACK};font-size:12.5px;line-height:1.6;min-width:180px;">'
+                f"<b style='color:{color}'>{row.get('event_id', row.get('grid_cell', '?'))}</b><br>"
+                f'<div style="height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin:.3rem 0 .5rem;">'
+                f'<div style="height:100%;width:{risk_pct}%;background:{color};border-radius:2px;"></div></div>'
+                f"FRP: {row.get('frp', row.get('avg_frp', 0)):.1f} MW &middot; Risk: {row.get('risk_level', '?')}"
+                f"</div>"
+            )
+            folium.CircleMarker(
+                location=[row["latitude"], row["longitude"]], radius=4, color=color,
+                fill=True, fill_color=color, fill_opacity=0.85, weight=1,
+                popup=folium.Popup(popup, max_width=230),
+            ).add_to(cluster)
+
+    _add_map_chrome(m, _legend_html("Risk Level", RISK_COLORS))
+    return m
+
+
+def _apply_corridor_filters(detail_df: pd.DataFrame, page: str):
+    show_ui = page in ("Live Map", "Events", "Analytics")
+    satellites_available = sorted(detail_df["satellite"].dropna().unique().astype(str))
+    frp_max = float(detail_df["frp"].max()) if not detail_df.empty else 20.0
+
+    if show_ui:
+        with st.container(border=True):
+            _section_header("Filters")
+            f1, f2, f3 = st.columns(3)
+            satellite_filter = f1.multiselect("Satellite", satellites_available, default=satellites_available, key=f"cor_sat_{page}")
+            risk_filter = f2.multiselect("Risk", list(RISK_COLORS.keys()), default=list(RISK_COLORS.keys()), key=f"cor_risk_{page}")
+            min_conf = f3.slider("Min Confidence", 0, 100, 0, key=f"cor_conf_{page}")
+            frp_range = st.slider("FRP Range (MW)", 0.0, max(frp_max, 1.0), (0.0, max(frp_max, 1.0)), key=f"cor_frp_{page}")
+    else:
+        satellite_filter, risk_filter = satellites_available, list(RISK_COLORS.keys())
+        min_conf, frp_range = 0, (0.0, max(frp_max, 1.0))
+
+    mask = (
+        detail_df["satellite"].astype(str).isin(satellite_filter) & detail_df["risk_level"].isin(risk_filter)
+        & (detail_df["confidence_numeric"] >= min_conf) & detail_df["frp"].between(*frp_range)
+    )
+    return detail_df[mask]
+
+
+def _route_corridor_page(region_key: str, page: str, demo_mode: bool):
+    region_cfg = config.REGIONS[region_key]
+    region_name = region_cfg["name"]
+    bbox = region_cfg["bbox"]
+
+    if page == "Settings":
+        with st.container(border=True):
+            _section_header("Pipeline")
+            api_key_input = None
+            if not demo_mode:
+                if config.FIRMS_API_KEY:
+                    st.success("FIRMS_API_KEY loaded from .env")
+                else:
+                    st.warning("No FIRMS_API_KEY configured — pipeline will fall back to demo data.")
+                api_key_input = st.text_input("Or paste a FIRMS key for this session", type="password", key="settings_cor_key")
+            if st.button("Run Pipeline", key="settings_cor_run", width="stretch"):
+                run_corridor_and_cache(region_key, demo_mode, api_key_input or None)
+                st.rerun()
+        return
+
+    info = st.session_state.get("corridor_info", {}).get(region_key)
+    if not info:
+        st.info(f"No {region_name} data yet. Open **Settings** and click **Run Pipeline** "
+                "(Demo Mode works with zero setup).")
+        return
+
+    detail_df: pd.DataFrame = info["detail_df"]
+    events_df: pd.DataFrame = info["events_df"]
+    filtered_detail = _apply_corridor_filters(detail_df, page)
+    filtered_cells = set(filtered_detail["grid_cell"])
+    filtered_events = events_df[events_df["grid_cell"].isin(filtered_cells)] if not events_df.empty else events_df
+    alerts = _derive_national_alerts(filtered_events)  # same on-the-fly HIGH/CRITICAL derivation as national mode
+
+    if page == "Overview":
+        n_persistent = int(filtered_events["is_persistent"].sum()) if not filtered_events.empty else 0
+        n_critical = sum(1 for a in alerts if a.get("severity") == "CRITICAL")
+        _stat_row([
+            (_icon_label("satellite_hotspots", "Observations"), len(filtered_detail), ACCENT_CYAN),
+            (_icon_label("thermal_events", "Events"), len(filtered_events), ACCENT_COBALT),
+            (_icon_label("persistent_sources", "Persistent Sources"), n_persistent, ACCENT_AMBER if n_persistent > 0 else False),
+            (_icon_label("critical_alerts", "Critical Alerts"), n_critical, ACCENT_CRIMSON if n_critical > 0 else False),
+        ])
+        _render_alert_banner(alerts)
+        with st.container(border=True):
+            _section_header(f"{region_name} Map — {len(filtered_events)} events")
+            if filtered_events.empty:
+                st.info("No events match the current filters.")
+            else:
+                st_folium(build_corridor_map(filtered_events, bbox), width=None, height=520,
+                          returned_objects=[], key=f"map_corridor_overview_{region_key}")
+        st.caption("Detection + persistence only — no OSM industrial join or rule/ML classification runs for "
+                   "this corridor (that stays reserved for the Jharkhand–Odisha belt). See Settings.")
+    elif page == "Live Map":
+        with st.container(border=True):
+            _section_header(f"Live Map — {len(filtered_events)} events")
+            if filtered_events.empty:
+                st.info("No events match the current filters.")
+            else:
+                st_folium(build_corridor_map(filtered_events, bbox), width=None, height=620,
+                          returned_objects=[], key=f"map_corridor_live_{region_key}")
+    elif page == "Events":
+        _render_events_table(filtered_events, f"corridor_{region_key}")
+    elif page == "Alerts":
+        _render_alerts_tab(alerts, region_key)
+    elif page == "Analytics":
+        with st.container(border=True):
+            _section_header("Risk Distribution (Events)")
+            if filtered_events.empty:
+                st.caption("No events in the current filter selection.")
+            else:
+                counts = filtered_events["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10), **_plot_theme_kwargs())
+                st.plotly_chart(fig, width="stretch")
+    elif page in ("Investigations", "Validation", "AI Model", "Data"):
+        st.info(f"**{page}** requires the full geospatial + AI pipeline, which only runs for the detailed "
+                "Jharkhand–Odisha belt. Switch **Region** (top bar) to the belt for this page.")
+        st.button(f"Access Jharkhand–Odisha Belt to View {page} →", key=f"access_belt_from_{region_key}_{page}",
+                  on_click=_navigate(page=page, region="jharkhand_odisha"))
+
+
+>>>>>>> afd195d (chore: upload project updates)
 if __name__ == "__main__":
     main()
