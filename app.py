@@ -228,6 +228,17 @@ def run_and_cache(demo_mode: bool, api_key: str | None):
     _load_cached_detail.clear()
     _load_cached_clusters.clear()
     _load_cached_alerts.clear()
+
+    # WhatsApp automated dispatch for high-risk thermal events
+    if st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED):
+        from src.alerts import whatsapp as whatsapp_alerts
+        phone = st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
+        thresh = float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD))
+        prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
+        wa_results = whatsapp_alerts.send_batch_whatsapp_alerts(info["alerts"], phone=phone, threshold=thresh, provider=prov)
+        if wa_results:
+            st.toast(f"📲 {len(wa_results)} WhatsApp alert(s) dispatched to {phone} (Risk ≥ {thresh:.0f})", icon="🚨")
+
     st.success(f"Done — {len(info['detail_gdf'])} detections, {len(info['cluster_df'])} clusters, {len(info['alerts'])} alerts.")
 
 
@@ -267,6 +278,17 @@ def recompute_risk_and_cache(weights: dict):
     _load_cached_detail.clear()
     _load_cached_clusters.clear()
     _load_cached_alerts.clear()
+
+    # WhatsApp automated dispatch for high-risk thermal events
+    if st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED):
+        from src.alerts import whatsapp as whatsapp_alerts
+        phone = st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
+        thresh = float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD))
+        prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
+        wa_results = whatsapp_alerts.send_batch_whatsapp_alerts(alerts, phone=phone, threshold=thresh, provider=prov)
+        if wa_results:
+            st.toast(f"📲 {len(wa_results)} WhatsApp alert(s) dispatched to {phone} (Risk ≥ {thresh:.0f})", icon="🚨")
+
     st.success(f"Risk scores recomputed with custom weights — {len(alerts)} alerts regenerated.")
 
 
@@ -861,6 +883,10 @@ def main():
     st.session_state.setdefault("region", config.DEFAULT_REGION)
     st.session_state.setdefault("presentation_mode", False)
     st.session_state.setdefault("page", "Overview")
+    st.session_state.setdefault("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
+    st.session_state.setdefault("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD)
+    st.session_state.setdefault("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED)
+    st.session_state.setdefault("whatsapp_provider", config.WHATSAPP_PROVIDER)
 
     st.markdown(CSS, unsafe_allow_html=True)
 
@@ -1043,6 +1069,94 @@ def _render_settings_belt(demo_mode: bool):
             recompute_risk_and_cache(custom_weights)
             st.rerun()
 
+    with st.container(border=True):
+        _section_header("WhatsApp Alert Gateway Configuration")
+        st.caption("Real-time automated and manual high-risk thermal event dispatch to field responders.")
+
+        wa1, wa2 = st.columns(2)
+        with wa1:
+            wa_phone_val = st.text_input(
+                "Recipient WhatsApp Number",
+                value=st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE),
+                key="wa_settings_phone",
+                help="Target WhatsApp mobile number with or without country code.",
+            )
+            st.session_state["whatsapp_phone"] = wa_phone_val
+        with wa2:
+            wa_thresh_val = st.slider(
+                "Risk Alert Trigger Threshold",
+                min_value=50.0,
+                max_value=100.0,
+                value=float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD)),
+                step=1.0,
+                key="wa_settings_thresh",
+                help="Thermal events reaching or exceeding this risk score trigger a WhatsApp alert (default >= 85).",
+            )
+            st.session_state["whatsapp_threshold"] = wa_thresh_val
+
+        wa_auto = st.toggle(
+            "Auto-dispatch on Pipeline Run & Risk Recomputation",
+            value=st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED),
+            key="wa_settings_auto",
+            help="Automatically dispatch WhatsApp alerts whenever high-risk events (>= threshold) are detected.",
+        )
+        st.session_state["whatsapp_auto_dispatch"] = wa_auto
+
+        provider_options = ["auto", "simulated", "twilio", "callmebot", "meta", "webhook"]
+        current_prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
+        prov_idx = provider_options.index(current_prov) if current_prov in provider_options else 0
+        wa_prov_val = st.selectbox(
+            "Gateway Provider",
+            options=provider_options,
+            index=prov_idx,
+            key="wa_settings_prov",
+            format_func=lambda x: {
+                "auto": "⚡ Auto-Detect (Twilio / CallMeBot / Meta / Simulated)",
+                "simulated": "🧪 Interactive wa.me & Simulator (Zero-Config)",
+                "twilio": "📞 Twilio WhatsApp API",
+                "callmebot": "🤖 CallMeBot WhatsApp API (Free Personal Gateway)",
+                "meta": "🌐 Meta WhatsApp Cloud API",
+                "webhook": "🔗 Custom Webhook Endpoint",
+            }.get(x, x),
+        )
+        st.session_state["whatsapp_provider"] = wa_prov_val
+
+        with st.expander("API Gateway Credentials & Webhook Settings", expanded=False):
+            st.caption("Optional API keys for direct backend messaging gateways. If empty, the system uses interactive 1-click wa.me dispatch.")
+            c_sid = st.text_input("Twilio Account SID", value=config.TWILIO_ACCOUNT_SID, type="password", key="wa_t_sid")
+            c_tok = st.text_input("Twilio Auth Token", value=config.TWILIO_AUTH_TOKEN, type="password", key="wa_t_tok")
+            c_num = st.text_input("Twilio WhatsApp Number", value=config.TWILIO_WHATSAPP_NUMBER, key="wa_t_num")
+            c_cmb = st.text_input("CallMeBot API Key", value=config.CALLMEBOT_API_KEY, type="password", key="wa_c_cmb")
+            c_wh = st.text_input("Custom Webhook URL", value=config.WHATSAPP_WEBHOOK_URL, key="wa_c_wh")
+
+        if st.button("Send Test WhatsApp Alert to " + wa_phone_val, key="wa_settings_send_test", width="stretch"):
+            from src.alerts import whatsapp as whatsapp_alerts
+            sample_event = {
+                "event_id": "TH-TEST85",
+                "latitude": 22.8046, "longitude": 86.1850,
+                "risk_score": float(wa_thresh_val), "risk_level": "CRITICAL",
+                "classification": "Likely Industrial Fire",
+                "ai_confidence": 94.2, "frp": 16.5, "persistence_days": 24,
+                "industrial_distance_km": 0.15, "status": "Requires immediate verification.",
+            }
+            res = whatsapp_alerts.send_whatsapp_alert(
+                sample_event,
+                phone=wa_phone_val,
+                threshold=wa_thresh_val,
+                force=True,
+                provider=wa_prov_val,
+                twilio_sid=c_sid or None,
+                twilio_token=c_tok or None,
+                twilio_number=c_num or None,
+                callmebot_key=c_cmb or None,
+                webhook_url=c_wh or None,
+            )
+            if res["status"] in ("delivered", "simulated"):
+                st.success(f"✅ Alert dispatched successfully to {wa_phone_val} via {res['provider'].upper()}!")
+                st.toast(f"Dispatched to {wa_phone_val}", icon="📲")
+            else:
+                st.error(f"❌ Dispatch failed: {res.get('error', 'Unknown error')}")
+
 
 def _route_regional_page(page: str, demo_mode: bool):
     gdf = _load_cached_detail()
@@ -1181,26 +1295,125 @@ def _render_live_map(filtered, label_field, color_by):
 
 
 def _render_alerts_tab(alerts):
+    from src.alerts import whatsapp as whatsapp_alerts
+
+    phone = st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
+    thresh = float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD))
+    prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
+
+    # WhatsApp Gateway Status & Quick Action Card
+    with st.container(border=True):
+        w1, w2, w3 = st.columns([3, 2.2, 1.6])
+        with w1:
+            _section_header("WhatsApp Alert Gateway (Active)")
+            st.markdown(
+                f'<div style="font-size:0.85rem;color:var(--ink);">'
+                f'<b>Recipient:</b> <span class="mono" style="color:#25D366;font-weight:600;">{phone}</span> &middot; '
+                f'<b>Trigger Rule:</b> <span class="mono" style="color:var(--ink);">Risk Score &ge; {thresh:.0f}</span> &middot; '
+                f'<b>Provider:</b> <span class="mono" style="color:var(--ink2);">{prov.upper()}</span>'
+                f'<div style="color:var(--ink2);font-size:0.75rem;margin-top:4px;">'
+                f'Automated dispatch alerts field responders immediately when high-risk hotspots are detected near industrial zones.'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+        with w2:
+            st.markdown(
+                '<div style="font-size:0.78rem;padding:6px 10px;border-radius:4px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.25);color:var(--ink);line-height:1.4;">'
+                '🚨 <b>Alert Template Preview:</b><br>'
+                '<span class="mono" style="font-size:0.72rem;color:var(--ink2);">'
+                'HIGH-RISK THERMAL EVENT DETECTED<br>'
+                'Persistent thermal hotspot near industrial zone.<br>'
+                'Status: Requires immediate verification.'
+                '</span></div>',
+                unsafe_allow_html=True,
+            )
+        with w3:
+            sample_event = alerts[0] if alerts else {
+                "event_id": "TH-DEMO85",
+                "latitude": 22.8046, "longitude": 86.1850,
+                "risk_score": 88.0, "risk_level": "CRITICAL",
+                "classification": "Likely Industrial Fire",
+                "ai_confidence": 94.5, "frp": 16.2, "persistence_days": 24,
+                "industrial_distance_km": 0.12, "status": "Requires immediate verification.",
+            }
+            test_wa_url = whatsapp_alerts.get_whatsapp_web_url(sample_event, phone)
+            st.link_button("💬 Open in WhatsApp", test_wa_url, width="stretch", help=f"Open WhatsApp Web/App with prefilled alert to {phone}")
+            if st.button("📲 Trigger API Dispatch", key="wa_send_test_top", width="stretch", help=f"Send automated API alert to {phone}"):
+                res = whatsapp_alerts.send_whatsapp_alert(sample_event, phone=phone, threshold=thresh, force=True, provider=prov)
+                if res["status"] == "delivered":
+                    st.toast(f"✅ Live WhatsApp alert delivered to {phone}!", icon="📲")
+                    st.success(f"Delivered to {phone} via {res['provider'].upper()}")
+                elif res["status"] == "simulated":
+                    st.info(f"Simulated dispatch ready. Click 'Open in WhatsApp' above or configure CallMeBot API key for automated delivery.")
+                else:
+                    st.error(f"Failed: {res.get('error', 'Unknown error')}")
+
+        with st.expander("ℹ️ How to Receive Automated WhatsApp Messages on your Phone (Free 10-Second Setup)", expanded=False):
+            st.markdown(
+                "Because WhatsApp is an end-to-end encrypted platform, automated background alerts from Python require either a Free Gateway or 1-Click WhatsApp Web:<br>"
+                "1. **Option A (Instant 1-Click Browser Dispatch)**: Click any **💬 WhatsApp Web** button next to an alert to send it immediately from your browser/mobile app.<br>"
+                "2. **Option B (Free Automated Background WhatsApp via CallMeBot)**:<br>"
+                "   - Save `+34 941 86 20 64` (CallMeBot) in your phone contacts.<br>"
+                "   - Send this WhatsApp message from `9967541336` to that number: `I allow callmebot to send me messages`<br>"
+                "   - You will receive a reply with your free **API Key** (e.g. `123456`).<br>"
+                "   - Enter that key in the **Settings** page under WhatsApp Gateway Settings.<br>"
+                "3. **Option C (Enterprise Twilio / Meta API)**: Enter your Twilio or Meta WhatsApp API keys in the Settings page.",
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("WhatsApp Dispatch Audit Log", expanded=False):
+            logs = whatsapp_alerts.load_whatsapp_dispatch_log()
+            if not logs:
+                st.caption("No WhatsApp notifications logged yet in this session.")
+            else:
+                log_df = pd.DataFrame(logs)[["timestamp", "recipient", "event_id", "risk_score", "ai_confidence", "status", "provider"]]
+                st.dataframe(log_df, hide_index=True, width="stretch")
+
     if not alerts:
         st.info("No alerts generated from the current dataset.")
         return
+
     sev_color = {"CRITICAL": "#e66767", "HIGH": "#ec835a", "MODERATE": "#fab219"}
     for i, a in enumerate(alerts[:50]):
         color = sev_color.get(a["severity"], "#888")
         event_id = a.get("event_id", a.get("grid_cell", "?"))
+        risk_val = float(a.get("risk_score", 0))
+        ai_conf = float(a.get("ai_confidence", 85.0))
+        is_wa_triggered = risk_val >= thresh
+
+        wa_badge_html = ""
+        if is_wa_triggered:
+            wa_badge_html = (
+                f'<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;'
+                f'padding:3px 8px;border-radius:4px;background:rgba(37,211,102,0.12);'
+                f'border:1px solid rgba(37,211,102,0.35);font-size:0.75rem;color:#25D366;font-family:var(--font-mono,monospace);">'
+                f'📲 <b>WHATSAPP TRIGGERED</b> &middot; Recipient: {phone} &middot; Risk: {risk_val:.1f} &ge; {thresh:.0f} &middot; AI Conf: {ai_conf:.1f}%</div>'
+            )
+
         st.markdown(
             f'<div class="alertcard" style="--sev:{color}"><div class="title">\U0001F6A8 {a["title"]} '
             f'<span class="mono" style="color:var(--ink2);font-size:.75em;">&middot; {event_id}</span></div>'
             f'<div class="meta">Location: {a["latitude"]:.3f}, {a["longitude"]:.3f} &middot; '
-            f'Classification: {a["classification"]} &middot; Risk: {a["risk_score"]:.0f}/100 &middot; '
+            f'Classification: {a["classification"]} &middot; Risk: {risk_val:.1f}/100 &middot; '
+            f'AI Confidence: {ai_conf:.1f}% &middot; '
             f'Persistence: {a["persistence_days"]}d &middot; FRP: {a["frp"]:.1f} MW &middot; '
-            f'Status: {a["status"]}</div></div>',
+            f'Status: {a["status"]}</div>'
+            f'{wa_badge_html}</div>',
             unsafe_allow_html=True,
         )
-        b1, b2, b3 = st.columns(3)
+
+        b1, b2, b3, b4 = st.columns([1.2, 1.2, 1.4, 1.2])
         b1.button("View on Map", key=f"alert_view_{i}", width="stretch", disabled=True, help="Switch to the Live Map tab and locate this cell manually.")
         b2.button("Investigate", key=f"alert_inv_{i}", width="stretch", disabled=True, help="Open the Investigations tab and select this grid cell.")
-        b3.button("Dismiss", key=f"alert_dismiss_{i}", width="stretch", disabled=True, help="Alert dismissal/state tracking is a future improvement.")
+
+        wa_web_url = whatsapp_alerts.get_whatsapp_web_url(a, phone)
+        b3.link_button("💬 WhatsApp Web", wa_web_url, width="stretch", help="Open WhatsApp Web or App directly with prefilled alert message.")
+        if b4.button("📲 Send Alert", key=f"alert_wa_send_{i}", width="stretch", help=f"Dispatch notification to {phone}"):
+            res = whatsapp_alerts.send_whatsapp_alert(a, phone=phone, threshold=thresh, force=True, provider=prov)
+            if res["status"] in ("delivered", "simulated"):
+                st.toast(f"✅ Alert dispatched for {event_id} to {phone}!", icon="📲")
+            else:
+                st.error(f"Dispatch failed: {res.get('error', 'Error')}")
 
 
 def _render_analytics(filtered, filtered_clusters, run_info):
@@ -1833,6 +2046,61 @@ def _render_settings_national(demo_mode: bool):
                    f"to just the fresh batch (&ge;{config.NATIONAL_PERSISTENCE_MIN_DAYS} active days) before any "
                    "history has accumulated. See the Data page for how much history is currently stored.")
         st.caption("National risk weights: " + ", ".join(f"{k} {v:.0%}" for k, v in config.NATIONAL_RISK_WEIGHTS.items()))
+
+    with st.container(border=True):
+        _section_header("WhatsApp Alert Gateway Configuration")
+        st.caption("Real-time automated and manual high-risk thermal event dispatch to field responders.")
+
+        wa1, wa2 = st.columns(2)
+        with wa1:
+            wa_phone_val = st.text_input(
+                "Recipient WhatsApp Number",
+                value=st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE),
+                key="wa_settings_phone_nat",
+                help="Target WhatsApp mobile number with or without country code.",
+            )
+            st.session_state["whatsapp_phone"] = wa_phone_val
+        with wa2:
+            wa_thresh_val = st.slider(
+                "Risk Alert Trigger Threshold",
+                min_value=50.0,
+                max_value=100.0,
+                value=float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD)),
+                step=1.0,
+                key="wa_settings_thresh_nat",
+                help="Thermal events reaching or exceeding this risk score trigger a WhatsApp alert (default >= 85).",
+            )
+            st.session_state["whatsapp_threshold"] = wa_thresh_val
+
+        wa_auto = st.toggle(
+            "Auto-dispatch on Pipeline Run",
+            value=st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED),
+            key="wa_settings_auto_nat",
+            help="Automatically dispatch WhatsApp alerts whenever high-risk events (>= threshold) are detected.",
+        )
+        st.session_state["whatsapp_auto_dispatch"] = wa_auto
+
+        if st.button("Send Test WhatsApp Alert to " + wa_phone_val, key="wa_settings_send_test_nat", width="stretch"):
+            from src.alerts import whatsapp as whatsapp_alerts
+            sample_event = {
+                "event_id": "TH-INDIA85",
+                "latitude": 22.8046, "longitude": 86.1850,
+                "risk_score": float(wa_thresh_val), "risk_level": "CRITICAL",
+                "classification": "Likely Industrial Fire",
+                "ai_confidence": 94.2, "frp": 16.5, "persistence_days": 24,
+                "industrial_distance_km": 0.15, "status": "Requires immediate verification.",
+            }
+            res = whatsapp_alerts.send_whatsapp_alert(
+                sample_event,
+                phone=wa_phone_val,
+                threshold=wa_thresh_val,
+                force=True,
+            )
+            if res["status"] in ("delivered", "simulated"):
+                st.success(f"✅ Alert dispatched successfully to {wa_phone_val} via {res['provider'].upper()}!")
+                st.toast(f"Dispatched to {wa_phone_val}", icon="📲")
+            else:
+                st.error(f"❌ Dispatch failed: {res.get('error', 'Unknown error')}")
 
 
 def _route_national_page(page: str, demo_mode: bool):

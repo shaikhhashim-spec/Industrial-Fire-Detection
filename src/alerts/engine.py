@@ -55,6 +55,15 @@ def generate_alerts(detail_df: pd.DataFrame, cluster_df: pd.DataFrame) -> list[d
 
     for _, row in cluster_df.iterrows():
         cell = row["grid_cell"]
+        ai_conf = row.get("ai_confidence")
+        if ai_conf is None or pd.isna(ai_conf):
+            ml_c = row.get("ml_confidence")
+            if ml_c is not None and pd.notna(ml_c):
+                ai_conf = round(float(ml_c) * 100, 1) if float(ml_c) <= 1.0 else round(float(ml_c), 1)
+            else:
+                avg_c = row.get("avg_confidence", 85.0)
+                ai_conf = round(float(avg_c), 1) if pd.notna(avg_c) else 85.0
+
         base = {
             "grid_cell": cell,
             "event_id": row.get("event_id", cell),
@@ -67,6 +76,7 @@ def generate_alerts(detail_df: pd.DataFrame, cluster_df: pd.DataFrame) -> list[d
             "frp": row.get("avg_frp", 0),
             "industrial_distance_km": row.get("industrial_distance_km"),
             "status": row.get("status", ""),
+            "ai_confidence": float(ai_conf),
         }
 
         risk = row.get("risk_score", 0)

@@ -162,10 +162,24 @@ RISK_LEVELS = [
     (76, 100, "CRITICAL"),
 ]
 
-# --- Alert engine -------------------------------------------------------------
+# --- Alert engine & WhatsApp Integration --------------------------------------
 ALERT_CRITICAL_RISK_MIN = 76
 ALERT_HIGH_RISK_MIN = 51
 ALERT_FRP_SPIKE_MULTIPLIER = 2.0   # current FRP vs cell's own historical average
+
+# WhatsApp Integration Parameters
+WHATSAPP_RECIPIENT_PHONE = os.getenv("WHATSAPP_RECIPIENT_PHONE", "9967541336")
+WHATSAPP_RISK_THRESHOLD = float(os.getenv("WHATSAPP_RISK_THRESHOLD", "85.0"))
+WHATSAPP_ENABLED = os.getenv("WHATSAPP_ENABLED", "true").lower() in ("1", "true", "yes")
+WHATSAPP_PROVIDER = os.getenv("WHATSAPP_PROVIDER", "auto")  # auto, twilio, callmebot, meta, webhook, simulated
+TWILIO_ACCOUNT_SID = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
+TWILIO_AUTH_TOKEN = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
+TWILIO_WHATSAPP_NUMBER = (os.getenv("TWILIO_WHATSAPP_NUMBER") or "+14155238886").strip()
+TWILIO_CONTENT_SID = (os.getenv("TWILIO_CONTENT_SID") or "").strip()
+CALLMEBOT_API_KEY = (os.getenv("CALLMEBOT_API_KEY") or "").strip()
+WHATSAPP_CLOUD_API_TOKEN = (os.getenv("WHATSAPP_CLOUD_API_TOKEN") or "").strip()
+WHATSAPP_PHONE_NUMBER_ID = (os.getenv("WHATSAPP_PHONE_NUMBER_ID") or "").strip()
+WHATSAPP_WEBHOOK_URL = (os.getenv("WHATSAPP_WEBHOOK_URL") or "").strip()
 
 # --- Output / model paths -----------------------------------------------------
 CLASSIFIED_GEOJSON = OUTPUT_DIR / "classified_hotspots.geojson"
@@ -175,3 +189,5 @@ OSM_CACHE_PATH = CACHE_DIR / "osm_industrial.geojson"
 LANDCOVER_CACHE_PATH = CACHE_DIR / "osm_landcover.geojson"
 DEMO_DATASET_PATH = DEMO_DIR / "demo_hotspots.csv"
 DB_PATH = DATA_DIR / "hotspots.db"
+WHATSAPP_LOG_PATH = PROCESSED_DIR / "whatsapp_alerts_log.json"
+
