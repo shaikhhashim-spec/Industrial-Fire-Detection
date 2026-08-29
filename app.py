@@ -145,6 +145,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label{
 .funnel-step .fmetric{ font-family:'IBM Plex Mono',monospace; font-size:1rem; font-weight:600; color:var(--ink); }
 .funnel-step .fsub{ font-size:.68rem; color:var(--ink2); margin-top:.1rem; }
 .funnel-arrow{ display:flex; align-items:center; color:var(--muted); font-size:1rem; flex:0 0 auto; padding:0 .1rem; }
+@keyframes pulse-glow { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.96); } }
 </style>
 """
 
@@ -910,6 +911,8 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
             only_persistent = h1.checkbox("Only Persistent", key=f"onlyp_{page}")
             only_critical = h2.checkbox("Only Critical Risk", key=f"onlyc_{page}")
             if h3.button("Reset Filters", key=f"reset_{page}"):
+                for prefix in ("date_", "cls_", "risk_", "label_", "conf_","pers_", "frp_", "color_", "onlyp_", "onlyc_"):
+                    st.session_state.pop(f"{prefix}{page}", None)
                 st.rerun()
     else:
         date_range = (min_date, max_date)
@@ -1124,7 +1127,13 @@ def _render_alert_banner(alerts):
 
 def _render_overview(filtered, filtered_clusters, label_field, color_by):
     with st.container(border=True):
-        _section_header(f"Map — {len(filtered)} hotspots shown")
+        r1, r2 = st.columns([3.5, 1.5])
+        with r1:
+            _section_header(f"Map — {len(filtered)} hotspots shown (Jharkhand–Odisha Belt)")
+            st.caption("📍 Viewing detailed industrial & mining GIS for **Jharkhand–Odisha Iron Ore & Steel Belt**.")
+        with r2:
+            st.button("← Return to India Overview", key="back_india_overview", width="stretch",
+                      on_click=_navigate(page="Overview", region="india"))
         if filtered.empty:
             st.info("No hotspots match the current filters.")
         else:
@@ -1154,9 +1163,12 @@ def _render_overview(filtered, filtered_clusters, label_field, color_by):
 
 def _render_live_map(filtered, label_field, color_by):
     with st.container(border=True):
-        hdr, toggle = st.columns([3, 1])
+        hdr, back_btn, toggle = st.columns([2.5, 1.5, 1.0])
         with hdr:
-            _section_header(f"Live Map — {len(filtered)} hotspots")
+            _section_header(f"Live Map — {len(filtered)} hotspots (Jharkhand–Odisha Belt)")
+        with back_btn:
+            st.button("← Return to India Map", key="back_india_livemap", width="stretch",
+                      on_click=_navigate(page="Live Map", region="india"))
         timelapse_on = toggle.toggle("Time-lapse")
         if filtered.empty:
             st.info("No hotspots match the current filters.")
@@ -1429,14 +1441,70 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
     try:
         from src.national.states import load_states
         states = load_states()
+
+        def _state_style(feature):
+            name = feature["properties"].get("state_name", "")
+            if name in ("Jharkhand", "Odisha"):
+                return {"color": "#fab219", "weight": 2.2, "fillColor": "#fab219", "fillOpacity": 0.12, "dashArray": "3"}
+            return {"color": "#4d8fc4", "weight": 1, "fillColor": "#4d8fc4", "fillOpacity": 0.02}
+
+        def _state_highlight(feature):
+            name = feature["properties"].get("state_name", "")
+            if name in ("Jharkhand", "Odisha"):
+                return {"weight": 3.5, "fillOpacity": 0.28, "color": "#ffd255", "fillColor": "#fab219"}
+            return {"weight": 2, "fillOpacity": 0.08, "color": "#7fb1e0"}
+
         folium.GeoJson(
             states, name="State Boundaries",
-            style_function=lambda _f: {"color": "#4d8fc4", "weight": 1, "fillOpacity": 0.02},
-            highlight_function=lambda _f: {"weight": 2, "fillOpacity": 0.08, "color": "#7fb1e0"},
-            tooltip=folium.GeoJsonTooltip(fields=["state_name"], aliases=["State:"]),
+            style_function=_state_style,
+            highlight_function=_state_highlight,
+            tooltip=folium.GeoJsonTooltip(
+                fields=["state_name"],
+                aliases=["State:"],
+                style=f"font-family:{FONT_STACK};font-size:12px;background:#131415;color:#e8e9ea;border:1px solid rgba(255,255,255,.2);padding:4px 8px;border-radius:4px;",
+            ),
         ).add_to(m)
     except Exception as exc:
         print(f"[app] state boundary layer failed: {exc}")
+
+    # Dedicated interactive Target Region zone for Jharkhand–Odisha Belt
+    belt_popup_html = (
+        f'<div style="font-family:{FONT_STACK};font-size:12.5px;line-height:1.6;padding:4px;min-width:210px;">'
+        f'<b style="color:#fab219;font-size:13px;">🎯 {config.REGION_NAME}</b><br>'
+        f'<span style="color:#9a9da1;">Target Industrial &amp; Mining GIS Region</span><br>'
+        f'<div style="margin:6px 0;padding:5px 8px;background:rgba(250,178,25,0.12);border-left:3px solid #fab219;border-radius:3px;">'
+        f'Full OSM steel/mines layers, AI classification &amp; anomaly detection active.'
+        f'</div>'
+        f'<span style="font-family:{MONO_STACK};font-size:11px;color:#4d8fc4;">⚡ Click anywhere inside this region to open detailed map</span>'
+        f'</div>'
+    )
+    folium.Rectangle(
+        bounds=[[config.BBOX["min_lat"], config.BBOX["min_lon"]], [config.BBOX["max_lat"], config.BBOX["max_lon"]]],
+        color="#fab219", weight=2.5, fill=True, fill_color="#fab219", fill_opacity=0.10, dash_array="5, 5",
+        tooltip="🎯 Click to Access Jharkhand–Odisha Belt Detailed Map",
+        popup=folium.Popup(belt_popup_html, max_width=250),
+        name="Target Region: Jharkhand–Odisha",
+    ).add_to(m)
+
+    # Clickable central target badge for the belt
+    belt_center_lat = (config.BBOX["min_lat"] + config.BBOX["max_lat"]) / 2
+    belt_center_lon = (config.BBOX["min_lon"] + config.BBOX["max_lon"]) / 2
+    folium.Marker(
+        location=[belt_center_lat, belt_center_lon],
+        icon=folium.DivIcon(
+            html=(
+                '<div style="cursor:pointer;background:#131415;border:2px solid #fab219;color:#fab219;'
+                'border-radius:20px;padding:4px 10px;font-family:\'IBM Plex Mono\',monospace;font-size:11px;'
+                'font-weight:600;white-space:nowrap;box-shadow:0 0 12px rgba(250,178,25,0.5);'
+                'transform:translate(-50%, -50%);display:flex;align-items:center;gap:6px;'
+                'animation:pulse-glow 2.5s infinite;">'
+                '<span style="width:8px;height:8px;border-radius:50%;background:#fab219;display:inline-block;"></span>'
+                '🎯 Access Jharkhand–Odisha Map</div>'
+            )
+        ),
+        tooltip="🎯 Click to Access Jharkhand–Odisha Detailed Map",
+        popup=folium.Popup(belt_popup_html, max_width=250),
+    ).add_to(m)
 
     if show_heatmap and not points.empty:
         from folium.plugins import HeatMap
@@ -1539,8 +1607,8 @@ def _render_detection_funnel(state_summary: pd.DataFrame, n_observations: int):
     steps = [
         _step("01", "India — Detect Everything", f"{n_observations:,}", "satellite observations, no AI/OSM cost", True),
         _step("02", "State — Analyze Distribution", str(n_states), "states with tagged activity", n_states > 0),
-        _step("03", "Industrial Region — Investigate", "RUNNING" if belt_ran else "NOT YET RUN",
-              "Jharkhand–Odisha Belt: full OSM + AI pipeline", belt_ran),
+        _step("03", "Industrial Region — Investigate", "ACTIVE" if belt_ran else "READY",
+              "Jharkhand–Odisha Belt: full OSM + AI pipeline", True),
         _step("04", "Event — Classify", f"{n_belt_events:,}" if belt_ran else "—",
               "rule + ML classified events (belt only)", belt_ran),
         _step("05", "High-Risk — Alert", f"{n_belt_alerts:,}" if belt_ran else "—",
@@ -1548,12 +1616,10 @@ def _render_detection_funnel(state_summary: pd.DataFrame, n_observations: int):
     ]
     html = '<div class="funnel">' + arrow.join(steps) + '</div>'
     st.markdown(html, unsafe_allow_html=True)
-    if not belt_ran:
-        c1, c2 = st.columns([5, 1.3])
-        c1.caption("Stages 3-5 require the detailed pipeline — switch to the Jharkhand–Odisha Belt and run it "
-                   "to light these up.")
-        c2.button("Open Belt →", key="funnel_open_belt", width="stretch",
-                  on_click=_navigate(page="Settings", region="jharkhand_odisha"))
+    c1, c2 = st.columns([4.8, 1.5])
+    c1.caption("🎯 **Target Region Ready:** Stages 3-5 contain the detailed geospatial & AI pipeline for the Jharkhand–Odisha Belt.")
+    c2.button("Access Belt Map →", key="funnel_open_belt", width="stretch",
+              on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
 
 
 def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame):
@@ -1579,21 +1645,70 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
                                 map_mode: str, show_heatmap: bool, key: str):
     map_points = _map_points_for_mode(filtered_detail, filtered_events, map_mode)
     with st.container(border=True):
-        _section_header(f"National Map — {map_mode} ({len(map_points)} shown)")
+        h1, h2 = st.columns([3.2, 1.8])
+        with h1:
+            _section_header(f"National Map — {map_mode} ({len(map_points)} shown)")
+            st.caption("💡 **Interactive Access:** Click on the **Jharkhand–Odisha Belt** on the map (or click button) to open the detailed GIS map.")
+        with h2:
+            st.button("🎯 Access Jharkhand–Odisha Map →", key=f"jump_belt_top_{key}", width="stretch",
+                      on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+
         if map_mode == "Industrial Sources":
             st.info("Industrial-zone classification requires the OSM geospatial join, which only runs for the detailed "
                     "Jharkhand–Odisha belt (running it for all of India on every load would be far too slow). "
-                    "Switch **Region** (top bar) to the belt for industrial context.")
+                    "Switch **Region** (top bar) or click above for the detailed belt view.")
         elif map_points.empty:
             st.info("No observations match the current filters.")
         else:
-            st_folium(build_national_map(map_points, map_mode, show_heatmap), width=None, height=620,
-                      returned_objects=[], key=key)
+            map_data = st_folium(
+                build_national_map(map_points, map_mode, show_heatmap),
+                width=None,
+                height=620,
+                returned_objects=["last_object_clicked", "last_active_drawing", "last_clicked"],
+                key=key,
+            )
+            # Handle map click interactions:
+            if map_data:
+                clicked_target = False
+                # 1. Check if clicked object or point is in Jharkhand-Odisha region bbox
+                last_clicked = map_data.get("last_object_clicked") or map_data.get("last_clicked")
+                if last_clicked and isinstance(last_clicked, dict):
+                    c_lat = last_clicked.get("lat")
+                    c_lng = last_clicked.get("lng")
+                    if c_lat is not None and c_lng is not None:
+                        if (config.BBOX["min_lat"] - 0.2 <= c_lat <= config.BBOX["max_lat"] + 0.2 and
+                            config.BBOX["min_lon"] - 0.2 <= c_lng <= config.BBOX["max_lon"] + 0.2):
+                            clicked_target = True
+
+                # 2. Check if clicked drawing / polygon is Jharkhand or Odisha
+                last_drawing = map_data.get("last_active_drawing")
+                if last_drawing and isinstance(last_drawing, dict):
+                    props = last_drawing.get("properties", {})
+                    state_clicked = props.get("state_name") or props.get("name")
+                    if state_clicked in ("Jharkhand", "Odisha") or "Jharkhand" in str(state_clicked) or "Odisha" in str(state_clicked):
+                        clicked_target = True
+
+                if clicked_target:
+                    # Prevent endless rerun loops with a session state debounce key
+                    last_processed_click = st.session_state.get("_last_processed_map_click")
+                    click_sig = str(last_clicked) + str(map_data.get("last_active_drawing"))
+                    if last_processed_click != click_sig:
+                        st.session_state["_last_processed_map_click"] = click_sig
+                        st.session_state["region"] = "jharkhand_odisha"
+                        st.session_state["topbar_region"] = "Jharkhand–Odisha Belt"
+                        st.session_state["page"] = "Live Map" if st.session_state.get("page") == "Live Map" else "Overview"
+                        st.toast("🎯 Accessed Jharkhand–Odisha Iron Ore & Steel Belt Map", icon="🗺️")
+                        st.rerun()
 
 
 def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter: list[str]):
     with st.container(border=True):
-        _section_header("Top States by Thermal Activity")
+        c1, c2 = st.columns([3, 2])
+        with c1:
+            _section_header("Top States by Thermal Activity")
+        with c2:
+            st.button("🎯 Access Jharkhand–Odisha Map →", key="top_states_access_belt", width="stretch",
+                      on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
         if state_summary.empty:
             st.caption("No state summary available yet.")
             return
@@ -1758,7 +1873,10 @@ def _route_national_page(page: str, demo_mode: bool):
     elif page in ("Investigations", "Validation", "AI Model"):
         st.info(f"**{page}** requires the full geospatial + AI pipeline, which only runs for the detailed "
                 "Jharkhand–Odisha belt (no rule-based classification or OSM join runs country-wide — see "
-                "Data page for why). Switch **Region** (top bar) to the belt for this page.")
+                "Data page for why).")
+        st.button(f"🎯 Access Jharkhand–Odisha Belt to Open {page} →",
+                  key=f"nav_restricted_{page}",
+                  on_click=_navigate(page=page, region="jharkhand_odisha"))
     elif page == "Data":
         _render_national_data_page(info)
         _render_methodology_expander()
