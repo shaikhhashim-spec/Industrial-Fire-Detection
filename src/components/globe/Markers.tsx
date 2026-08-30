@@ -25,7 +25,7 @@ function Beam({
       new THREE.Vector3(0, 1, 0),
       p.clone().normalize(),
     );
-    const h = 0.08 + (event.riskScore / 100) * 0.75;
+    const h = 0.05 + (event.riskScore / 100) * 0.42;
     const c =
       colorBy === "category"
         ? CATEGORY_COLORS[event.category]
@@ -59,7 +59,7 @@ function Beam({
       onPointerOut={() => (document.body.style.cursor = "auto")}
     >
       <mesh position={[0, height / 2, 0]}>
-        <cylinderGeometry args={[0.006, 0.014, height, 6]} />
+        <cylinderGeometry args={[0.004, 0.01, height, 6]} />
         <meshBasicMaterial color={color} transparent opacity={selected ? 1 : 0.85} />
       </mesh>
       <mesh position={[0, height, 0]}>
