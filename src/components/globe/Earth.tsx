@@ -7,17 +7,25 @@ const R = 2;
 
 /** Photoreal day/night Earth with normal + specular relief and a drifting cloud shell. */
 export function Earth() {
-  const [day, normal, spec, lights, clouds] = useTexture([
+  const maps = useTexture([
     "/textures/earth_atmos_2048.jpg",
     "/textures/earth_normal_2048.jpg",
     "/textures/earth_specular_2048.jpg",
     "/textures/earth_lights_2048.png",
     "/textures/earth_clouds_1024.png",
-  ]);
+  ]) as THREE.Texture[];
+  const [day, normal, spec, lights, clouds] = maps as [
+    THREE.Texture,
+    THREE.Texture,
+    THREE.Texture,
+    THREE.Texture,
+    THREE.Texture,
+  ];
 
   day.colorSpace = THREE.SRGBColorSpace;
   lights.colorSpace = THREE.SRGBColorSpace;
   day.anisotropy = 8;
+
 
   const cloudRef = useRef<THREE.Mesh>(null);
   useFrame((_, delta) => {
