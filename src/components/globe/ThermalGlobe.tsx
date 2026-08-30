@@ -59,13 +59,20 @@ export function ThermalGlobe({
   onSelect: (id: string) => void;
 }) {
   return (
-    <Canvas camera={{ position: [0, 1.6, 5.2], fov: 45 }} dpr={[1, 2]}>
-      <color attach="background" args={["#080a0c"]} />
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[5, 3, 5]} intensity={1.1} color="#bcd6ea" />
-      <directionalLight position={[-6, -2, -4]} intensity={0.35} color="#e08a52" />
-      <Stars radius={60} depth={30} count={1800} factor={3} fade speed={0.4} />
+    <Canvas
+      camera={{ position: [0, 1.6, 5.2], fov: 45 }}
+      dpr={[1, 2]}
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+    >
+      <color attach="background" args={["#04060a"]} />
+      <ambientLight intensity={0.12} />
+      {/* sun */}
+      <directionalLight position={[6, 2.5, 4]} intensity={2.6} color="#fff4e2" />
+      {/* faint bounce so the night side isn't pure black */}
+      <directionalLight position={[-6, -2, -4]} intensity={0.18} color="#3f6d9c" />
+      <Stars radius={80} depth={40} count={3000} factor={3} fade speed={0.3} />
       <Atmosphere />
+
       <Scene
         events={events}
         selectedId={selectedId}
