@@ -5,7 +5,10 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Coastlines, Graticule } from "./Coastlines";
 import { Markers } from "./Markers";
-import { latLonToVec3, type ThermalEvent } from "@/lib/thermal";
+import { type ThermalEvent } from "@/lib/thermal";
+
+/** Rotation that brings ~80E to face the camera. */
+const FOCUS_ROTATION = -(((80 + 180) * Math.PI) / 180) + Math.PI / 2;
 
 function Atmosphere() {
   return (
@@ -36,22 +39,16 @@ function Scene({
   onSelect: (id: string) => void;
 }) {
   const world = useRef<THREE.Group>(null);
-  const target = useRef(new THREE.Vector3(...latLonToVec3(22, 80, 1)));
 
   useFrame((_, delta) => {
     const g = world.current;
-    if (!g) return;
-    const dt = Math.min(delta, 0.05);
-    if (spin) g.rotation.y += dt * 0.06;
-    else {
-      // ease the focus region toward the camera when auto-rotate is off
-      const desired = -Math.atan2(target.current.z, -target.current.x) - Math.PI / 2;
-      g.rotation.y += (desired - g.rotation.y) * (1 - Math.exp(-1.6 * dt));
-    }
+    if (!g || !spin) return;
+    g.rotation.y += Math.min(delta, 0.05) * 0.05;
   });
 
+  // Start with the South-Asian thermal corridor facing the camera.
   return (
-    <group ref={world}>
+    <group ref={world} rotation-y={FOCUS_ROTATION}>
       <mesh>
         <sphereGeometry args={[2, 64, 64]} />
         <meshStandardMaterial
