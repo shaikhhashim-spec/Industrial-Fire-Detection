@@ -1,29 +1,15 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
-import { useRef } from "react";
+import { Suspense, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { Coastlines, Graticule } from "./Coastlines";
+import { Graticule } from "./Coastlines";
 import { Markers } from "./Markers";
+import { Earth, Atmosphere } from "./Earth";
 import { type ThermalEvent } from "@/lib/thermal";
 
 /** Rotation that brings ~80E to face the camera. */
 const FOCUS_ROTATION = ((80 + 180) * Math.PI) / 180 - Math.PI / 2;
-
-function Atmosphere() {
-  return (
-    <mesh scale={1.14}>
-      <sphereGeometry args={[2, 48, 48]} />
-      <meshBasicMaterial
-        color="#2f6f9e"
-        transparent
-        opacity={0.12}
-        side={THREE.BackSide}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-}
 
 function Scene({
   events,
@@ -49,22 +35,15 @@ function Scene({
   // Start with the South-Asian thermal corridor facing the camera.
   return (
     <group ref={world} rotation-y={FOCUS_ROTATION}>
-      <mesh>
-        <sphereGeometry args={[2, 64, 64]} />
-        <meshStandardMaterial
-          color="#0e1620"
-          roughness={0.95}
-          metalness={0.05}
-          emissive="#08131c"
-          emissiveIntensity={0.6}
-        />
-      </mesh>
+      <Suspense fallback={null}>
+        <Earth />
+      </Suspense>
       <Graticule />
-      <Coastlines />
       <Markers events={events} selectedId={selectedId} colorBy={colorBy} onSelect={onSelect} />
     </group>
   );
 }
+
 
 export function ThermalGlobe({
   events,
