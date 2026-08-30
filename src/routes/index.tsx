@@ -1,24 +1,218 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { CATEGORY_COLORS, RISK_COLORS, THERMAL_EVENTS, type Category } from "@/lib/thermal";
+import { EventDetail } from "@/components/EventDetail";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+const ThermalGlobe = lazy(() =>
+  import("@/components/globe/ThermalGlobe").then((m) => ({ default: m.ThermalGlobe })),
+);
+
 export const Route = createFileRoute("/")({
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Thermal Intelligence — 3D Fire Risk Globe" },
+      {
+        name: "description",
+        content:
+          "Interactive 3D globe for AI-assisted early warning on industrial fires and persistent thermal sources detected from satellite.",
+      },
+      { property: "og:title", content: "Thermal Intelligence — 3D Fire Risk Globe" },
+      {
+        property: "og:description",
+        content:
+          "Explore satellite thermal detections in 3D: risk scoring, persistence, FRP and category triage.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
+const CATEGORIES = Object.keys(CATEGORY_COLORS) as Category[];
+
 function Index() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [colorBy, setColorBy] = useState<"category" | "risk">("category");
+  const [spin, setSpin] = useState(true);
+  const [minRisk, setMinRisk] = useState(0);
+  const [active, setActive] = useState<Set<Category>>(new Set(CATEGORIES));
+
+  const events = useMemo(
+    () => THERMAL_EVENTS.filter((e) => e.riskScore >= minRisk && active.has(e.category)),
+    [minRisk, active],
+  );
+  const selected = useMemo(
+    () => events.find((e) => e.id === selectedId) ?? null,
+    [events, selectedId],
+  );
+
+  const critical = events.filter((e) => e.riskLevel === "CRITICAL").length;
+  const high = events.filter((e) => e.riskLevel === "HIGH").length;
+  const totalFrp = events.reduce((s, e) => s + e.frp, 0);
+
+  const toggle = (c: Category) => {
+    setActive((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+  };
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="min-h-screen p-4 lg:h-screen lg:overflow-hidden">
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-3">
+        <div>
+          <p className="mono-label">SIH26162 · Orbital thermal watch</p>
+          <h1 className="text-xl font-semibold tracking-tight">THERMAL INTELLIGENCE</h1>
+        </div>
+        <div className="flex flex-wrap gap-5">
+          {[
+            ["Active events", String(events.length)],
+            ["Critical", String(critical)],
+            ["High risk", String(high)],
+            ["Total FRP", `${totalFrp.toFixed(0)} MW`],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <p className="mono-label">{k}</p>
+              <p className="font-mono text-lg">{v}</p>
+            </div>
+          ))}
+        </div>
+      </header>
+
+      <div className="grid gap-4 lg:h-[calc(100vh-8.5rem)] lg:grid-cols-[16rem_1fr_20rem]">
+        {/* Controls */}
+        <aside className="panel flex flex-col gap-4 overflow-y-auto p-4">
+          <div>
+            <p className="mono-label mb-2">Colour beams by</p>
+            <div className="flex gap-1 rounded-sm bg-muted p-1">
+              {(["category", "risk"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setColorBy(m)}
+                  className={`flex-1 rounded-sm px-2 py-1 font-mono text-[0.66rem] tracking-widest uppercase transition-colors ${
+                    colorBy === m
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex justify-between">
+              <span className="mono-label">Min risk</span>
+              <span className="font-mono text-xs">{minRisk}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={95}
+              value={minRisk}
+              onChange={(e) => setMinRisk(Number(e.target.value))}
+              className="w-full accent-[var(--accent)]"
+            />
+          </div>
+
+          <label className="flex items-center justify-between">
+            <span className="mono-label">Auto-rotate</span>
+            <input
+              type="checkbox"
+              checked={spin}
+              onChange={(e) => setSpin(e.target.checked)}
+              className="accent-[var(--primary)]"
+            />
+          </label>
+
+          <div>
+            <p className="mono-label mb-2">Classification</p>
+            <div className="flex flex-col gap-1">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => toggle(c)}
+                  className={`flex items-center gap-2 rounded-sm px-2 py-1 text-left text-[0.7rem] transition-colors hover:bg-muted ${
+                    active.has(c) ? "text-foreground" : "text-muted-foreground opacity-45"
+                  }`}
+                >
+                  <span
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{ background: CATEGORY_COLORS[c] }}
+                  />
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-auto">
+            <p className="mono-label mb-2">Risk scale</p>
+            <div className="flex flex-col gap-1">
+              {Object.entries(RISK_COLORS).map(([k, v]) => (
+                <div key={k} className="flex items-center gap-2 font-mono text-[0.66rem]">
+                  <span className="size-2.5 rounded-sm" style={{ background: v }} />
+                  {k}
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* Globe */}
+        <section className="panel relative min-h-[60vh] overflow-hidden lg:min-h-0">
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <p className="mono-label animate-pulse">Initialising orbital view…</p>
+              </div>
+            }
+          >
+            <ThermalGlobe
+              events={events}
+              selectedId={selectedId}
+              colorBy={colorBy}
+              spin={spin}
+              onSelect={setSelectedId}
+            />
+          </Suspense>
+          <p className="pointer-events-none absolute bottom-3 left-4 mono-label">
+            Drag to orbit · scroll to zoom · click a beam
+          </p>
+        </section>
+
+        {/* Detail + queue */}
+        <aside className="flex min-h-0 flex-col gap-4">
+          <div className="min-h-[18rem] flex-1">
+            <EventDetail event={selected} />
+          </div>
+          <div className="panel max-h-64 overflow-y-auto p-2">
+            <p className="mono-label px-2 py-1">Priority queue</p>
+            {events.slice(0, 12).map((e) => (
+              <button
+                key={e.id}
+                onClick={() => setSelectedId(e.id)}
+                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-muted ${
+                  e.id === selectedId ? "bg-muted" : ""
+                }`}
+              >
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ background: RISK_COLORS[e.riskLevel] }}
+                />
+                <span className="font-mono text-[0.66rem] text-muted-foreground">{e.id}</span>
+                <span className="truncate text-[0.72rem]">{e.region}</span>
+                <span className="ml-auto font-mono text-[0.7rem]">{e.riskScore}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      </div>
+    </main>
   );
 }
