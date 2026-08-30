@@ -109,7 +109,7 @@ function buildEvents(): ThermalEvent[] {
           ? rnd() > 0.35
             ? "Likely Wildfire"
             : "Persistent Non-Industrial Thermal Source"
-          : CATEGORIES[Math.floor(rnd() * 5)];
+          : (CATEGORIES[Math.floor(rnd() * 5)] as Category);
 
       const persistenceDays = Math.round(1 + rnd() * 26);
       const frp = Math.round((3 + rnd() * 180) * 10) / 10;
@@ -145,7 +145,7 @@ function buildEvents(): ThermalEvent[] {
         confidence,
         persistenceDays,
         detectionCount,
-        satellite: SATS[Math.floor(rnd() * SATS.length)],
+        satellite: SATS[Math.floor(rnd() * SATS.length)] as ThermalEvent["satellite"],
         daynight: rnd() > 0.45 ? "N" : "D",
         status:
           level === "CRITICAL"
