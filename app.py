@@ -25,6 +25,11 @@ from src import pipeline, store
 from src.firms.fetch import FirmsAuthError, check_map_key
 from src.processing.spatial_clusters import find_spatial_clusters
 from src.utils.event_id import event_id_for_cell
+from src.utils.export_3d_globe import (
+    export_pipeline_events_for_holo_view,
+    generate_embedded_3d_globe_html,
+    load_or_export_holo_events,
+)
 
 TIMELAPSE_MAX_POINTS = 600
 
@@ -239,7 +244,15 @@ def run_and_cache(demo_mode: bool, api_key: str | None):
         if wa_results:
             st.toast(f"📲 {len(wa_results)} WhatsApp alert(s) dispatched to {phone} (Risk ≥ {thresh:.0f})", icon="🚨")
 
-    st.success(f"Done — {len(info['detail_gdf'])} detections, {len(info['cluster_df'])} clusters, {len(info['alerts'])} alerts.")
+    # Synchronize live pipeline events with 3D Holo Globe
+    try:
+        exported_3d = export_pipeline_events_for_holo_view(info.get("detail_gdf"), info.get("cluster_df"))
+        st.session_state["holo_events_count"] = len(exported_3d)
+        st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception as exc:
+        print(f"[app] 3D globe export error: {exc}")
+
+    st.success(f"Done — {len(info['detail_gdf'])} detections, {len(info['cluster_df'])} clusters, {len(info['alerts'])} alerts (3D Holo Globe updated).")
 
 
 def recompute_risk_and_cache(weights: dict):
@@ -289,7 +302,15 @@ def recompute_risk_and_cache(weights: dict):
         if wa_results:
             st.toast(f"📲 {len(wa_results)} WhatsApp alert(s) dispatched to {phone} (Risk ≥ {thresh:.0f})", icon="🚨")
 
-    st.success(f"Risk scores recomputed with custom weights — {len(alerts)} alerts regenerated.")
+    # Synchronize recomputed risk events with 3D Holo Globe
+    try:
+        exported_3d = export_pipeline_events_for_holo_view(gdf, cluster_df)
+        st.session_state["holo_events_count"] = len(exported_3d)
+        st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception as exc:
+        print(f"[app] 3D globe export error: {exc}")
+
+    st.success(f"Risk scores recomputed with custom weights — {len(alerts)} alerts regenerated (3D Holo Globe updated).")
 
 
 def run_national_and_cache(demo_mode: bool, api_key: str | None):
@@ -302,8 +323,21 @@ def run_national_and_cache(demo_mode: bool, api_key: str | None):
             return
     info["run_at"] = pd.Timestamp.now()
     st.session_state["national_info"] = info
+
+    # Synchronize national pipeline events with 3D Holo Globe
+    try:
+        exported_3d = export_pipeline_events_for_holo_view(
+            events_df=info.get("events_df"),
+            national_detail_df=info.get("detail_df"),
+        )
+        st.session_state["holo_events_count"] = len(exported_3d)
+        st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception as exc:
+        print(f"[app] 3D globe national export error: {exc}")
+
     st.success(f"Done — {info['n_observations']} observations, {info['n_events']} events across "
-               f"{info['state_summary']['state'].notna().sum() if not info['state_summary'].empty else 0} states.")
+               f"{info['state_summary']['state'].notna().sum() if not info['state_summary'].empty else 0} states (3D Holo Globe updated).")
+
 
 
 # ------------------------------------------------------------------- map --
@@ -565,7 +599,7 @@ def render_investigation_panel(cluster_row: pd.Series, detail_rows: pd.DataFrame
 
     existing_review = store.load_reviews(region="jharkhand_odisha")
     existing_review = existing_review[existing_review["event_id"] == event_id] if not existing_review.empty else existing_review
-    b1, b2 = st.columns(2)
+    b1, b2, b3 = st.columns(3)
     if b1.button("Mark Reviewed", key=f"review_btn_{cluster_row['grid_cell']}", width="stretch"):
         store.save_review(event_id, cluster_row["grid_cell"], "jharkhand_odisha", "Reviewed")
         st.toast("Marked reviewed.")
@@ -576,6 +610,10 @@ def render_investigation_panel(cluster_row: pd.Series, detail_rows: pd.DataFrame
         st.info("Satellite Evidence Preview — DEMO IMAGE, not live satellite imagery. Real imagery integration is a future improvement (see README).")
         st.caption(f"Source: FIRMS thermal detection · Date: {cluster_row['last_detected']} · "
                    f"Coordinates: {cluster_row['latitude']:.4f}, {cluster_row['longitude']:.4f} · Resolution: ~375m (VIIRS) / ~1km (MODIS)")
+    b3.button("🌐 3D Holo Globe →", key=f"inv_jump_3d_{cluster_row['grid_cell']}", width="stretch",
+              help="Inspect this thermal event on the interactive 3D Holo Globe",
+              on_click=_navigate(page="3D Holo Globe"))
+
 
     r1, r2 = st.columns(2)
     report_text = _build_incident_report(cluster_row, detail_rows)
@@ -705,9 +743,10 @@ Generated: {pd.Timestamp.now().isoformat()}
 
 # ------------------------------------------------------------------ nav --
 
-NAV_PAGES = ["Overview", "Live Map", "Events", "Alerts", "Analytics",
+NAV_PAGES = ["Overview", "Live Map", "3D Holo Globe", "Events", "Alerts", "Analytics",
              "Investigations", "Validation", "AI Model", "Data", "Settings"]
-PRESENTATION_ALLOWED_PAGES = {"Overview", "Live Map", "Alerts", "Analytics", "Investigations"}
+PRESENTATION_ALLOWED_PAGES = {"Overview", "Live Map", "3D Holo Globe", "Alerts", "Analytics", "Investigations"}
+
 
 
 def _navigate(page: str | None = None, region: str | None = None, selected_cell: str | None = None):
@@ -1157,6 +1196,41 @@ def _render_settings_belt(demo_mode: bool):
             else:
                 st.error(f"❌ Dispatch failed: {res.get('error', 'Unknown error')}")
 
+    with st.container(border=True):
+        _section_header("3D Holo Globe & Digital Twin Integration")
+        st.caption("Real-time synchronization between the Python intelligence pipeline and the Holo-View-Maker 3D WebGL Globe.")
+
+        holo_host_belt = st.text_input(
+            "Holo-View App URL / Port",
+            value=st.session_state.get("holo_host_url", "http://localhost:5173"),
+            key="settings_holo_url_belt",
+            help="Local or remote URL where the Holo-View-Maker React/Three.js application is running.",
+        )
+        st.session_state["holo_host_url"] = holo_host_belt
+
+        c1, c2 = st.columns(2)
+        with c1:
+            events_synced = st.session_state.get("holo_events_count", len(load_or_export_holo_events()))
+            st.markdown(
+                f'<div style="font-size:0.83rem;color:var(--ink);line-height:1.6;">'
+                f'<b>Sync Status:</b> <span class="mono" style="color:#0ca30c;">● ACTIVE</span> &middot; '
+                f'<b>Synced Events:</b> <span class="mono">{events_synced}</span><br>'
+                f'<b>Last Synced:</b> <span class="mono">{st.session_state.get("holo_last_synced", "Active session")}</span><br>'
+                f'<span style="font-size:0.75rem;color:var(--ink2);">Destination: <code>holo-view-maker/public/data/events.json</code></span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with c2:
+            if st.button("🔄 Sync Current Pipeline to 3D Globe Now", key="sync_holo_settings_belt", width="stretch"):
+                with st.spinner("Exporting thermal events to 3D Holo Globe..."):
+                    gdf_curr = _load_cached_detail()
+                    c_df_curr = _load_cached_clusters()
+                    exported_3d = export_pipeline_events_for_holo_view(gdf_curr, c_df_curr)
+                    st.session_state["holo_events_count"] = len(exported_3d)
+                    st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.toast(f"✅ Synced {len(exported_3d)} events to 3D Holo Globe!", icon="🌐")
+                    st.success(f"Successfully exported {len(exported_3d)} events to Holo-View 3D Globe!")
+
 
 def _route_regional_page(page: str, demo_mode: bool):
     gdf = _load_cached_detail()
@@ -1182,6 +1256,8 @@ def _route_regional_page(page: str, demo_mode: bool):
         _render_methodology_expander()
     elif page == "Live Map":
         _render_live_map(filtered, label_field, color_by)
+    elif page == "3D Holo Globe":
+        _render_3d_globe_page(filtered, filtered_clusters, is_regional=True)
     elif page == "Events":
         _render_events_table(filtered_clusters, "belt")
     elif page == "Alerts":
@@ -1197,6 +1273,7 @@ def _route_regional_page(page: str, demo_mode: bool):
     elif page == "Data":
         _render_data_tab(filtered, run_info)
         _render_methodology_expander()
+
 
 
 def _render_kpis(gdf, cluster_df, alerts):
@@ -1241,13 +1318,17 @@ def _render_alert_banner(alerts):
 
 def _render_overview(filtered, filtered_clusters, label_field, color_by):
     with st.container(border=True):
-        r1, r2 = st.columns([3.5, 1.5])
+        r1, r2, r3 = st.columns([3.0, 1.4, 1.4])
         with r1:
             _section_header(f"Map — {len(filtered)} hotspots shown (Jharkhand–Odisha Belt)")
             st.caption("📍 Viewing detailed industrial & mining GIS for **Jharkhand–Odisha Iron Ore & Steel Belt**.")
         with r2:
-            st.button("← Return to India Overview", key="back_india_overview", width="stretch",
+            st.button("← Return to India", key="back_india_overview", width="stretch",
                       on_click=_navigate(page="Overview", region="india"))
+        with r3:
+            st.button("🌐 3D Holo Globe →", key="overview_open_3d_globe", width="stretch",
+                      help="Explore these thermal events in the interactive 3D Holo Globe",
+                      on_click=_navigate(page="3D Holo Globe"))
         if filtered.empty:
             st.info("No hotspots match the current filters.")
         else:
@@ -1277,12 +1358,16 @@ def _render_overview(filtered, filtered_clusters, label_field, color_by):
 
 def _render_live_map(filtered, label_field, color_by):
     with st.container(border=True):
-        hdr, back_btn, toggle = st.columns([2.5, 1.5, 1.0])
+        hdr, back_btn, globe_btn, toggle = st.columns([2.4, 1.3, 1.3, 1.0])
         with hdr:
             _section_header(f"Live Map — {len(filtered)} hotspots (Jharkhand–Odisha Belt)")
         with back_btn:
-            st.button("← Return to India Map", key="back_india_livemap", width="stretch",
+            st.button("← Return to India", key="back_india_livemap", width="stretch",
                       on_click=_navigate(page="Live Map", region="india"))
+        with globe_btn:
+            st.button("🌐 3D Holo Globe →", key="livemap_open_3d_globe", width="stretch",
+                      help="Open interactive 3D orbital globe view",
+                      on_click=_navigate(page="3D Holo Globe"))
         timelapse_on = toggle.toggle("Time-lapse")
         if filtered.empty:
             st.info("No hotspots match the current filters.")
@@ -1292,6 +1377,7 @@ def _render_live_map(filtered, label_field, color_by):
             st_folium(build_timelapse_map(filtered, label_field), width=None, height=660, returned_objects=[], key="map_live_timelapse")
         else:
             st_folium(build_map(filtered, label_field, color_by), width=None, height=660, returned_objects=[], key="map_live")
+
 
 
 def _render_alerts_tab(alerts):
@@ -1798,7 +1884,153 @@ def _map_points_for_mode(filtered_detail: pd.DataFrame, filtered_events: pd.Data
     return filtered_events  # Events
 
 
+# ----------------------------------------------------------- 3D Holo Globe --
+
+
+def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
+                          filtered_clusters_or_events: pd.DataFrame | None,
+                          is_regional: bool = True):
+    from src.utils.export_3d_globe import (
+        export_pipeline_events_for_holo_view,
+        generate_embedded_3d_globe_html,
+        load_or_export_holo_events,
+    )
+
+    # 1. Page Header with Breadcrumbs & Sync Status
+    h1, h2 = st.columns([3.2, 1.8])
+    with h1:
+        _section_header("3D Holo Globe — Orbital Thermal Risk Radar")
+        st.caption("🌐 Real-time 3D planetary digital twin visualizing satellite thermal energy beams, AI risk tiers, and persistence.")
+    with h2:
+        sync_cols = st.columns([1.2, 1.0])
+        with sync_cols[0]:
+            if st.button("🔄 Sync Live Pipeline", key="sync_3d_globe_top", width="stretch",
+                         help="Transform and sync current detection pipeline data to Holo-View 3D Globe"):
+                with st.spinner("Syncing thermal events to 3D Globe..."):
+                    if is_regional:
+                        gdf = _load_cached_detail()
+                        c_df = _load_cached_clusters()
+                        events = export_pipeline_events_for_holo_view(gdf, c_df)
+                    else:
+                        info = st.session_state.get("national_info")
+                        events = export_pipeline_events_for_holo_view(
+                            events_df=info.get("events_df") if info else None,
+                            national_detail_df=info.get("detail_df") if info else None,
+                        )
+                    st.session_state["holo_events_count"] = len(events)
+                    st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.toast(f"✅ {len(events)} events synced to 3D Holo Globe!", icon="🌐")
+                    st.rerun()
+        with sync_cols[1]:
+            if is_regional:
+                st.button("← 2D Live Map", key="back_to_livemap_regional", width="stretch",
+                          on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+            else:
+                st.button("← 2D Live Map", key="back_to_livemap_national", width="stretch",
+                          on_click=_navigate(page="Live Map", region="india"))
+
+    # Load 3D events
+    events = load_or_export_holo_events()
+    n_events = len(events)
+    n_critical = sum(1 for e in events if e.get("riskLevel") == "CRITICAL")
+    n_high = sum(1 for e in events if e.get("riskLevel") == "HIGH")
+    total_frp = sum(float(e.get("frp", 0)) for e in events)
+    last_synced = st.session_state.get("holo_last_synced", "Active session")
+
+    # 2. Stat Row
+    _stat_row([
+        ("Active 3D Beams", n_events, False),
+        ("Critical Risk", n_critical, n_critical > 0),
+        ("High-Risk Events", n_high, n_high > 0),
+        ("Total Radiative Power", f"{total_frp:.0f} MW", False),
+    ])
+
+    # 3. View Mode and Interactive Control Toolbar
+    with st.container(border=True):
+        t1, t2, t3, t4 = st.columns([2.0, 1.4, 1.2, 1.4])
+        view_mode = t1.radio(
+            "Visualization Engine",
+            ["🌟 Embedded WebGL 3D Globe (Instant)", "🛰️ Holo-View-Maker React App (Live Server)"],
+            horizontal=True,
+            key="globe_view_mode",
+        )
+        color_by = t2.radio("Beam Coloring", ["category", "risk"], horizontal=True, key="globe_color_by",
+                            format_func=lambda x: "AI Category" if x == "category" else "Risk Level")
+        auto_spin = t3.checkbox("Auto-Rotate Orbit", value=True, key="globe_auto_spin")
+        min_risk_val = t4.slider("Min Risk Score", 0, 95, 0, step=5, key="globe_min_risk")
+
+    if view_mode.startswith("🌟 Embedded WebGL"):
+        # Embedded zero-dependency Three.js WebGL globe
+        globe_html = generate_embedded_3d_globe_html(
+            events=events,
+            color_by=color_by,
+            auto_rotate=auto_spin,
+            min_risk=min_risk_val,
+        )
+        st.components.v1.html(globe_html, height=730, scrolling=False)
+
+        # Quick guide & tips beneath the globe
+        g1, g2 = st.columns([3, 2])
+        with g1:
+            st.caption("💡 **3D Interaction Guide:** Left-click and drag to orbit around the globe. Scroll to zoom in/out. Click on any vertical energy beam or ground halo to inspect its complete risk telemetry and auto-focus.")
+        with g2:
+            st.caption(f"📡 **Data Pipeline Status:** {n_events} active thermal sources exported &middot; Last synced: `{last_synced}`")
+    else:
+        # Live React + Three.js Holo-View-Maker Dev Server (Iframe)
+        holo_host = st.session_state.get("holo_host_url", "http://localhost:5173")
+        
+        i1, i2, i3 = st.columns([2.5, 1.2, 1.3])
+        with i1:
+            holo_url_input = st.text_input("Holo-View App URL", value=holo_host, key="holo_url_input_box",
+                                            help="URL where `holo-view-maker` is running (default: http://localhost:5173)")
+            st.session_state["holo_host_url"] = holo_url_input
+        with i2:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            st.link_button("↗ Open in New Window", holo_url_input, width="stretch",
+                           help="Open the standalone React + Three.js application in a full browser tab")
+        with i3:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Refresh Iframe", key="refresh_holo_iframe", width="stretch"):
+                st.rerun()
+
+        # Iframe component
+        st.components.v1.iframe(holo_url_input, height=730, scrolling=True)
+
+        with st.expander("🛠️ How to launch the Holo-View-Maker Dev Server locally", expanded=False):
+            st.markdown(
+                "If the iframe above shows a connection error, start the local Vite development server with one command:\n"
+                "```bash\n"
+                "cd holo-view-maker\n"
+                "npm install       # or bun install\n"
+                "npm run dev       # starts on http://localhost:5173\n"
+                "```\n"
+                "Once running, refresh this page or open `http://localhost:5173` directly in your browser. All live detections from `app.py` are continuously synchronized into `holo-view-maker/public/data/events.json`."
+            )
+
+    # 4. Export & Data Provenance Card
+    with st.container(border=True):
+        _section_header("3D Holo-View Pipeline Export Details")
+        e1, e2, e3 = st.columns([2.5, 1.5, 1.5])
+        with e1:
+            st.caption(
+                f"**Export Destinations:** `holo-view-maker/public/data/events.json` and `output/holo_events.json` &middot; "
+                f"**Schema:** `ThermalEvent` (TypeScript interface matching `holo-view-maker/src/lib/thermal.ts`)."
+            )
+        with e2:
+            events_json_str = json.dumps(events, indent=2)
+            st.download_button("📥 Download events.json", events_json_str, "events.json", "application/json",
+                               key="download_holo_json_btn", width="stretch")
+        with e3:
+            if is_regional:
+                st.button("🎯 Open Investigations", key="jump_inv_from_globe", width="stretch",
+                          on_click=_navigate(page="Investigations"))
+            else:
+                st.button("🎯 Access Belt Map →", key="jump_belt_from_globe", width="stretch",
+                          on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+
+
 def _render_detection_funnel(state_summary: pd.DataFrame, n_observations: int):
+
     """A staged-architecture explainer: India-wide detection is cheap and
     runs everywhere; the expensive OSM+AI pipeline only ever runs for the
     one region a user has actually drilled into. Shown with real computed
@@ -1829,10 +2061,13 @@ def _render_detection_funnel(state_summary: pd.DataFrame, n_observations: int):
     ]
     html = '<div class="funnel">' + arrow.join(steps) + '</div>'
     st.markdown(html, unsafe_allow_html=True)
-    c1, c2 = st.columns([4.8, 1.5])
+    c1, c2, c3 = st.columns([3.8, 1.4, 1.4])
     c1.caption("🎯 **Target Region Ready:** Stages 3-5 contain the detailed geospatial & AI pipeline for the Jharkhand–Odisha Belt.")
     c2.button("Access Belt Map →", key="funnel_open_belt", width="stretch",
               on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+    c3.button("🌐 3D Holo Globe →", key="funnel_open_3d_globe", width="stretch",
+              help="Open the interactive 3D Holo Globe",
+              on_click=_navigate(page="3D Holo Globe"))
 
 
 def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame):
@@ -1858,13 +2093,18 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
                                 map_mode: str, show_heatmap: bool, key: str):
     map_points = _map_points_for_mode(filtered_detail, filtered_events, map_mode)
     with st.container(border=True):
-        h1, h2 = st.columns([3.2, 1.8])
+        h1, h2, h3 = st.columns([3.0, 1.4, 1.4])
         with h1:
             _section_header(f"National Map — {map_mode} ({len(map_points)} shown)")
             st.caption("💡 **Interactive Access:** Click on the **Jharkhand–Odisha Belt** on the map (or click button) to open the detailed GIS map.")
         with h2:
-            st.button("🎯 Access Jharkhand–Odisha Map →", key=f"jump_belt_top_{key}", width="stretch",
+            st.button("🎯 Access Belt Map →", key=f"jump_belt_top_{key}", width="stretch",
                       on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+        with h3:
+            st.button("🌐 3D Holo Globe →", key=f"jump_3d_top_{key}", width="stretch",
+                      help="Open interactive 3D orbital globe view",
+                      on_click=_navigate(page="3D Holo Globe"))
+
 
         if map_mode == "Industrial Sources":
             st.info("Industrial-zone classification requires the OSM geospatial join, which only runs for the detailed "
@@ -2102,6 +2342,43 @@ def _render_settings_national(demo_mode: bool):
             else:
                 st.error(f"❌ Dispatch failed: {res.get('error', 'Unknown error')}")
 
+    with st.container(border=True):
+        _section_header("3D Holo Globe & Digital Twin Integration")
+        st.caption("Real-time synchronization between the Python intelligence pipeline and the Holo-View-Maker 3D WebGL Globe.")
+
+        holo_host_nat = st.text_input(
+            "Holo-View App URL / Port",
+            value=st.session_state.get("holo_host_url", "http://localhost:5173"),
+            key="settings_holo_url_nat",
+            help="Local or remote URL where the Holo-View-Maker React/Three.js application is running.",
+        )
+        st.session_state["holo_host_url"] = holo_host_nat
+
+        c1, c2 = st.columns(2)
+        with c1:
+            events_synced = st.session_state.get("holo_events_count", len(load_or_export_holo_events()))
+            st.markdown(
+                f'<div style="font-size:0.83rem;color:var(--ink);line-height:1.6;">'
+                f'<b>Sync Status:</b> <span class="mono" style="color:#0ca30c;">● ACTIVE</span> &middot; '
+                f'<b>Synced Events:</b> <span class="mono">{events_synced}</span><br>'
+                f'<b>Last Synced:</b> <span class="mono">{st.session_state.get("holo_last_synced", "Active session")}</span><br>'
+                f'<span style="font-size:0.75rem;color:var(--ink2);">Destination: <code>holo-view-maker/public/data/events.json</code></span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with c2:
+            if st.button("🔄 Sync Current Pipeline to 3D Globe Now", key="sync_holo_settings_nat", width="stretch"):
+                with st.spinner("Exporting thermal events to 3D Holo Globe..."):
+                    info_curr = st.session_state.get("national_info")
+                    exported_3d = export_pipeline_events_for_holo_view(
+                        events_df=info_curr.get("events_df") if info_curr else None,
+                        national_detail_df=info_curr.get("detail_df") if info_curr else None,
+                    )
+                    st.session_state["holo_events_count"] = len(exported_3d)
+                    st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.toast(f"✅ Synced {len(exported_3d)} events to 3D Holo Globe!", icon="🌐")
+                    st.success(f"Successfully exported {len(exported_3d)} events to Holo-View 3D Globe!")
+
 
 def _route_national_page(page: str, demo_mode: bool):
     if page == "Settings":
@@ -2132,8 +2409,11 @@ def _route_national_page(page: str, demo_mode: bool):
         _render_methodology_expander()
     elif page == "Live Map":
         _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_livemap")
+    elif page == "3D Holo Globe":
+        _render_3d_globe_page(filtered_detail, filtered_events, is_regional=False)
     elif page == "Events":
         _render_events_table(filtered_events, "india")
+
     elif page == "Alerts":
         _render_alerts_tab(alerts)
     elif page == "Analytics":

@@ -1,7 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useMemo, useState } from "react";
-import { CATEGORY_COLORS, RISK_COLORS, THERMAL_EVENTS, type Category } from "@/lib/thermal";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {
+  CATEGORIES,
+  CATEGORY_COLORS,
+  RISK_COLORS,
+  THERMAL_EVENTS,
+  fetchThermalEvents,
+  type Category,
+  type RiskLevel,
+  type ThermalEvent,
+} from "@/lib/thermal";
 import { EventDetail } from "@/components/EventDetail";
+
 
 const ThermalGlobe = lazy(() =>
   import("@/components/globe/ThermalGlobe").then((m) => ({ default: m.ThermalGlobe })),
@@ -38,22 +48,42 @@ function Index() {
   const [spin, setSpin] = useState(true);
   const [minRisk, setMinRisk] = useState(0);
   const [active, setActive] = useState<Set<Category>>(new Set(CATEGORIES));
+  const [allEvents, setAllEvents] = useState<ThermalEvent[]>(THERMAL_EVENTS);
+  const [dataSource, setDataSource] = useState<"live" | "simulation">("simulation");
+  const [loading, setLoading] = useState(false);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetchThermalEvents();
+      if (res.events && res.events.length > 0) {
+        setAllEvents(res.events);
+        setDataSource(res.source);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const events = useMemo(
-    () => THERMAL_EVENTS.filter((e) => e.riskScore >= minRisk && active.has(e.category)),
-    [minRisk, active],
+    () => allEvents.filter((e: ThermalEvent) => e.riskScore >= minRisk && active.has(e.category)),
+    [allEvents, minRisk, active],
   );
   const selected = useMemo(
-    () => events.find((e) => e.id === selectedId) ?? null,
+    () => events.find((e: ThermalEvent) => e.id === selectedId) ?? null,
     [events, selectedId],
   );
 
-  const critical = events.filter((e) => e.riskLevel === "CRITICAL").length;
-  const high = events.filter((e) => e.riskLevel === "HIGH").length;
-  const totalFrp = events.reduce((s, e) => s + e.frp, 0);
+  const critical = events.filter((e: ThermalEvent) => e.riskLevel === "CRITICAL").length;
+  const high = events.filter((e: ThermalEvent) => e.riskLevel === "HIGH").length;
+  const totalFrp = events.reduce((s: number, e: ThermalEvent) => s + e.frp, 0);
 
   const toggle = (c: Category) => {
-    setActive((prev) => {
+    setActive((prev: Set<Category>) => {
       const next = new Set(prev);
       if (next.has(c)) next.delete(c);
       else next.add(c);
@@ -61,12 +91,37 @@ function Index() {
     });
   };
 
+
   return (
     <main className="min-h-screen p-4 lg:h-screen lg:overflow-hidden">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-3">
         <div>
-          <p className="mono-label">SIH26162 · Orbital thermal watch</p>
-          <h1 className="text-xl font-semibold tracking-tight">THERMAL INTELLIGENCE</h1>
+          <div className="flex items-center gap-2.5">
+            <p className="mono-label">SIH26162 · Orbital thermal watch</p>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.63rem] font-mono uppercase tracking-wider ${
+                dataSource === "live"
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                  : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+              }`}
+            >
+              <span
+                className={`size-1.5 rounded-full ${
+                  dataSource === "live" ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
+                }`}
+              />
+              {dataSource === "live" ? "Live Pipeline Data" : "Simulation Seed"}
+            </span>
+            <button
+              onClick={loadData}
+              disabled={loading}
+              title="Sync latest pipeline events"
+              className="text-muted-foreground hover:text-foreground text-[0.7rem] mono-label font-mono px-1.5 py-0.5 rounded border border-border/70 hover:bg-muted transition-colors"
+            >
+              {loading ? "Syncing…" : "↻ Sync"}
+            </button>
+          </div>
+          <h1 className="text-xl font-semibold tracking-tight">THERMAL INTELLIGENCE 3D</h1>
         </div>
         <div className="flex flex-wrap gap-5">
           {[
@@ -82,6 +137,7 @@ function Index() {
           ))}
         </div>
       </header>
+
 
       <div className="grid gap-4 lg:h-[calc(100vh-8.5rem)] lg:grid-cols-[16rem_1fr_20rem]">
         {/* Controls */}
@@ -115,7 +171,7 @@ function Index() {
               min={0}
               max={95}
               value={minRisk}
-              onChange={(e) => setMinRisk(Number(e.target.value))}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setMinRisk(Number(e.target.value))}
               className="w-full accent-[var(--accent)]"
             />
           </div>
@@ -125,15 +181,16 @@ function Index() {
             <input
               type="checkbox"
               checked={spin}
-              onChange={(e) => setSpin(e.target.checked)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSpin(e.target.checked)}
               className="accent-[var(--primary)]"
             />
           </label>
 
+
           <div>
             <p className="mono-label mb-2">Classification</p>
             <div className="flex flex-col gap-1">
-              {CATEGORIES.map((c) => (
+              {CATEGORIES.map((c: Category) => (
                 <button
                   key={c}
                   onClick={() => toggle(c)}
@@ -154,7 +211,7 @@ function Index() {
           <div className="mt-auto">
             <p className="mono-label mb-2">Risk scale</p>
             <div className="flex flex-col gap-1">
-              {Object.entries(RISK_COLORS).map(([k, v]) => (
+              {(Object.entries(RISK_COLORS) as [RiskLevel, string][]).map(([k, v]) => (
                 <div key={k} className="flex items-center gap-2 font-mono text-[0.66rem]">
                   <span className="size-2.5 rounded-sm" style={{ background: v }} />
                   {k}
@@ -193,7 +250,7 @@ function Index() {
           </div>
           <div className="panel max-h-64 overflow-y-auto p-2">
             <p className="mono-label px-2 py-1">Priority queue</p>
-            {events.slice(0, 12).map((e) => (
+            {events.slice(0, 12).map((e: ThermalEvent) => (
               <button
                 key={e.id}
                 onClick={() => setSelectedId(e.id)}
@@ -210,6 +267,7 @@ function Index() {
                 <span className="ml-auto font-mono text-[0.7rem]">{e.riskScore}</span>
               </button>
             ))}
+
           </div>
         </aside>
       </div>

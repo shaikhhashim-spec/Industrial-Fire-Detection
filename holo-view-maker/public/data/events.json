@@ -1,0 +1,2182 @@
+[
+  {
+    "id": "TH-B94414",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.8041,
+    "longitude": 86.1848,
+    "category": "Persistent Non-Industrial Thermal Source",
+    "riskScore": 85,
+    "riskLevel": "CRITICAL",
+    "frp": 17.6,
+    "brightness": 354,
+    "confidence": 20,
+    "persistenceDays": 5,
+    "detectionCount": 20,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "CRITICAL",
+    "acqDate": "2026-08-29",
+    "history": [
+      {
+        "date": "2026-08-09",
+        "frp": 10.1,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-11",
+        "frp": 11.9,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-13",
+        "frp": 12.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-15",
+        "frp": 9.6,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-17",
+        "frp": 12.5,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-19",
+        "frp": 10.9,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-20",
+        "frp": 9.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-21",
+        "frp": 15.9,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-22",
+        "frp": 17.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-24",
+        "frp": 12.3,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-25",
+        "frp": 16.1,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-26",
+        "frp": 8.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-27",
+        "frp": 9.1,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-29",
+        "frp": 9.5,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-1C03CC",
+    "region": "Industrial Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2229,
+    "longitude": 84.8579,
+    "category": "Likely Industrial Fire",
+    "riskScore": 67,
+    "riskLevel": "HIGH",
+    "frp": 15.6,
+    "brightness": 357,
+    "confidence": 6,
+    "persistenceDays": 0,
+    "detectionCount": 6,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-22",
+    "history": [
+      {
+        "date": "2026-08-02",
+        "frp": 10.9,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-05",
+        "frp": 15.6,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-12",
+        "frp": 12.8,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-15",
+        "frp": 10.0,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-20",
+        "frp": 8.1,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-22",
+        "frp": 12.0,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-A993ED",
+    "region": "Industrial Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2225,
+    "longitude": 84.8624,
+    "category": "Likely Industrial Fire",
+    "riskScore": 67,
+    "riskLevel": "HIGH",
+    "frp": 15.7,
+    "brightness": 356,
+    "confidence": 6,
+    "persistenceDays": 1,
+    "detectionCount": 6,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-26",
+    "history": [
+      {
+        "date": "2026-08-06",
+        "frp": 13.2,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-10",
+        "frp": 8.2,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-11",
+        "frp": 15.7,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-13",
+        "frp": 9.3,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-21",
+        "frp": 15.2,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-26",
+        "frp": 8.8,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-149892",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.8044,
+    "longitude": 86.1903,
+    "category": "Likely Wildfire",
+    "riskScore": 67,
+    "riskLevel": "HIGH",
+    "frp": 17.2,
+    "brightness": 381,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-10",
+    "history": [
+      {
+        "date": "2026-08-10",
+        "frp": 17.2,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-CB59A0",
+    "region": "Industrial Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2177,
+    "longitude": 84.8576,
+    "category": "Likely Industrial Fire",
+    "riskScore": 66,
+    "riskLevel": "HIGH",
+    "frp": 13.7,
+    "brightness": 361,
+    "confidence": 6,
+    "persistenceDays": 2,
+    "detectionCount": 6,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-29",
+    "history": [
+      {
+        "date": "2026-08-01",
+        "frp": 9.1,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-16",
+        "frp": 10.0,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-19",
+        "frp": 9.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-23",
+        "frp": 12.8,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-28",
+        "frp": 9.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-29",
+        "frp": 13.7,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-C0691A",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.811,
+    "longitude": 86.1838,
+    "category": "Likely Wildfire",
+    "riskScore": 65,
+    "riskLevel": "HIGH",
+    "frp": 12.7,
+    "brightness": 346,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-08",
+    "history": [
+      {
+        "date": "2026-08-08",
+        "frp": 12.7,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-0D23CF",
+    "region": "Industrial Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2183,
+    "longitude": 84.8607,
+    "category": "Transient Industrial Flare",
+    "riskScore": 64,
+    "riskLevel": "HIGH",
+    "frp": 13.1,
+    "brightness": 358,
+    "confidence": 4,
+    "persistenceDays": 1,
+    "detectionCount": 4,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-27",
+    "history": [
+      {
+        "date": "2026-08-03",
+        "frp": 9.0,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-04",
+        "frp": 12.0,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-07",
+        "frp": 10.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-27",
+        "frp": 13.1,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-BB7EB2",
+    "region": "Industrial Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.7989,
+    "longitude": 86.1832,
+    "category": "Likely Wildfire",
+    "riskScore": 61,
+    "riskLevel": "HIGH",
+    "frp": 17.1,
+    "brightness": 338,
+    "confidence": 2,
+    "persistenceDays": 1,
+    "detectionCount": 2,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-30",
+    "history": [
+      {
+        "date": "2026-08-07",
+        "frp": 12.4,
+        "confidence": 90.0
+      },
+      {
+        "date": "2026-08-30",
+        "frp": 17.1,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-5227A4",
+    "region": "Industrial Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.0998,
+    "longitude": 85.3795,
+    "category": "Transient Industrial Flare",
+    "riskScore": 58,
+    "riskLevel": "HIGH",
+    "frp": 6.3,
+    "brightness": 384,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-09",
+    "history": [
+      {
+        "date": "2026-08-09",
+        "frp": 6.3,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-E75DE4",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.0991,
+    "longitude": 85.3828,
+    "category": "Likely Wildfire",
+    "riskScore": 55,
+    "riskLevel": "HIGH",
+    "frp": 6.3,
+    "brightness": 379,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "HIGH RISK",
+    "acqDate": "2026-08-14",
+    "history": [
+      {
+        "date": "2026-08-14",
+        "frp": 6.3,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-D78ECD",
+    "region": "Mine Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.7516,
+    "longitude": 86.4118,
+    "category": "Likely Industrial Fire",
+    "riskScore": 50,
+    "riskLevel": "MODERATE",
+    "frp": 3.9,
+    "brightness": 366,
+    "confidence": 7,
+    "persistenceDays": 0,
+    "detectionCount": 7,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "PERSISTENT",
+    "acqDate": "2026-08-22",
+    "history": [
+      {
+        "date": "2026-08-03",
+        "frp": 3.0,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-07",
+        "frp": 1.6,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-09",
+        "frp": 3.1,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-10",
+        "frp": 3.3,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-13",
+        "frp": 3.6,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-20",
+        "frp": 3.9,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-22",
+        "frp": 2.4,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-24759C",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.1488,
+    "longitude": 85.5266,
+    "category": "Likely Wildfire",
+    "riskScore": 50,
+    "riskLevel": "MODERATE",
+    "frp": 4.6,
+    "brightness": 323,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-02",
+    "history": [
+      {
+        "date": "2026-08-02",
+        "frp": 4.6,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-E51C10",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.1018,
+    "longitude": 85.382,
+    "category": "Likely Wildfire",
+    "riskScore": 49,
+    "riskLevel": "MODERATE",
+    "frp": 4.1,
+    "brightness": 387,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-08",
+    "history": [
+      {
+        "date": "2026-08-08",
+        "frp": 4.1,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-DF4D37",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.6063,
+    "longitude": 85.3378,
+    "category": "Likely Wildfire",
+    "riskScore": 48,
+    "riskLevel": "MODERATE",
+    "frp": 6.0,
+    "brightness": 327,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-06-13",
+    "history": [
+      {
+        "date": "2026-06-13",
+        "frp": 6.0,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-438941",
+    "region": "Mine Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.7527,
+    "longitude": 86.4066,
+    "category": "Likely Industrial Fire",
+    "riskScore": 47,
+    "riskLevel": "MODERATE",
+    "frp": 3.7,
+    "brightness": 347,
+    "confidence": 6,
+    "persistenceDays": 3,
+    "detectionCount": 6,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "PERSISTENT",
+    "acqDate": "2026-08-29",
+    "history": [
+      {
+        "date": "2026-08-06",
+        "frp": 1.4,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-17",
+        "frp": 3.4,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-18",
+        "frp": 3.1,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-26",
+        "frp": 2.3,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-28",
+        "frp": 1.5,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-29",
+        "frp": 3.7,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-AC095F",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.0796,
+    "longitude": 84.0376,
+    "category": "Likely Wildfire",
+    "riskScore": 47,
+    "riskLevel": "MODERATE",
+    "frp": 5.8,
+    "brightness": 325,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-07",
+    "history": [
+      {
+        "date": "2026-08-07",
+        "frp": 5.8,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-C1756D",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.847,
+    "longitude": 85.2157,
+    "category": "Likely Wildfire",
+    "riskScore": 47,
+    "riskLevel": "MODERATE",
+    "frp": 3.0,
+    "brightness": 340,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-06-27",
+    "history": [
+      {
+        "date": "2026-06-27",
+        "frp": 3.0,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-AE37FD",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.1529,
+    "longitude": 85.5317,
+    "category": "Likely Wildfire",
+    "riskScore": 45,
+    "riskLevel": "MODERATE",
+    "frp": 6.1,
+    "brightness": 367,
+    "confidence": 3,
+    "persistenceDays": 1,
+    "detectionCount": 3,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-27",
+    "history": [
+      {
+        "date": "2026-08-01",
+        "frp": 4.6,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-03",
+        "frp": 6.1,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-27",
+        "frp": 5.1,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-C2A397",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.7465,
+    "longitude": 86.4078,
+    "category": "Persistent Non-Industrial Thermal Source",
+    "riskScore": 44,
+    "riskLevel": "MODERATE",
+    "frp": 3.8,
+    "brightness": 366,
+    "confidence": 5,
+    "persistenceDays": 1,
+    "detectionCount": 5,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "PERSISTENT",
+    "acqDate": "2026-08-24",
+    "history": [
+      {
+        "date": "2026-08-04",
+        "frp": 3.4,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-11",
+        "frp": 2.8,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-15",
+        "frp": 2.9,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-21",
+        "frp": 1.3,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-24",
+        "frp": 3.8,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-55974C",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.2391,
+    "longitude": 84.5884,
+    "category": "Likely Wildfire",
+    "riskScore": 43,
+    "riskLevel": "MODERATE",
+    "frp": 4.6,
+    "brightness": 348,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-21",
+    "history": [
+      {
+        "date": "2026-08-21",
+        "frp": 4.6,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-2AAED3",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.9815,
+    "longitude": 86.4557,
+    "category": "Likely Wildfire",
+    "riskScore": 42,
+    "riskLevel": "MODERATE",
+    "frp": 4.0,
+    "brightness": 351,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-07-09",
+    "history": [
+      {
+        "date": "2026-07-09",
+        "frp": 4.0,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-D70737",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.849,
+    "longitude": 85.772,
+    "category": "Likely Wildfire",
+    "riskScore": 40,
+    "riskLevel": "MODERATE",
+    "frp": 3.5,
+    "brightness": 351,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-11",
+    "history": [
+      {
+        "date": "2026-08-11",
+        "frp": 3.5,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-59695E",
+    "region": "Mine Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.9584,
+    "longitude": 85.9964,
+    "category": "Requires Verification",
+    "riskScore": 40,
+    "riskLevel": "MODERATE",
+    "frp": 2.4,
+    "brightness": 326,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-11",
+    "history": [
+      {
+        "date": "2026-08-11",
+        "frp": 2.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-5A23B1",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.6603,
+    "longitude": 85.7079,
+    "category": "Likely Wildfire",
+    "riskScore": 39,
+    "riskLevel": "MODERATE",
+    "frp": 2.1,
+    "brightness": 334,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-07-11",
+    "history": [
+      {
+        "date": "2026-07-11",
+        "frp": 2.1,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-15B245",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.7027,
+    "longitude": 86.476,
+    "category": "Likely Wildfire",
+    "riskScore": 37,
+    "riskLevel": "MODERATE",
+    "frp": 2.4,
+    "brightness": 340,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-11",
+    "history": [
+      {
+        "date": "2026-08-11",
+        "frp": 2.4,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-0EE290",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.7485,
+    "longitude": 86.4123,
+    "category": "Likely Wildfire",
+    "riskScore": 36,
+    "riskLevel": "MODERATE",
+    "frp": 1.5,
+    "brightness": 361,
+    "confidence": 3,
+    "persistenceDays": 2,
+    "detectionCount": 3,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-30",
+    "history": [
+      {
+        "date": "2026-08-05",
+        "frp": 1.2,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-27",
+        "frp": 1.5,
+        "confidence": 60.0
+      },
+      {
+        "date": "2026-08-30",
+        "frp": 1.5,
+        "confidence": 60.0
+      }
+    ]
+  },
+  {
+    "id": "TH-B719B4",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.258,
+    "longitude": 85.1426,
+    "category": "Likely Wildfire",
+    "riskScore": 36,
+    "riskLevel": "MODERATE",
+    "frp": 2.2,
+    "brightness": 327,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-25",
+    "history": [
+      {
+        "date": "2026-08-25",
+        "frp": 2.2,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-F7860E",
+    "region": "Mine Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.7933,
+    "longitude": 86.237,
+    "category": "Requires Verification",
+    "riskScore": 36,
+    "riskLevel": "MODERATE",
+    "frp": 1.4,
+    "brightness": 326,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-09",
+    "history": [
+      {
+        "date": "2026-08-09",
+        "frp": 1.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-6FAE66",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.4333,
+    "longitude": 86.9661,
+    "category": "Likely Wildfire",
+    "riskScore": 36,
+    "riskLevel": "MODERATE",
+    "frp": 2.3,
+    "brightness": 338,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-07-18",
+    "history": [
+      {
+        "date": "2026-07-18",
+        "frp": 2.3,
+        "confidence": 90.0
+      }
+    ]
+  },
+  {
+    "id": "TH-06A0E3",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.0512,
+    "longitude": 85.0865,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 31,
+    "riskLevel": "MODERATE",
+    "frp": 2.9,
+    "brightness": 319,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-24",
+    "history": [
+      {
+        "date": "2026-08-24",
+        "frp": 2.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-613726",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.604,
+    "longitude": 85.7894,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 30,
+    "riskLevel": "MODERATE",
+    "frp": 2.3,
+    "brightness": 330,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-18",
+    "history": [
+      {
+        "date": "2026-08-18",
+        "frp": 2.3,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-D52EF7",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.6816,
+    "longitude": 86.379,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 30,
+    "riskLevel": "MODERATE",
+    "frp": 0.5,
+    "brightness": 301,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-06",
+    "history": [
+      {
+        "date": "2026-08-06",
+        "frp": 0.5,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-6EDF93",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.0048,
+    "longitude": 83.9335,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 29,
+    "riskLevel": "MODERATE",
+    "frp": 3.0,
+    "brightness": 301,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-08",
+    "history": [
+      {
+        "date": "2026-08-08",
+        "frp": 3.0,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-170CAF",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.6053,
+    "longitude": 84.8866,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 27,
+    "riskLevel": "MODERATE",
+    "frp": 2.3,
+    "brightness": 322,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-08",
+    "history": [
+      {
+        "date": "2026-08-08",
+        "frp": 2.3,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-730C2C",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.4747,
+    "longitude": 84.5463,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 27,
+    "riskLevel": "MODERATE",
+    "frp": 2.7,
+    "brightness": 318,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-20",
+    "history": [
+      {
+        "date": "2026-08-20",
+        "frp": 2.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-6795AA",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.544,
+    "longitude": 83.7968,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "MODERATE",
+    "frp": 3.0,
+    "brightness": 322,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-10",
+    "history": [
+      {
+        "date": "2026-08-10",
+        "frp": 3.0,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-D7B846",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.2728,
+    "longitude": 86.6138,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "MODERATE",
+    "frp": 2.9,
+    "brightness": 320,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-11",
+    "history": [
+      {
+        "date": "2026-08-11",
+        "frp": 2.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-2BF15F",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.9255,
+    "longitude": 85.6306,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "LOW",
+    "frp": 2.8,
+    "brightness": 317,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-19",
+    "history": [
+      {
+        "date": "2026-08-19",
+        "frp": 2.8,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-389D07",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.8548,
+    "longitude": 86.1768,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "MODERATE",
+    "frp": 3.0,
+    "brightness": 327,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-21",
+    "history": [
+      {
+        "date": "2026-08-21",
+        "frp": 3.0,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-EBE653",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2713,
+    "longitude": 85.1669,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "LOW",
+    "frp": 2.7,
+    "brightness": 330,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-07",
+    "history": [
+      {
+        "date": "2026-08-07",
+        "frp": 2.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-439A4E",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.8379,
+    "longitude": 86.9363,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "LOW",
+    "frp": 2.7,
+    "brightness": 314,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-06",
+    "history": [
+      {
+        "date": "2026-08-06",
+        "frp": 2.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-A15AC5",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.284,
+    "longitude": 84.1481,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "MODERATE",
+    "frp": 2.9,
+    "brightness": 303,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-25",
+    "history": [
+      {
+        "date": "2026-08-25",
+        "frp": 2.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-2499EE",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.4809,
+    "longitude": 84.3899,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 26,
+    "riskLevel": "MODERATE",
+    "frp": 3.0,
+    "brightness": 314,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-23",
+    "history": [
+      {
+        "date": "2026-08-23",
+        "frp": 3.0,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-FC648E",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.0859,
+    "longitude": 84.9047,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 25,
+    "riskLevel": "LOW",
+    "frp": 2.6,
+    "brightness": 320,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-10",
+    "history": [
+      {
+        "date": "2026-08-10",
+        "frp": 2.6,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-F425CA",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.9352,
+    "longitude": 84.044,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 25,
+    "riskLevel": "LOW",
+    "frp": 2.4,
+    "brightness": 308,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-20",
+    "history": [
+      {
+        "date": "2026-08-20",
+        "frp": 2.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-25BD92",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.9845,
+    "longitude": 86.8421,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 25,
+    "riskLevel": "LOW",
+    "frp": 2.7,
+    "brightness": 307,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-10",
+    "history": [
+      {
+        "date": "2026-08-10",
+        "frp": 2.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-386285",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.1564,
+    "longitude": 83.581,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 25,
+    "riskLevel": "LOW",
+    "frp": 2.7,
+    "brightness": 311,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-24",
+    "history": [
+      {
+        "date": "2026-08-24",
+        "frp": 2.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-A0DC76",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.6802,
+    "longitude": 85.6766,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 24,
+    "riskLevel": "LOW",
+    "frp": 2.1,
+    "brightness": 326,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-29",
+    "history": [
+      {
+        "date": "2026-08-29",
+        "frp": 2.1,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-6E8782",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.5787,
+    "longitude": 86.5064,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 24,
+    "riskLevel": "LOW",
+    "frp": 2.3,
+    "brightness": 327,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-25",
+    "history": [
+      {
+        "date": "2026-08-25",
+        "frp": 2.3,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-77973D",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.9211,
+    "longitude": 83.7734,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 24,
+    "riskLevel": "LOW",
+    "frp": 0.7,
+    "brightness": 310,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-05",
+    "history": [
+      {
+        "date": "2026-08-05",
+        "frp": 0.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-9B3C0D",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2998,
+    "longitude": 84.5764,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 24,
+    "riskLevel": "LOW",
+    "frp": 2.2,
+    "brightness": 318,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-03",
+    "history": [
+      {
+        "date": "2026-08-03",
+        "frp": 2.2,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-2118C1",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.5473,
+    "longitude": 84.8267,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 24,
+    "riskLevel": "LOW",
+    "frp": 2.4,
+    "brightness": 322,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-18",
+    "history": [
+      {
+        "date": "2026-08-18",
+        "frp": 2.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-73E944",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.4634,
+    "longitude": 83.5166,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 24,
+    "riskLevel": "LOW",
+    "frp": 2.4,
+    "brightness": 326,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-13",
+    "history": [
+      {
+        "date": "2026-08-13",
+        "frp": 2.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-40D541",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.0527,
+    "longitude": 85.585,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 23,
+    "riskLevel": "LOW",
+    "frp": 1.9,
+    "brightness": 307,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-05",
+    "history": [
+      {
+        "date": "2026-08-05",
+        "frp": 1.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-B2328E",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.5461,
+    "longitude": 83.6095,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 23,
+    "riskLevel": "LOW",
+    "frp": 1.8,
+    "brightness": 319,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-26",
+    "history": [
+      {
+        "date": "2026-08-26",
+        "frp": 1.8,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-EB80B0",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.183,
+    "longitude": 83.9789,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 23,
+    "riskLevel": "LOW",
+    "frp": 1.9,
+    "brightness": 317,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-22",
+    "history": [
+      {
+        "date": "2026-08-22",
+        "frp": 1.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-ADE300",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.8032,
+    "longitude": 84.4562,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 23,
+    "riskLevel": "LOW",
+    "frp": 2.1,
+    "brightness": 318,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-09",
+    "history": [
+      {
+        "date": "2026-08-09",
+        "frp": 2.1,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-65F0B7",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.0048,
+    "longitude": 83.8922,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 22,
+    "riskLevel": "LOW",
+    "frp": 1.6,
+    "brightness": 300,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-18",
+    "history": [
+      {
+        "date": "2026-08-18",
+        "frp": 1.6,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-9F7D6E",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2159,
+    "longitude": 85.301,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 22,
+    "riskLevel": "LOW",
+    "frp": 1.3,
+    "brightness": 300,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-01",
+    "history": [
+      {
+        "date": "2026-08-01",
+        "frp": 1.3,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-9D54C9",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.3484,
+    "longitude": 86.9227,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 22,
+    "riskLevel": "LOW",
+    "frp": 1.8,
+    "brightness": 324,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-23",
+    "history": [
+      {
+        "date": "2026-08-23",
+        "frp": 1.8,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-4997F2",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.8799,
+    "longitude": 85.5462,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 22,
+    "riskLevel": "LOW",
+    "frp": 1.7,
+    "brightness": 304,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-30",
+    "history": [
+      {
+        "date": "2026-08-30",
+        "frp": 1.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-F613FC",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.1755,
+    "longitude": 85.9437,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 21,
+    "riskLevel": "LOW",
+    "frp": 1.4,
+    "brightness": 306,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-19",
+    "history": [
+      {
+        "date": "2026-08-19",
+        "frp": 1.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-D01411",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.3582,
+    "longitude": 84.6144,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 21,
+    "riskLevel": "LOW",
+    "frp": 1.4,
+    "brightness": 324,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-20",
+    "history": [
+      {
+        "date": "2026-08-20",
+        "frp": 1.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-0F9E06",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.8065,
+    "longitude": 84.2073,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 20,
+    "riskLevel": "LOW",
+    "frp": 0.9,
+    "brightness": 316,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-01",
+    "history": [
+      {
+        "date": "2026-08-01",
+        "frp": 0.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-772F9F",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2508,
+    "longitude": 86.232,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 20,
+    "riskLevel": "LOW",
+    "frp": 0.9,
+    "brightness": 325,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-21",
+    "history": [
+      {
+        "date": "2026-08-21",
+        "frp": 0.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-CDA449",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.2556,
+    "longitude": 83.6254,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 20,
+    "riskLevel": "LOW",
+    "frp": 0.9,
+    "brightness": 329,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-15",
+    "history": [
+      {
+        "date": "2026-08-15",
+        "frp": 0.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-4A8F19",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.1807,
+    "longitude": 85.393,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 20,
+    "riskLevel": "LOW",
+    "frp": 1.1,
+    "brightness": 327,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-01",
+    "history": [
+      {
+        "date": "2026-08-01",
+        "frp": 1.1,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-D313C9",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.3963,
+    "longitude": 86.8577,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 20,
+    "riskLevel": "LOW",
+    "frp": 0.9,
+    "brightness": 320,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "NEW",
+    "acqDate": "2026-08-29",
+    "history": [
+      {
+        "date": "2026-08-29",
+        "frp": 0.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-7AAF1F",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.5357,
+    "longitude": 86.0981,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 20,
+    "riskLevel": "LOW",
+    "frp": 0.9,
+    "brightness": 318,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-03",
+    "history": [
+      {
+        "date": "2026-08-03",
+        "frp": 0.9,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-81EC88",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.3034,
+    "longitude": 86.6639,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 19,
+    "riskLevel": "LOW",
+    "frp": 0.8,
+    "brightness": 326,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-13",
+    "history": [
+      {
+        "date": "2026-08-13",
+        "frp": 0.8,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-A30999",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.19,
+    "longitude": 85.0929,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 19,
+    "riskLevel": "LOW",
+    "frp": 0.5,
+    "brightness": 309,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "RECURRING",
+    "acqDate": "2026-08-23",
+    "history": [
+      {
+        "date": "2026-08-23",
+        "frp": 0.5,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-BB3460",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.3562,
+    "longitude": 84.1886,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 19,
+    "riskLevel": "LOW",
+    "frp": 0.7,
+    "brightness": 312,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-20",
+    "history": [
+      {
+        "date": "2026-08-20",
+        "frp": 0.7,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-09B9D8",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.0535,
+    "longitude": 86.085,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 19,
+    "riskLevel": "LOW",
+    "frp": 0.6,
+    "brightness": 310,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-09",
+    "history": [
+      {
+        "date": "2026-08-09",
+        "frp": 0.6,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-A7FF52",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 21.4168,
+    "longitude": 85.9258,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 18,
+    "riskLevel": "LOW",
+    "frp": 0.2,
+    "brightness": 315,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "N",
+    "status": "NEW",
+    "acqDate": "2026-08-29",
+    "history": [
+      {
+        "date": "2026-08-29",
+        "frp": 0.2,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-55B10E",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.1379,
+    "longitude": 86.7035,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 18,
+    "riskLevel": "LOW",
+    "frp": 0.4,
+    "brightness": 304,
+    "confidence": 1,
+    "persistenceDays": 1,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-24",
+    "history": [
+      {
+        "date": "2026-08-24",
+        "frp": 0.4,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-2ADB1E",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 23.0635,
+    "longitude": 84.0266,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 18,
+    "riskLevel": "LOW",
+    "frp": 0.2,
+    "brightness": 301,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-17",
+    "history": [
+      {
+        "date": "2026-08-17",
+        "frp": 0.2,
+        "confidence": 30.0
+      }
+    ]
+  },
+  {
+    "id": "TH-A58A68",
+    "region": "Other Cluster (Jharkhand\u2013Odisha Iron Ore & Steel Belt)",
+    "latitude": 22.3916,
+    "longitude": 85.8914,
+    "category": "Sun Glint / False Positive",
+    "riskScore": 18,
+    "riskLevel": "LOW",
+    "frp": 0.3,
+    "brightness": 310,
+    "confidence": 1,
+    "persistenceDays": 0,
+    "detectionCount": 1,
+    "satellite": "VIIRS S-NPP",
+    "daynight": "D",
+    "status": "RECURRING",
+    "acqDate": "2026-08-20",
+    "history": [
+      {
+        "date": "2026-08-20",
+        "frp": 0.3,
+        "confidence": 30.0
+      }
+    ]
+  }
+]
