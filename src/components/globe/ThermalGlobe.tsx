@@ -8,7 +8,7 @@ import { Markers } from "./Markers";
 import { type ThermalEvent } from "@/lib/thermal";
 
 /** Rotation that brings ~80E to face the camera. */
-const FOCUS_ROTATION = -(((80 + 180) * Math.PI) / 180) + Math.PI / 2;
+const FOCUS_ROTATION = ((80 + 180) * Math.PI) / 180 - Math.PI / 2;
 
 function Atmosphere() {
   return (
