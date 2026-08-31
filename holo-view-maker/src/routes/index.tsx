@@ -235,7 +235,10 @@ function Index() {
               selectedId={selectedId}
               colorBy={colorBy}
               spin={spin}
-              onSelect={setSelectedId}
+              onSelect={(id: string) => {
+                setSelectedId(id);
+                setSpin(false);
+              }}
             />
           </Suspense>
           <p className="pointer-events-none absolute bottom-3 left-4 mono-label">

@@ -28,8 +28,13 @@ export function Earth() {
 
 
   const cloudRef = useRef<THREE.Mesh>(null);
-  useFrame((_, delta) => {
-    if (cloudRef.current) cloudRef.current.rotation.y += Math.min(delta, 0.05) * 0.006;
+  useFrame((state, delta) => {
+    if (cloudRef.current) {
+      cloudRef.current.rotation.y += Math.min(delta, 0.05) * 0.006;
+      const camDist = state.camera.position.length();
+      const altFactor = Math.max(0, Math.min(1, (camDist - 2.12) / (3.2 - 2.12)));
+      (cloudRef.current.material as any).opacity = 0.42 * Math.pow(altFactor, 1.8);
+    }
   });
 
   return (

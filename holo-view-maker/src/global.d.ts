@@ -7,7 +7,7 @@ declare module "react" {
   export const useState: any;
   export const useEffect: any;
   export const useCallback: any;
-  export const useRef: any;
+  export function useRef<T = any>(initialValue?: T | null): { current: T | null };
   export type ChangeEvent<T = any> = { target: { value: string; checked: boolean } };
   export type ReactNode = any;
   export type FC<P = any> = (props: P) => any;
@@ -41,6 +41,24 @@ declare module "three" {
   export class Color {
     constructor(color?: any);
   }
+  export class Material {
+    opacity: number;
+    transparent: boolean;
+    depthWrite: boolean;
+    dispose(): void;
+  }
+  export class MeshLambertMaterial extends Material {
+    constructor(params?: any);
+  }
+  export class MeshBasicMaterial extends Material {
+    constructor(params?: any);
+  }
+  export class MeshPhongMaterial extends Material {
+    constructor(params?: any);
+  }
+  export class ShaderMaterial extends Material {
+    constructor(params?: any);
+  }
   export class Mesh {
     position: Vector3;
     rotation: any;
@@ -66,9 +84,6 @@ declare module "three" {
     elapsedTime: number;
     getElapsedTime(): number;
     getDelta(): number;
-  }
-  export class ShaderMaterial {
-    constructor(params?: any);
   }
   export class SphereGeometry {
     constructor(...args: any[]);

@@ -950,7 +950,7 @@ def main():
 # ----------------------------------------------------- regional (belt) routing --
 
 def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, page: str):
-    show_ui = page in ("Live Map", "Events", "Analytics", "Investigations", "Validation")
+    show_ui = page == "Live Map"
     min_date, max_date = gdf["acq_date"].min().date(), gdf["acq_date"].max().date()
     frp_max_val = float(gdf["frp"].max()) if not gdf.empty else 50.0
 
@@ -1318,21 +1318,21 @@ def _render_alert_banner(alerts):
 
 def _render_overview(filtered, filtered_clusters, label_field, color_by):
     with st.container(border=True):
-        r1, r2, r3 = st.columns([3.0, 1.4, 1.4])
+        r1, r2, r3, r4 = st.columns([2.5, 1.3, 1.3, 1.1])
         with r1:
-            _section_header(f"Map — {len(filtered)} hotspots shown (Jharkhand–Odisha Belt)")
-            st.caption("📍 Viewing detailed industrial & mining GIS for **Jharkhand–Odisha Iron Ore & Steel Belt**.")
+            _section_header("Regional Operations — Jharkhand–Odisha Belt")
+            st.caption("📍 Real-time AI satellite thermal intelligence, persistence tracking, and industrial hotspot monitoring.")
         with r2:
-            st.button("← Return to India", key="back_india_overview", width="stretch",
-                      on_click=_navigate(page="Overview", region="india"))
+            st.button("🗺️ Open Live Map →", key="overview_open_live_map", width="stretch",
+                      help="Explore interactive 2D GIS map with clustering, satellite imagery, and zone boundaries",
+                      on_click=_navigate(page="Live Map"))
         with r3:
             st.button("🌐 3D Holo Globe →", key="overview_open_3d_globe", width="stretch",
                       help="Explore these thermal events in the interactive 3D Holo Globe",
                       on_click=_navigate(page="3D Holo Globe"))
-        if filtered.empty:
-            st.info("No hotspots match the current filters.")
-        else:
-            st_folium(build_map(filtered, label_field, color_by), width=None, height=580, returned_objects=[], key="map_overview")
+        with r4:
+            st.button("← India View", key="back_india_overview", width="stretch",
+                      on_click=_navigate(page="Overview", region="india"))
 
     c1, c2 = st.columns(2)
     with c1:
@@ -1836,7 +1836,7 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
 
 
 def _apply_national_filters(detail_df: pd.DataFrame, page: str):
-    show_ui = page in ("Live Map", "Events", "Analytics")
+    show_ui = page == "Live Map"
     states_available = sorted(s for s in detail_df["state"].dropna().unique())
     satellites_available = sorted(detail_df["satellite"].dropna().unique().astype(str))
     frp_max_n = float(detail_df["frp"].max()) if not detail_df.empty else 20.0
@@ -2404,7 +2404,6 @@ def _route_national_page(page: str, demo_mode: bool):
         _render_detection_funnel(state_summary, len(detail_df))
         _render_national_kpis(filtered_detail, filtered_events)
         _render_national_alert_banner(alerts)
-        _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_overview")
         _render_national_top_states_chart(state_summary, state_filter)
         _render_methodology_expander()
     elif page == "Live Map":

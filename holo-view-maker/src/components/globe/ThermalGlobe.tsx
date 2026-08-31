@@ -82,10 +82,10 @@ export function ThermalGlobe({
       />
       <OrbitControls
         enablePan={false}
-        minDistance={3}
-        maxDistance={9}
+        minDistance={2.012}
+        maxDistance={14}
         rotateSpeed={0.5}
-        zoomSpeed={0.6}
+        zoomSpeed={0.8}
       />
     </Canvas>
   );
