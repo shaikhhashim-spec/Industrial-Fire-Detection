@@ -115,6 +115,36 @@ def count() -> int:
         return conn.execute("SELECT COUNT(*) FROM hotspots").fetchone()[0]
 
 
+# --- Dismissed alert tracking -------------------------------------------------
+
+
+def dismiss_alert(event_id: str, region: str | None = None) -> None:
+    """Mark an alert/event as dismissed for a given region or globally."""
+    with _connect() as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS dismissed_alerts (event_id TEXT, region TEXT, dismissed_at TEXT, PRIMARY KEY (event_id, region))"
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO dismissed_alerts (event_id, region, dismissed_at) VALUES (?, ?, ?)",
+            (event_id, region or "global", pd.Timestamp.now().isoformat()),
+        )
+
+
+def load_dismissed(region: str | None = None) -> set[str]:
+    """Return the dismissed alert IDs for a region, or globally if region is None."""
+    if not DB_PATH.exists():
+        return set()
+    with _connect() as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS dismissed_alerts (event_id TEXT, region TEXT, dismissed_at TEXT, PRIMARY KEY (event_id, region))"
+        )
+        if region is None:
+            rows = conn.execute("SELECT event_id FROM dismissed_alerts").fetchall()
+        else:
+            rows = conn.execute("SELECT event_id FROM dismissed_alerts WHERE region = ?", (region,)).fetchall()
+    return {row[0] for row in rows}
+
+
 # --- Analyst review audit trail ---------------------------------------------
 # Persists human-in-the-loop decisions (Confirm/Reject/Needs Verification)
 # from the Validation page, keyed by event_id, so they survive a page

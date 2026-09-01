@@ -27,6 +27,92 @@ ANOMALY_MIN_BASELINE_POINTS = 2   # need at least this many prior detections to 
 ANOMALY_ZSCORE_MIN = 2.0          # >= this many std deviations above baseline
 ANOMALY_RATIO_MIN = config.ALERT_FRP_SPIKE_MULTIPLIER  # backstop for near-zero-variance baselines
 
+TREND_ESCALATING = "escalating"
+TREND_COOLING = "cooling"
+TREND_STABLE = "stable"
+TREND_INSUFFICIENT = "insufficient"
+
+
+def compute_frp_trend(detail_df: pd.DataFrame, recent_window_days: int = 3) -> pd.DataFrame:
+    """Return a per-cell trend summary for recent vs baseline FRP.
+
+    The trend is classified using a simple recent-window mean compared with an
+    earlier baseline mean. This is intentionally lightweight and explainable,
+    designed to complement the anomaly detector rather than replace it.
+    """
+    required_cols = {"grid_cell", "acq_date", "frp"}
+    if detail_df is None or detail_df.empty or not required_cols.issubset(detail_df.columns):
+        return pd.DataFrame(columns=[
+            "grid_cell",
+            "trend_direction",
+            "trend_change_pct",
+            "has_trend_baseline",
+            "baseline_mean_frp",
+            "recent_mean_frp",
+        ])
+
+    rows: list[dict] = []
+    for cell, group in detail_df.groupby("grid_cell", sort=False):
+        ordered = group.sort_values("acq_date").copy()
+        ordered["frp"] = pd.to_numeric(ordered["frp"], errors="coerce")
+        ordered = ordered.dropna(subset=["frp"]).copy()
+        if ordered.empty:
+            rows.append({
+                "grid_cell": cell,
+                "trend_direction": TREND_INSUFFICIENT,
+                "trend_change_pct": float("nan"),
+                "has_trend_baseline": False,
+                "baseline_mean_frp": float("nan"),
+                "recent_mean_frp": float("nan"),
+            })
+            continue
+
+        if len(ordered) <= recent_window_days:
+            rows.append({
+                "grid_cell": cell,
+                "trend_direction": TREND_INSUFFICIENT,
+                "trend_change_pct": float("nan"),
+                "has_trend_baseline": False,
+                "baseline_mean_frp": float("nan"),
+                "recent_mean_frp": float(ordered["frp"].mean()),
+            })
+            continue
+
+        recent = ordered.iloc[-recent_window_days:]
+        baseline = ordered.iloc[:-recent_window_days]
+
+        if baseline.empty or len(baseline) < 2:
+            rows.append({
+                "grid_cell": cell,
+                "trend_direction": TREND_INSUFFICIENT,
+                "trend_change_pct": float("nan"),
+                "has_trend_baseline": False,
+                "baseline_mean_frp": float("nan"),
+                "recent_mean_frp": float(recent["frp"].mean()),
+            })
+            continue
+
+        baseline_mean = float(baseline["frp"].mean())
+        recent_mean = float(recent["frp"].mean())
+        change_pct = 0.0 if abs(baseline_mean) < 1e-9 else ((recent_mean - baseline_mean) / baseline_mean) * 100.0
+
+        direction = TREND_STABLE
+        if change_pct > 25:
+            direction = TREND_ESCALATING
+        elif change_pct < -25:
+            direction = TREND_COOLING
+
+        rows.append({
+            "grid_cell": cell,
+            "trend_direction": direction,
+            "trend_change_pct": round(change_pct, 2),
+            "has_trend_baseline": True,
+            "baseline_mean_frp": round(baseline_mean, 2),
+            "recent_mean_frp": round(recent_mean, 2),
+        })
+
+    return pd.DataFrame(rows)
+
 
 def compute_frp_anomaly(detail_df: pd.DataFrame) -> pd.DataFrame:
     """Return one row per grid_cell with: frp_baseline_mean,

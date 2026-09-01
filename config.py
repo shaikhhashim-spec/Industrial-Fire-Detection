@@ -84,14 +84,24 @@ NATIONAL_RISK_WEIGHTS = {"persistence": 0.40, "frp": 0.35, "confidence": 0.25}
 # Keeps the architecture region-independent — new regions can be added here
 # without touching pipeline/app code, per the platform's national-scalability
 # requirement.
+SINGRAULI_REGION_NAME = "Singrauli Coal & Power Corridor"
+SINGRAULI_BBOX = {"min_lat": 23.9, "max_lat": 24.6, "min_lon": 82.4, "max_lon": 83.3}
+
 REGIONS = {
     "jharkhand_odisha": {
         "name": "Jharkhand–Odisha Iron Ore & Steel Belt",
         "detailed": True,   # full geospatial + AI pipeline
+        "bbox": BBOX,
     },
     "india": {
         "name": "India",
         "detailed": False,  # detection + spatial distribution only
+        "bbox": INDIA_BBOX,
+    },
+    "singrauli": {
+        "name": SINGRAULI_REGION_NAME,
+        "bbox": SINGRAULI_BBOX,
+        "detailed": False,
     },
 }
 DEFAULT_REGION = "india"
@@ -162,24 +172,27 @@ RISK_LEVELS = [
     (76, 100, "CRITICAL"),
 ]
 
-# --- Alert engine & WhatsApp Integration --------------------------------------
+# --- Alert engine & Critical Dispatch -----------------------------------------
 ALERT_CRITICAL_RISK_MIN = 76
 ALERT_HIGH_RISK_MIN = 51
 ALERT_FRP_SPIKE_MULTIPLIER = 2.0   # current FRP vs cell's own historical average
 
-# WhatsApp Integration Parameters
-WHATSAPP_RECIPIENT_PHONE = os.getenv("WHATSAPP_RECIPIENT_PHONE", "9967541336")
-WHATSAPP_RISK_THRESHOLD = float(os.getenv("WHATSAPP_RISK_THRESHOLD", "85.0"))
-WHATSAPP_ENABLED = os.getenv("WHATSAPP_ENABLED", "true").lower() in ("1", "true", "yes")
-WHATSAPP_PROVIDER = os.getenv("WHATSAPP_PROVIDER", "auto")  # auto, twilio, callmebot, meta, webhook, simulated
+# --- Wind / plume overlay -----------------------------------------------------
+OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+WIND_CACHE_TTL_HOURS = 6.0
+WIND_FALLBACK_SPEED_KMH = 12.0
+WIND_FALLBACK_DIRECTION_DEG = 180.0  # meteorological "wind from" direction
+
+# --- Alert & Messaging Dispatch Parameters ------------------------------------
+ALERT_RECIPIENT_PHONE = os.getenv("ALERT_RECIPIENT_PHONE", "9967541336")
+ALERT_AUTO_DISPATCH_CRITICAL = os.getenv("ALERT_AUTO_DISPATCH_CRITICAL", "true").lower() in ("1", "true", "yes")
 TWILIO_ACCOUNT_SID = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
 TWILIO_AUTH_TOKEN = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
-TWILIO_WHATSAPP_NUMBER = (os.getenv("TWILIO_WHATSAPP_NUMBER") or "+14155238886").strip()
-TWILIO_CONTENT_SID = (os.getenv("TWILIO_CONTENT_SID") or "").strip()
-CALLMEBOT_API_KEY = (os.getenv("CALLMEBOT_API_KEY") or "").strip()
-WHATSAPP_CLOUD_API_TOKEN = (os.getenv("WHATSAPP_CLOUD_API_TOKEN") or "").strip()
-WHATSAPP_PHONE_NUMBER_ID = (os.getenv("WHATSAPP_PHONE_NUMBER_ID") or "").strip()
-WHATSAPP_WEBHOOK_URL = (os.getenv("WHATSAPP_WEBHOOK_URL") or "").strip()
+TWILIO_FROM_NUMBER = (os.getenv("TWILIO_FROM_NUMBER") or "").strip()
+ALERT_SMS_TO_NUMBER = (os.getenv("ALERT_SMS_TO_NUMBER") or ALERT_RECIPIENT_PHONE).strip()
+ALERT_WEBHOOK_URL = (os.getenv("ALERT_WEBHOOK_URL") or "").strip()
+TELEGRAM_BOT_TOKEN = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
+TELEGRAM_CHAT_ID = (os.getenv("TELEGRAM_CHAT_ID") or "").strip()
 
 # --- Output / model paths -----------------------------------------------------
 CLASSIFIED_GEOJSON = OUTPUT_DIR / "classified_hotspots.geojson"
@@ -189,5 +202,6 @@ OSM_CACHE_PATH = CACHE_DIR / "osm_industrial.geojson"
 LANDCOVER_CACHE_PATH = CACHE_DIR / "osm_landcover.geojson"
 DEMO_DATASET_PATH = DEMO_DIR / "demo_hotspots.csv"
 DB_PATH = DATA_DIR / "hotspots.db"
-WHATSAPP_LOG_PATH = PROCESSED_DIR / "whatsapp_alerts_log.json"
+ALERT_LOG_PATH = PROCESSED_DIR / "critical_alerts_log.json"
+
 

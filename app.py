@@ -18,6 +18,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from folium.plugins import Fullscreen, MarkerCluster, TimestampedGeoJson
+from streamlit.components import v1 as components
 from streamlit_folium import st_folium
 
 import config
@@ -234,15 +235,14 @@ def run_and_cache(demo_mode: bool, api_key: str | None):
     _load_cached_clusters.clear()
     _load_cached_alerts.clear()
 
-    # WhatsApp automated dispatch for high-risk thermal events
-    if st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED):
-        from src.alerts import whatsapp as whatsapp_alerts
-        phone = st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
-        thresh = float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD))
-        prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
-        wa_results = whatsapp_alerts.send_batch_whatsapp_alerts(info["alerts"], phone=phone, threshold=thresh, provider=prov)
-        if wa_results:
-            st.toast(f"📲 {len(wa_results)} WhatsApp alert(s) dispatched to {phone} (Risk ≥ {thresh:.0f})", icon="🚨")
+    # Automated critical alert message dispatch
+    if st.session_state.get("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL):
+        from src.alerts import messages as alert_messages
+        phone = st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE)
+        crit_results = alert_messages.send_batch_critical_alerts(info["alerts"], phone=phone)
+        if crit_results:
+            st.toast(f"🚨 {len(crit_results)} Critical Alert Message(s) Auto-Dispatched to {phone}", icon="📲")
+
 
     # Synchronize live pipeline events with 3D Holo Globe
     try:
@@ -282,7 +282,7 @@ def recompute_risk_and_cache(weights: dict):
     export["acq_date"] = export["acq_date"].astype(str)
     export.to_file(config.CLASSIFIED_GEOJSON, driver="GeoJSON")
     export.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
-    cluster_export = cluster_df.copy()
+    cluster_export: pd.DataFrame = cluster_df.copy()
     cluster_export["first_detected"] = cluster_export["first_detected"].astype(str)
     cluster_export["last_detected"] = cluster_export["last_detected"].astype(str)
     cluster_export.to_csv(config.PROCESSED_DIR / "cluster_summary.csv", index=False)
@@ -292,15 +292,14 @@ def recompute_risk_and_cache(weights: dict):
     _load_cached_clusters.clear()
     _load_cached_alerts.clear()
 
-    # WhatsApp automated dispatch for high-risk thermal events
-    if st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED):
-        from src.alerts import whatsapp as whatsapp_alerts
-        phone = st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
-        thresh = float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD))
-        prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
-        wa_results = whatsapp_alerts.send_batch_whatsapp_alerts(alerts, phone=phone, threshold=thresh, provider=prov)
-        if wa_results:
-            st.toast(f"📲 {len(wa_results)} WhatsApp alert(s) dispatched to {phone} (Risk ≥ {thresh:.0f})", icon="🚨")
+    # Automated critical alert message dispatch
+    if st.session_state.get("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL):
+        from src.alerts import messages as alert_messages
+        phone = st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE)
+        crit_results = alert_messages.send_batch_critical_alerts(alerts, phone=phone)
+        if crit_results:
+            st.toast(f"🚨 {len(crit_results)} Critical Alert Message(s) Auto-Dispatched to {phone}", icon="📲")
+
 
     # Synchronize recomputed risk events with 3D Holo Globe
     try:
@@ -922,10 +921,8 @@ def main():
     st.session_state.setdefault("region", config.DEFAULT_REGION)
     st.session_state.setdefault("presentation_mode", False)
     st.session_state.setdefault("page", "Overview")
-    st.session_state.setdefault("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
-    st.session_state.setdefault("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD)
-    st.session_state.setdefault("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED)
-    st.session_state.setdefault("whatsapp_provider", config.WHATSAPP_PROVIDER)
+    st.session_state.setdefault("alert_phone", config.ALERT_RECIPIENT_PHONE)
+    st.session_state.setdefault("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL)
 
     st.markdown(CSS, unsafe_allow_html=True)
 
@@ -949,42 +946,68 @@ def main():
 
 # ----------------------------------------------------- regional (belt) routing --
 
+# Pages that are allowed to render the Filters panel. Every other page reuses
+# whatever the analyst last selected here (or the defaults) without showing the UI.
+FILTER_PAGES = ("Live Map",)
+
+
 def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, page: str):
-    show_ui = page == "Live Map"
+    show_ui = page in FILTER_PAGES
     min_date, max_date = gdf["acq_date"].min().date(), gdf["acq_date"].max().date()
     frp_max_val = float(gdf["frp"].max()) if not gdf.empty else 50.0
+
+    # Shared (page-independent) widget keys so filters set on the Live Map page
+    # stay applied when the analyst moves to other pages.
+    defaults = {
+        "flt_date": (min_date, max_date),
+        "flt_cls": list(CATEGORY_COLORS.keys()),
+        "flt_risk": list(RISK_COLORS.keys()),
+        "flt_label": "rule_label",
+        "flt_conf": 0,
+        "flt_pers": 0,
+        "flt_frp": (0.0, max(frp_max_val, 1.0)),
+        "flt_color": "classification",
+        "flt_onlyp": False,
+        "flt_onlyc": False,
+    }
 
     if show_ui:
         with st.container(border=True):
             _section_header("Filters")
             f1, f2, f3, f4 = st.columns(4)
             date_range = f1.slider("Date Range", min_value=min_date, max_value=max_date,
-                                    value=(min_date, max_date), key=f"date_{page}") if min_date != max_date else (min_date, max_date)
+                                    value=(min_date, max_date), key="flt_date") if min_date != max_date else (min_date, max_date)
             classifications = f2.multiselect("Classification", list(CATEGORY_COLORS.keys()),
-                                              default=list(CATEGORY_COLORS.keys()), key=f"cls_{page}")
+                                              default=list(CATEGORY_COLORS.keys()), key="flt_cls")
             risk_levels = f3.multiselect("Risk Level", list(RISK_COLORS.keys()),
-                                          default=list(RISK_COLORS.keys()), key=f"risk_{page}")
-            label_field = f4.radio("Label Source", ["rule_label", "ml_label"], horizontal=True, key=f"label_{page}")
+                                          default=list(RISK_COLORS.keys()), key="flt_risk")
+            label_field = f4.radio("Label Source", ["rule_label", "ml_label"], horizontal=True, key="flt_label")
 
             g1, g2, g3, g4 = st.columns(4)
-            min_conf = g1.slider("Min Confidence", 0, 100, 0, key=f"conf_{page}")
-            min_persist = g2.slider("Min Persistence (days)", 0, int(gdf["persistence_days"].max()) or 1, 0, key=f"pers_{page}")
-            frp_range = g3.slider("FRP Range (MW)", 0.0, max(frp_max_val, 1.0), (0.0, max(frp_max_val, 1.0)), key=f"frp_{page}")
-            color_by = g4.radio("Map Color By", ["classification", "risk"], horizontal=True, key=f"color_{page}")
+            min_conf = g1.slider("Min Confidence", 0, 100, 0, key="flt_conf")
+            min_persist = g2.slider("Min Persistence (days)", 0, int(gdf["persistence_days"].max()) or 1, 0, key="flt_pers")
+            frp_range = g3.slider("FRP Range (MW)", 0.0, max(frp_max_val, 1.0), (0.0, max(frp_max_val, 1.0)), key="flt_frp")
+            color_by = g4.radio("Map Color By", ["classification", "risk"], horizontal=True, key="flt_color")
 
             h1, h2, h3 = st.columns([1, 1, 2])
-            only_persistent = h1.checkbox("Only Persistent", key=f"onlyp_{page}")
-            only_critical = h2.checkbox("Only Critical Risk", key=f"onlyc_{page}")
-            if h3.button("Reset Filters", key=f"reset_{page}"):
-                for prefix in ("date_", "cls_", "risk_", "label_", "conf_","pers_", "frp_", "color_", "onlyp_", "onlyc_"):
-                    st.session_state.pop(f"{prefix}{page}", None)
+            only_persistent = h1.checkbox("Only Persistent", key="flt_onlyp")
+            only_critical = h2.checkbox("Only Critical Risk", key="flt_onlyc")
+            if h3.button("Reset Filters", key="flt_reset"):
+                for k in defaults:
+                    st.session_state.pop(k, None)
                 st.rerun()
     else:
-        date_range = (min_date, max_date)
-        classifications, risk_levels = list(CATEGORY_COLORS.keys()), list(RISK_COLORS.keys())
-        min_conf, min_persist, frp_range = 0, 0, (0.0, max(frp_max_val, 1.0))
-        only_persistent = only_critical = False
-        label_field, color_by = "rule_label", "classification"
+        # No filter UI on this page — fall back to the last values chosen on the
+        # Live Map page, or to the wide-open defaults.
+        get = lambda k: st.session_state.get(k, defaults[k])
+        date_range = get("flt_date")
+        classifications, risk_levels = get("flt_cls"), get("flt_risk")
+        min_conf, min_persist, frp_range = get("flt_conf"), get("flt_pers"), get("flt_frp")
+        only_persistent, only_critical = get("flt_onlyp"), get("flt_onlyc")
+        label_field, color_by = get("flt_label"), get("flt_color")
+        # Guard against stale ranges after the dataset window changes.
+        date_range = (max(date_range[0], min_date), min(date_range[1], max_date))
+        frp_range = (frp_range[0], min(frp_range[1], max(frp_max_val, 1.0)))
 
     mask = (
         (gdf["acq_date"].dt.date >= date_range[0]) & (gdf["acq_date"].dt.date <= date_range[1])
@@ -1109,92 +1132,61 @@ def _render_settings_belt(demo_mode: bool):
             st.rerun()
 
     with st.container(border=True):
-        _section_header("WhatsApp Alert Gateway Configuration")
-        st.caption("Real-time automated and manual high-risk thermal event dispatch to field responders.")
+        _section_header("Critical Alert SMS & Messaging Gateway")
+        st.caption("Automated and manual high-priority text alert dispatch to field responders for CRITICAL thermal events.")
 
-        wa1, wa2 = st.columns(2)
-        with wa1:
-            wa_phone_val = st.text_input(
-                "Recipient WhatsApp Number",
-                value=st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE),
-                key="wa_settings_phone",
-                help="Target WhatsApp mobile number with or without country code.",
+        msg1, msg2 = st.columns(2)
+        with msg1:
+            alert_phone_val = st.text_input(
+                "Recipient Phone Number (SMS)",
+                value=st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE),
+                key="alert_settings_phone",
+                help="Target mobile number for automated critical alerts (+country code or 10 digits).",
             )
-            st.session_state["whatsapp_phone"] = wa_phone_val
-        with wa2:
-            wa_thresh_val = st.slider(
-                "Risk Alert Trigger Threshold",
-                min_value=50.0,
-                max_value=100.0,
-                value=float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD)),
-                step=1.0,
-                key="wa_settings_thresh",
-                help="Thermal events reaching or exceeding this risk score trigger a WhatsApp alert (default >= 85).",
+            st.session_state["alert_phone"] = alert_phone_val
+        with msg2:
+            alert_auto = st.toggle(
+                "Auto-notify on Critical Alerts (Severity = CRITICAL)",
+                value=st.session_state.get("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL),
+                key="alert_settings_auto",
+                help="Automatically dispatch SMS/messages whenever critical thermal events (Risk >= 76 or CRITICAL severity) are detected.",
             )
-            st.session_state["whatsapp_threshold"] = wa_thresh_val
+            st.session_state["alert_auto_dispatch"] = alert_auto
 
-        wa_auto = st.toggle(
-            "Auto-dispatch on Pipeline Run & Risk Recomputation",
-            value=st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED),
-            key="wa_settings_auto",
-            help="Automatically dispatch WhatsApp alerts whenever high-risk events (>= threshold) are detected.",
-        )
-        st.session_state["whatsapp_auto_dispatch"] = wa_auto
+        with st.expander("Twilio SMS & Messaging Channel Credentials", expanded=False):
+            st.caption("Optional credentials for live Twilio SMS, Telegram, and Webhook. If left unconfigured, alerts are safely simulated and recorded to the local audit log.")
+            t_sid = st.text_input("Twilio Account SID", value=config.TWILIO_ACCOUNT_SID, type="password", key="msg_t_sid")
+            t_tok = st.text_input("Twilio Auth Token", value=config.TWILIO_AUTH_TOKEN, type="password", key="msg_t_tok")
+            t_from = st.text_input("Twilio From Phone Number", value=config.TWILIO_FROM_NUMBER, key="msg_t_from")
+            tg_tok = st.text_input("Telegram Bot Token", value=config.TELEGRAM_BOT_TOKEN, type="password", key="msg_tg_tok")
+            tg_cid = st.text_input("Telegram Chat ID", value=config.TELEGRAM_CHAT_ID, key="msg_tg_cid")
+            wb_url = st.text_input("Custom Webhook URL", value=config.ALERT_WEBHOOK_URL, key="msg_wb_url")
 
-        provider_options = ["auto", "simulated", "twilio", "callmebot", "meta", "webhook"]
-        current_prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
-        prov_idx = provider_options.index(current_prov) if current_prov in provider_options else 0
-        wa_prov_val = st.selectbox(
-            "Gateway Provider",
-            options=provider_options,
-            index=prov_idx,
-            key="wa_settings_prov",
-            format_func=lambda x: {
-                "auto": "⚡ Auto-Detect (Twilio / CallMeBot / Meta / Simulated)",
-                "simulated": "🧪 Interactive wa.me & Simulator (Zero-Config)",
-                "twilio": "📞 Twilio WhatsApp API",
-                "callmebot": "🤖 CallMeBot WhatsApp API (Free Personal Gateway)",
-                "meta": "🌐 Meta WhatsApp Cloud API",
-                "webhook": "🔗 Custom Webhook Endpoint",
-            }.get(x, x),
-        )
-        st.session_state["whatsapp_provider"] = wa_prov_val
-
-        with st.expander("API Gateway Credentials & Webhook Settings", expanded=False):
-            st.caption("Optional API keys for direct backend messaging gateways. If empty, the system uses interactive 1-click wa.me dispatch.")
-            c_sid = st.text_input("Twilio Account SID", value=config.TWILIO_ACCOUNT_SID, type="password", key="wa_t_sid")
-            c_tok = st.text_input("Twilio Auth Token", value=config.TWILIO_AUTH_TOKEN, type="password", key="wa_t_tok")
-            c_num = st.text_input("Twilio WhatsApp Number", value=config.TWILIO_WHATSAPP_NUMBER, key="wa_t_num")
-            c_cmb = st.text_input("CallMeBot API Key", value=config.CALLMEBOT_API_KEY, type="password", key="wa_c_cmb")
-            c_wh = st.text_input("Custom Webhook URL", value=config.WHATSAPP_WEBHOOK_URL, key="wa_c_wh")
-
-        if st.button("Send Test WhatsApp Alert to " + wa_phone_val, key="wa_settings_send_test", width="stretch"):
-            from src.alerts import whatsapp as whatsapp_alerts
+        send_phone = alert_phone_val or config.ALERT_RECIPIENT_PHONE
+        if st.button("Send Test Critical Alert Message to " + send_phone, key="msg_settings_send_test", width="stretch"):
+            from src.alerts import messages as alert_messages
             sample_event = {
-                "event_id": "TH-TEST85",
+                "event_id": "TH-TEST-CRIT",
                 "latitude": 22.8046, "longitude": 86.1850,
-                "risk_score": float(wa_thresh_val), "risk_level": "CRITICAL",
+                "risk_score": 88.5, "risk_level": "CRITICAL",
+                "severity": "CRITICAL",
                 "classification": "Likely Industrial Fire",
                 "ai_confidence": 94.2, "frp": 16.5, "persistence_days": 24,
                 "industrial_distance_km": 0.15, "status": "Requires immediate verification.",
             }
-            res = whatsapp_alerts.send_whatsapp_alert(
+            res = alert_messages.send_critical_alert(
                 sample_event,
-                phone=wa_phone_val,
-                threshold=wa_thresh_val,
+                phone=send_phone,
                 force=True,
-                provider=wa_prov_val,
-                twilio_sid=c_sid or None,
-                twilio_token=c_tok or None,
-                twilio_number=c_num or None,
-                callmebot_key=c_cmb or None,
-                webhook_url=c_wh or None,
+                twilio_sid=t_sid or None,
+                twilio_token=t_tok or None,
+                twilio_from=t_from or None,
             )
             if res["status"] in ("delivered", "simulated"):
-                st.success(f"✅ Alert dispatched successfully to {wa_phone_val} via {res['provider'].upper()}!")
-                st.toast(f"Dispatched to {wa_phone_val}", icon="📲")
+                st.success(f"✅ Critical alert message dispatched successfully to {send_phone} ({res['detail']})!")
+                st.toast(f"Dispatched to {send_phone}", icon="📲")
             else:
-                st.error(f"❌ Dispatch failed: {res.get('error', 'Unknown error')}")
+                st.error(f"❌ Dispatch failed: {res.get('detail', 'Unknown error')}")
 
     with st.container(border=True):
         _section_header("3D Holo Globe & Digital Twin Integration")
@@ -1381,78 +1373,61 @@ def _render_live_map(filtered, label_field, color_by):
 
 
 def _render_alerts_tab(alerts):
-    from src.alerts import whatsapp as whatsapp_alerts
+    from src.alerts import messages as alert_messages
 
-    phone = st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE)
-    thresh = float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD))
-    prov = st.session_state.get("whatsapp_provider", config.WHATSAPP_PROVIDER)
+    phone = st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE)
+    auto_active = st.session_state.get("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL)
 
-    # WhatsApp Gateway Status & Quick Action Card
+    # Critical Alert Gateway Status & Quick Action Card
     with st.container(border=True):
         w1, w2, w3 = st.columns([3, 2.2, 1.6])
         with w1:
-            _section_header("WhatsApp Alert Gateway (Active)")
+            _section_header("Critical Alert SMS & Message Dispatch (Automated)")
             st.markdown(
                 f'<div style="font-size:0.85rem;color:var(--ink);">'
-                f'<b>Recipient:</b> <span class="mono" style="color:#25D366;font-weight:600;">{phone}</span> &middot; '
-                f'<b>Trigger Rule:</b> <span class="mono" style="color:var(--ink);">Risk Score &ge; {thresh:.0f}</span> &middot; '
-                f'<b>Provider:</b> <span class="mono" style="color:var(--ink2);">{prov.upper()}</span>'
+                f'<b>Recipient:</b> <span class="mono" style="color:#4d8fc4;font-weight:600;">{phone}</span> &middot; '
+                f'<b>Trigger Rule:</b> <span class="mono" style="color:#e66767;font-weight:600;">Severity = CRITICAL (Risk &ge; {config.ALERT_CRITICAL_RISK_MIN})</span> &middot; '
+                f'<b>Auto-Notify:</b> <span class="mono" style="color:{"#0ca30c" if auto_active else "#fab219"};">{"ENABLED" if auto_active else "DISABLED"}</span>'
                 f'<div style="color:var(--ink2);font-size:0.75rem;margin-top:4px;">'
-                f'Automated dispatch alerts field responders immediately when high-risk hotspots are detected near industrial zones.'
+                f'Automated dispatch instantly transmits SMS and messaging alerts to field responders when CRITICAL thermal events are detected.'
                 f'</div></div>',
                 unsafe_allow_html=True,
             )
         with w2:
             st.markdown(
-                '<div style="font-size:0.78rem;padding:6px 10px;border-radius:4px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.25);color:var(--ink);line-height:1.4;">'
-                '🚨 <b>Alert Template Preview:</b><br>'
+                '<div style="font-size:0.78rem;padding:6px 10px;border-radius:4px;background:rgba(230,103,103,0.08);border:1px solid rgba(230,103,103,0.25);color:var(--ink);line-height:1.4;">'
+                '🚨 <b>Critical Alert Message Template:</b><br>'
                 '<span class="mono" style="font-size:0.72rem;color:var(--ink2);">'
-                'HIGH-RISK THERMAL EVENT DETECTED<br>'
-                'Persistent thermal hotspot near industrial zone.<br>'
+                '🚨 CRITICAL THERMAL EVENT DETECTED<br>'
+                'A high-priority persistent hotspot requires immediate verification.<br>'
                 'Status: Requires immediate verification.'
                 '</span></div>',
                 unsafe_allow_html=True,
             )
         with w3:
             sample_event = alerts[0] if alerts else {
-                "event_id": "TH-DEMO85",
+                "event_id": "TH-DEMO-CRIT",
                 "latitude": 22.8046, "longitude": 86.1850,
                 "risk_score": 88.0, "risk_level": "CRITICAL",
+                "severity": "CRITICAL",
                 "classification": "Likely Industrial Fire",
                 "ai_confidence": 94.5, "frp": 16.2, "persistence_days": 24,
                 "industrial_distance_km": 0.12, "status": "Requires immediate verification.",
             }
-            test_wa_url = whatsapp_alerts.get_whatsapp_web_url(sample_event, phone)
-            st.link_button("💬 Open in WhatsApp", test_wa_url, width="stretch", help=f"Open WhatsApp Web/App with prefilled alert to {phone}")
-            if st.button("📲 Trigger API Dispatch", key="wa_send_test_top", width="stretch", help=f"Send automated API alert to {phone}"):
-                res = whatsapp_alerts.send_whatsapp_alert(sample_event, phone=phone, threshold=thresh, force=True, provider=prov)
-                if res["status"] == "delivered":
-                    st.toast(f"✅ Live WhatsApp alert delivered to {phone}!", icon="📲")
-                    st.success(f"Delivered to {phone} via {res['provider'].upper()}")
-                elif res["status"] == "simulated":
-                    st.info(f"Simulated dispatch ready. Click 'Open in WhatsApp' above or configure CallMeBot API key for automated delivery.")
+            if st.button("📲 Test Critical SMS / Message", key="msg_send_test_top", width="stretch", help=f"Send test critical notification to {phone}"):
+                res = alert_messages.send_critical_alert(sample_event, phone=phone, force=True)
+                if res["status"] in ("delivered", "simulated"):
+                    st.toast(f"✅ Critical alert message dispatched to {phone}!", icon="📲")
+                    st.success(f"Dispatched to {phone} ({res['detail']})")
                 else:
-                    st.error(f"Failed: {res.get('error', 'Unknown error')}")
+                    st.error(f"Failed: {res.get('detail', 'Unknown error')}")
 
-        with st.expander("ℹ️ How to Receive Automated WhatsApp Messages on your Phone (Free 10-Second Setup)", expanded=False):
-            st.markdown(
-                "Because WhatsApp is an end-to-end encrypted platform, automated background alerts from Python require either a Free Gateway or 1-Click WhatsApp Web:<br>"
-                "1. **Option A (Instant 1-Click Browser Dispatch)**: Click any **💬 WhatsApp Web** button next to an alert to send it immediately from your browser/mobile app.<br>"
-                "2. **Option B (Free Automated Background WhatsApp via CallMeBot)**:<br>"
-                "   - Save `+34 941 86 20 64` (CallMeBot) in your phone contacts.<br>"
-                "   - Send this WhatsApp message from `9967541336` to that number: `I allow callmebot to send me messages`<br>"
-                "   - You will receive a reply with your free **API Key** (e.g. `123456`).<br>"
-                "   - Enter that key in the **Settings** page under WhatsApp Gateway Settings.<br>"
-                "3. **Option C (Enterprise Twilio / Meta API)**: Enter your Twilio or Meta WhatsApp API keys in the Settings page.",
-                unsafe_allow_html=True,
-            )
-
-        with st.expander("WhatsApp Dispatch Audit Log", expanded=False):
-            logs = whatsapp_alerts.load_whatsapp_dispatch_log()
+        with st.expander("Critical Alert Message Audit Log", expanded=False):
+            logs = alert_messages.load_critical_dispatch_log()
             if not logs:
-                st.caption("No WhatsApp notifications logged yet in this session.")
+                st.caption("No critical message notifications logged yet in this session.")
             else:
-                log_df = pd.DataFrame(logs)[["timestamp", "recipient", "event_id", "risk_score", "ai_confidence", "status", "provider"]]
+                log_df = pd.DataFrame(logs)[["timestamp", "recipient", "event_id", "risk_score", "severity", "status", "channel", "detail"]]
                 st.dataframe(log_df, hide_index=True, width="stretch")
 
     if not alerts:
@@ -1465,15 +1440,15 @@ def _render_alerts_tab(alerts):
         event_id = a.get("event_id", a.get("grid_cell", "?"))
         risk_val = float(a.get("risk_score", 0))
         ai_conf = float(a.get("ai_confidence", 85.0))
-        is_wa_triggered = risk_val >= thresh
+        is_crit = a.get("severity") == "CRITICAL" or risk_val >= config.ALERT_CRITICAL_RISK_MIN
 
-        wa_badge_html = ""
-        if is_wa_triggered:
-            wa_badge_html = (
+        crit_badge_html = ""
+        if is_crit:
+            crit_badge_html = (
                 f'<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;'
-                f'padding:3px 8px;border-radius:4px;background:rgba(37,211,102,0.12);'
-                f'border:1px solid rgba(37,211,102,0.35);font-size:0.75rem;color:#25D366;font-family:var(--font-mono,monospace);">'
-                f'📲 <b>WHATSAPP TRIGGERED</b> &middot; Recipient: {phone} &middot; Risk: {risk_val:.1f} &ge; {thresh:.0f} &middot; AI Conf: {ai_conf:.1f}%</div>'
+                f'padding:3px 8px;border-radius:4px;background:rgba(230,103,103,0.12);'
+                f'border:1px solid rgba(230,103,103,0.35);font-size:0.75rem;color:#e66767;font-family:var(--font-mono,monospace);">'
+                f'🚨 <b>AUTO-NOTIFIED (CRITICAL)</b> &middot; Recipient: {phone} &middot; Risk: {risk_val:.1f}/100 &middot; AI Conf: {ai_conf:.1f}%</div>'
             )
 
         st.markdown(
@@ -1484,22 +1459,19 @@ def _render_alerts_tab(alerts):
             f'AI Confidence: {ai_conf:.1f}% &middot; '
             f'Persistence: {a["persistence_days"]}d &middot; FRP: {a["frp"]:.1f} MW &middot; '
             f'Status: {a["status"]}</div>'
-            f'{wa_badge_html}</div>',
+            f'{crit_badge_html}</div>',
             unsafe_allow_html=True,
         )
 
-        b1, b2, b3, b4 = st.columns([1.2, 1.2, 1.4, 1.2])
+        b1, b2, b3 = st.columns([1.2, 1.2, 1.6])
         b1.button("View on Map", key=f"alert_view_{i}", width="stretch", disabled=True, help="Switch to the Live Map tab and locate this cell manually.")
         b2.button("Investigate", key=f"alert_inv_{i}", width="stretch", disabled=True, help="Open the Investigations tab and select this grid cell.")
-
-        wa_web_url = whatsapp_alerts.get_whatsapp_web_url(a, phone)
-        b3.link_button("💬 WhatsApp Web", wa_web_url, width="stretch", help="Open WhatsApp Web or App directly with prefilled alert message.")
-        if b4.button("📲 Send Alert", key=f"alert_wa_send_{i}", width="stretch", help=f"Dispatch notification to {phone}"):
-            res = whatsapp_alerts.send_whatsapp_alert(a, phone=phone, threshold=thresh, force=True, provider=prov)
+        if b3.button("📲 Send Critical Alert", key=f"alert_crit_send_{i}", width="stretch", help=f"Dispatch critical notification to {phone}"):
+            res = alert_messages.send_critical_alert(a, phone=phone, force=True)
             if res["status"] in ("delivered", "simulated"):
-                st.toast(f"✅ Alert dispatched for {event_id} to {phone}!", icon="📲")
+                st.toast(f"✅ Critical alert message dispatched for {event_id} to {phone}!", icon="📲")
             else:
-                st.error(f"Dispatch failed: {res.get('error', 'Error')}")
+                st.error(f"Dispatch failed: {res.get('detail', 'Error')}")
 
 
 def _render_analytics(filtered, filtered_clusters, run_info):
@@ -1814,15 +1786,20 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
         cluster = MarkerCluster(disableClusteringAtZoom=8, maxClusterRadius=40,
                                  icon_create_function=CLUSTER_ICON_JS, name="Events").add_to(m)
         for _, row in points.iterrows():
-            color = RISK_COLORS.get(row.get("risk_level"), "#4d8fc4")
-            risk_pct = max(0, min(100, row.get("risk_score", 0)))
+            risk_level_value = row.get("risk_level")
+            risk_key = str(risk_level_value).upper() if risk_level_value is not None else "LOW"
+            color = RISK_COLORS.get(risk_key, "#4d8fc4")
+            risk_score_value = row.get("risk_score", 0)
+            risk_pct = max(0.0, min(100.0, float(risk_score_value or 0)))
+            frp_value = row.get("frp", row.get("avg_frp", 0))
+            frp = float(frp_value) if frp_value is not None else 0.0
             popup = (
                 f'<div style="font-family:{FONT_STACK};font-size:12.5px;line-height:1.6;min-width:180px;">'
                 f"<b style='color:{color}'>{row.get('event_id', row.get('grid_cell', '?'))}</b><br>"
                 f"<span style='color:#9a9da1;'>{row.get('state', 'Unknown state')}</span><br>"
                 f'<div style="height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin:.3rem 0 .5rem;">'
                 f'<div style="height:100%;width:{risk_pct}%;background:{color};border-radius:2px;"></div></div>'
-                f"FRP: {row.get('frp', row.get('avg_frp', 0)):.1f} MW &middot; Risk: {row.get('risk_level', '?')}"
+                f"FRP: {frp:.1f} MW &middot; Risk: {risk_level_value if risk_level_value is not None else '?'}"
                 f"</div>"
             )
             folium.CircleMarker(
@@ -1967,7 +1944,7 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
             auto_rotate=auto_spin,
             min_risk=min_risk_val,
         )
-        st.components.v1.html(globe_html, height=730, scrolling=False)
+        components.html(globe_html, height=730, scrolling=False)
 
         # Quick guide & tips beneath the globe
         g1, g2 = st.columns([3, 2])
@@ -1986,7 +1963,8 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
             st.session_state["holo_host_url"] = holo_url_input
         with i2:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            st.link_button("↗ Open in New Window", holo_url_input, width="stretch",
+            holo_url = holo_url_input or "http://localhost:5173"
+            st.link_button("↗ Open in New Window", holo_url, width="stretch",
                            help="Open the standalone React + Three.js application in a full browser tab")
         with i3:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
@@ -1994,7 +1972,7 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
                 st.rerun()
 
         # Iframe component
-        st.components.v1.iframe(holo_url_input, height=730, scrolling=True)
+        components.iframe(holo_url_input or "http://localhost:5173", height=730, scrolling=True)
 
         with st.expander("🛠️ How to launch the Holo-View-Maker Dev Server locally", expanded=False):
             st.markdown(
@@ -2288,59 +2266,49 @@ def _render_settings_national(demo_mode: bool):
         st.caption("National risk weights: " + ", ".join(f"{k} {v:.0%}" for k, v in config.NATIONAL_RISK_WEIGHTS.items()))
 
     with st.container(border=True):
-        _section_header("WhatsApp Alert Gateway Configuration")
-        st.caption("Real-time automated and manual high-risk thermal event dispatch to field responders.")
+        _section_header("Critical Alert SMS & Messaging Gateway")
+        st.caption("Automated and manual high-priority text alert dispatch to field responders for CRITICAL thermal events.")
 
-        wa1, wa2 = st.columns(2)
-        with wa1:
-            wa_phone_val = st.text_input(
-                "Recipient WhatsApp Number",
-                value=st.session_state.get("whatsapp_phone", config.WHATSAPP_RECIPIENT_PHONE),
-                key="wa_settings_phone_nat",
-                help="Target WhatsApp mobile number with or without country code.",
+        msg1, msg2 = st.columns(2)
+        with msg1:
+            alert_phone_val = st.text_input(
+                "Recipient Phone Number (SMS)",
+                value=st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE),
+                key="alert_settings_phone_nat",
+                help="Target mobile number for automated critical alerts (+country code or 10 digits).",
             )
-            st.session_state["whatsapp_phone"] = wa_phone_val
-        with wa2:
-            wa_thresh_val = st.slider(
-                "Risk Alert Trigger Threshold",
-                min_value=50.0,
-                max_value=100.0,
-                value=float(st.session_state.get("whatsapp_threshold", config.WHATSAPP_RISK_THRESHOLD)),
-                step=1.0,
-                key="wa_settings_thresh_nat",
-                help="Thermal events reaching or exceeding this risk score trigger a WhatsApp alert (default >= 85).",
+            st.session_state["alert_phone"] = alert_phone_val
+        with msg2:
+            alert_auto = st.toggle(
+                "Auto-notify on Critical Alerts (Severity = CRITICAL)",
+                value=st.session_state.get("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL),
+                key="alert_settings_auto_nat",
+                help="Automatically dispatch SMS/messages whenever critical thermal events (Risk >= 76 or CRITICAL severity) are detected.",
             )
-            st.session_state["whatsapp_threshold"] = wa_thresh_val
+            st.session_state["alert_auto_dispatch"] = alert_auto
 
-        wa_auto = st.toggle(
-            "Auto-dispatch on Pipeline Run",
-            value=st.session_state.get("whatsapp_auto_dispatch", config.WHATSAPP_ENABLED),
-            key="wa_settings_auto_nat",
-            help="Automatically dispatch WhatsApp alerts whenever high-risk events (>= threshold) are detected.",
-        )
-        st.session_state["whatsapp_auto_dispatch"] = wa_auto
-
-        if st.button("Send Test WhatsApp Alert to " + wa_phone_val, key="wa_settings_send_test_nat", width="stretch"):
-            from src.alerts import whatsapp as whatsapp_alerts
+        send_phone_nat = alert_phone_val or config.ALERT_RECIPIENT_PHONE
+        if st.button("Send Test Critical Alert Message to " + send_phone_nat, key="msg_settings_send_test_nat", width="stretch"):
+            from src.alerts import messages as alert_messages
             sample_event = {
-                "event_id": "TH-INDIA85",
+                "event_id": "TH-INDIA-CRIT",
                 "latitude": 22.8046, "longitude": 86.1850,
-                "risk_score": float(wa_thresh_val), "risk_level": "CRITICAL",
+                "risk_score": 88.5, "risk_level": "CRITICAL",
+                "severity": "CRITICAL",
                 "classification": "Likely Industrial Fire",
                 "ai_confidence": 94.2, "frp": 16.5, "persistence_days": 24,
                 "industrial_distance_km": 0.15, "status": "Requires immediate verification.",
             }
-            res = whatsapp_alerts.send_whatsapp_alert(
+            res = alert_messages.send_critical_alert(
                 sample_event,
-                phone=wa_phone_val,
-                threshold=wa_thresh_val,
+                phone=send_phone_nat,
                 force=True,
             )
             if res["status"] in ("delivered", "simulated"):
-                st.success(f"✅ Alert dispatched successfully to {wa_phone_val} via {res['provider'].upper()}!")
-                st.toast(f"Dispatched to {wa_phone_val}", icon="📲")
+                st.success(f"✅ Critical alert message dispatched successfully to {send_phone_nat} ({res['detail']})!")
+                st.toast(f"Dispatched to {send_phone_nat}", icon="📲")
             else:
-                st.error(f"❌ Dispatch failed: {res.get('error', 'Unknown error')}")
+                st.error(f"❌ Dispatch failed: {res.get('detail', 'Unknown error')}")
 
     with st.container(border=True):
         _section_header("3D Holo Globe & Digital Twin Integration")

@@ -9,6 +9,28 @@ import pandas as pd
 import config
 
 
+def _extract_names(zones: gpd.GeoDataFrame) -> pd.Series:
+    """Read a zone name from either a flat column or the nested OSM tags dict."""
+    if zones is None or zones.empty:
+        return pd.Series(dtype="object")
+
+    def _name(row):
+        if isinstance(row, dict):
+            row = pd.Series(row)
+        if "name" in row and not pd.isna(row["name"]):
+            return row["name"]
+        nested = row.get("tags") if isinstance(row, dict) else row.get("tags") if hasattr(row, "get") else None
+        if isinstance(nested, dict):
+            for key in ("name", "official_name"):
+                value = nested.get(key)
+                if value is not None and not pd.isna(value):
+                    return value
+        return None
+
+    series = zones.apply(_name, axis=1)
+    return pd.Series(series, index=zones.index, dtype="object")
+
+
 def _points_gdf(df: pd.DataFrame) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df["longitude"], df["latitude"]), crs="EPSG:4326")
 
@@ -96,16 +118,15 @@ def add_industrial_distances(df: pd.DataFrame, industrial_zones: gpd.GeoDataFram
     points_m = _points_gdf(df).to_crs(config.UTM_CRS)
     zones_m = industrial_zones.to_crs(config.UTM_CRS).copy()
     zones_m["_kind"] = _classify_zone_kind(industrial_zones)
-    name_col = "name" if "name" in zones_m.columns else None
+    zones_m["_name"] = _extract_names(industrial_zones)
 
     def _nearest(zone_subset: gpd.GeoDataFrame) -> tuple[pd.Series, pd.Series]:
         if zone_subset.empty:
             return pd.Series([float("nan")] * len(points_m)), pd.Series([None] * len(points_m))
-        nearest = gpd.sjoin_nearest(points_m, zone_subset[["geometry"] + ([name_col] if name_col else [])],
-                                     how="left", distance_col="_dist_m")
+        nearest = gpd.sjoin_nearest(points_m, zone_subset[["geometry", "_name"]], how="left", distance_col="_dist_m")
         nearest = nearest[~nearest.index.duplicated(keep="first")]
         dist_km = (nearest["_dist_m"] / 1000).round(3)
-        names = nearest[name_col] if name_col else pd.Series([None] * len(nearest), index=nearest.index)
+        names = nearest["_name"]
         return dist_km, names
 
     industrial_dist, industrial_names = _nearest(zones_m)
