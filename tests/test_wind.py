@@ -1,4 +1,3 @@
-import math
 
 import pytest
 
@@ -55,7 +54,7 @@ def test_dispersion_cone_polygon_points_downwind():
     apex = poly[0]
     assert apex == (23.0, 85.0)
     assert len(poly) == 9  # apex + 7 arc points + apex (closes the ring)
-    for lat, lon in poly[1:-1]:
+    for lat, _lon in poly[1:-1]:
         assert lat < 23.0  # south of the apex
 
 

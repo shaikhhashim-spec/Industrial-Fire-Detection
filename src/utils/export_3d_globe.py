@@ -6,12 +6,13 @@ detections into the `ThermalEvent` JSON schema expected by the React + Three.js
 """
 from __future__ import annotations
 
+import base64
+import functools
 import json
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 
 import config
@@ -29,6 +30,40 @@ CATEGORY_VALID_SET = {
 
 DEFAULT_OUTPUT_PUBLIC = config.BASE_DIR / "holo-view-maker" / "public" / "data" / "events.json"
 DEFAULT_OUTPUT_DIST = config.OUTPUT_DIR / "holo_events.json"
+
+# Above this many simultaneous ground markers, the fixed-size halo rings
+# start overlapping into an unreadable solid blob (each marker is a real
+# beam + halo + core, not a lightweight point) — cap to the highest-risk
+# subset instead, mirroring app.py's existing TIMELAPSE_MAX_POINTS pattern
+# for the 2D map's timelapse layer.
+MAX_RENDERED_GLOBE_EVENTS = 400
+
+# Local Earth texture set bundled with holo-view-maker — reused here so the
+# embedded globe below doesn't depend on live CDN fetches for its base
+# rendering. Falls back to the existing CDN URLs if this folder is absent
+# (e.g. a deployment that ships only the Python app).
+_TEXTURES_DIR = config.BASE_DIR / "holo-view-maker" / "public" / "textures"
+_COASTLINE_PATH = config.BASE_DIR / "holo-view-maker" / "public" / "geo" / "land-110m.geojson"
+
+
+@functools.lru_cache(maxsize=None)
+def _local_texture_data_uri(filename: str, mime: str) -> str | None:
+    """Reads a bundled texture once per process and returns it as a data: URI, or None if unavailable."""
+    path = _TEXTURES_DIR / filename
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None
+    return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+
+
+@functools.lru_cache(maxsize=None)
+def _local_coastline_geojson() -> str | None:
+    """Reads the bundled Natural Earth 110m land geojson once per process, or None if unavailable."""
+    try:
+        return _COASTLINE_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return None
 
 
 def _normalize_category(label: Any) -> str:
@@ -364,11 +399,51 @@ def generate_embedded_3d_globe_html(
     if events is None:
         events = load_or_export_holo_events()
 
-    filtered_events = [e for e in events if e.get("riskScore", 0) >= min_risk]
+    all_filtered_events = [e for e in events if e.get("riskScore", 0) >= min_risk]
+    total_filtered_count = len(all_filtered_events)
+    hidden_count = 0
+    if total_filtered_count > MAX_RENDERED_GLOBE_EVENTS:
+        # Capping by risk score alone collapses onto whichever single region
+        # scores highest (e.g. the Jharkhand-Odisha belt, which runs the full
+        # AI pipeline and so scores systematically higher than the lighter
+        # national heuristic) — every other region's markers would vanish
+        # even though real detections exist there too. Bucket by a coarse
+        # lat/lon grid first so every populated region keeps a fair share,
+        # then cap to the target count from that geographically-spread pool.
+        buckets: dict[tuple[int, int], list[dict]] = {}
+        for e in all_filtered_events:
+            key = (round(e.get("latitude", 0.0) / 2), round(e.get("longitude", 0.0) / 2))
+            buckets.setdefault(key, []).append(e)
+        per_bucket_cap = max(1, MAX_RENDERED_GLOBE_EVENTS // max(1, len(buckets)) + 2)
+        diversified: list[dict] = []
+        for bucket_events in buckets.values():
+            bucket_events.sort(key=lambda e: e.get("riskScore", 0), reverse=True)
+            diversified.extend(bucket_events[:per_bucket_cap])
+        diversified.sort(key=lambda e: e.get("riskScore", 0), reverse=True)
+        filtered_events = diversified[:MAX_RENDERED_GLOBE_EVENTS]
+        hidden_count = total_filtered_count - len(filtered_events)
+    else:
+        filtered_events = all_filtered_events
     events_json_str = json.dumps(filtered_events)
     color_by_mode = "risk" if color_by.lower() == "risk" else "category"
     auto_rotate_js = "true" if auto_rotate else "false"
     selected_id_js = f'"{selected_event_id}"' if selected_event_id else "null"
+
+    # Local-first texture set (bundled with holo-view-maker) — each falls
+    # back to the existing live CDN URL below if the local file is missing.
+    local_day_tex = _local_texture_data_uri("earth_atmos_2048.jpg", "image/jpeg")
+    local_normal_tex = _local_texture_data_uri("earth_normal_2048.jpg", "image/jpeg")
+    local_specular_tex = _local_texture_data_uri("earth_specular_2048.jpg", "image/jpeg")
+    local_lights_tex = _local_texture_data_uri("earth_lights_2048.png", "image/png")
+    local_clouds_tex = _local_texture_data_uri("earth_clouds_1024.png", "image/png")
+    coastline_geojson = _local_coastline_geojson()
+
+    local_day_tex_js = json.dumps(local_day_tex)
+    local_normal_tex_js = json.dumps(local_normal_tex)
+    local_specular_tex_js = json.dumps(local_specular_tex)
+    local_lights_tex_js = json.dumps(local_lights_tex)
+    local_clouds_tex_js = json.dumps(local_clouds_tex)
+    coastline_geojson_js = coastline_geojson if coastline_geojson else "null"
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -467,6 +542,7 @@ def generate_embedded_3d_globe_html(
   <div class="hud hud-header">
     <div class="hud-title"><span class="pulse-dot"></span> SIH26162 · 3D ORBITAL THERMAL RADAR</div>
     <div class="hud-subtitle">Interactive Digital Twin &middot; High-Resolution 2D Satellite Inspection</div>
+    {f'<div class="hud-subtitle" style="color:#fab219;">Showing top {len(filtered_events)} of {total_filtered_count} by risk score — raise Min Risk Score or narrow the region to see fewer, less-overlapping markers</div>' if hidden_count else ''}
   </div>
 
   <!-- HUD Altitude & Status -->
@@ -478,20 +554,20 @@ def generate_embedded_3d_globe_html(
   <!-- HUD Stats -->
   <div class="hud hud-stats">
     <div class="stat-pill">
-      <div class="lbl">Total Active</div>
-      <div class="val" id="stat-total">{len(filtered_events)}</div>
+      <div class="lbl">{"Shown / Total" if hidden_count else "Total Active"}</div>
+      <div class="val" id="stat-total">{f"{len(filtered_events)} / {total_filtered_count}" if hidden_count else len(filtered_events)}</div>
     </div>
     <div class="stat-pill">
       <div class="lbl">Critical Risk</div>
-      <div class="val" style="color:#e66767;" id="stat-critical">{sum(1 for e in filtered_events if e.get("riskLevel") == "CRITICAL")}</div>
+      <div class="val" style="color:#e66767;" id="stat-critical">{sum(1 for e in all_filtered_events if e.get("riskLevel") == "CRITICAL")}</div>
     </div>
     <div class="stat-pill">
       <div class="lbl">High Risk</div>
-      <div class="val" style="color:#ec835a;" id="stat-high">{sum(1 for e in filtered_events if e.get("riskLevel") == "HIGH")}</div>
+      <div class="val" style="color:#ec835a;" id="stat-high">{sum(1 for e in all_filtered_events if e.get("riskLevel") == "HIGH")}</div>
     </div>
     <div class="stat-pill">
       <div class="lbl">Total FRP</div>
-      <div class="val" style="color:#fab219;" id="stat-frp">{sum(e.get("frp", 0) for e in filtered_events):.0f} MW</div>
+      <div class="val" style="color:#fab219;" id="stat-frp">{sum(e.get("frp", 0) for e in all_filtered_events):.0f} MW</div>
     </div>
   </div>
 
@@ -546,6 +622,7 @@ def generate_embedded_3d_globe_html(
   <script>
     // --- Configuration & Constants ---
     const RAW_EVENTS = {events_json_str};
+    const COASTLINE_GEOJSON = {coastline_geojson_js};
     let colorByMode = "{color_by_mode}";
     let isSpinning = {auto_rotate_js};
     let initialSelectedId = {selected_id_js};
@@ -647,40 +724,76 @@ def generate_embedded_3d_globe_html(
     const earthGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 128, 128);
     
     function createProceduralEarthCanvas() {{
+      // Soft placeholder gradient shown only until the real Blue Marble
+      // texture finishes loading (or if the CDN is unreachable) — no fake
+      // landmass shapes, just a neutral ocean tone so it never misleads.
       const canvas = document.createElement('canvas');
-      canvas.width = 2048;
-      canvas.height = 1024;
+      canvas.width = 1024;
+      canvas.height = 512;
       const ctx = canvas.getContext('2d');
       const oceanGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      oceanGrad.addColorStop(0, '#0a2342');
+      oceanGrad.addColorStop(0, '#123a5e');
       oceanGrad.addColorStop(0.5, '#0d325c');
       oceanGrad.addColorStop(1, '#081c36');
       ctx.fillStyle = oceanGrad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#2c4c38';
-      ctx.beginPath();
-      ctx.ellipse(1400, 360, 420, 220, 0, 0, Math.PI * 2);
-      ctx.fill();
       return new THREE.CanvasTexture(canvas);
     }}
 
     const defaultDayTex = createProceduralEarthCanvas();
     const earthMat = new THREE.MeshPhongMaterial({{
       map: defaultDayTex,
-      specular: new THREE.Color(0x224466),
-      shininess: 15,
-      bumpScale: 0.04
+      specular: new THREE.Color(0x1b4a68),
+      shininess: 22
     }});
     const earthMesh = new THREE.Mesh(earthGeo, earthMat);
     earthGroup.add(earthMesh);
 
+    // Local-first texture set bundled with the app (instant, zero network
+    // dependency) — falls back to the live CDN copy only if the local file
+    // wasn't available when the page was generated.
+    const LOCAL_DAY_TEX = {local_day_tex_js};
+    const LOCAL_NORMAL_TEX = {local_normal_tex_js};
+    const LOCAL_SPECULAR_TEX = {local_specular_tex_js};
+
     texLoader.load(
-      "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
+      LOCAL_DAY_TEX || "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
       (tex) => {{
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 16;
         tex.generateMipmaps = true;
         earthMat.map = tex;
+        earthMat.needsUpdate = true;
+      }}
+    );
+
+    // Real terrain relief — mountain ranges, ridges, and coastal shelves
+    // catch the sun light instead of the whole globe looking like a flat
+    // painted ball. Prefer a proper normal map (local asset); fall back to
+    // a plain bump map from the CDN copy if the local texture is missing.
+    if (LOCAL_NORMAL_TEX) {{
+      texLoader.load(LOCAL_NORMAL_TEX, (tex) => {{
+        earthMat.normalMap = tex;
+        earthMat.normalScale = new THREE.Vector2(0.85, 0.85);
+        earthMat.needsUpdate = true;
+      }});
+    }} else {{
+      texLoader.load(
+        "https://unpkg.com/three-globe/example/img/earth-topology.png",
+        (tex) => {{
+          earthMat.bumpMap = tex;
+          earthMat.bumpScale = 0.045;
+          earthMat.needsUpdate = true;
+        }}
+      );
+    }}
+
+    // Ocean specular mask — makes seas glint under the sun while land
+    // stays matte, instead of one uniform specular value everywhere.
+    texLoader.load(
+      LOCAL_SPECULAR_TEX || "https://unpkg.com/three-globe/example/img/earth-water.png",
+      (tex) => {{
+        earthMat.specularMap = tex;
         earthMat.needsUpdate = true;
       }}
     );
@@ -728,6 +841,24 @@ def generate_embedded_3d_globe_html(
     const regionalPatchMesh = new THREE.Mesh(regionalPatchGeo, regionalPatchMat);
     earthGroup.add(regionalPatchMesh);
 
+    // Shared tile loader with one retry, then a neutral-tint fallback —
+    // a flaky/blocked tile server previously left a permanent blank gap
+    // with no retry and no visual indication anything had failed.
+    function loadTileImage(url, onload, onfail, retriesLeft) {{
+      if (retriesLeft === undefined) retriesLeft = 1;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => onload(img);
+      img.onerror = () => {{
+        if (retriesLeft > 0) {{
+          setTimeout(() => loadTileImage(url, onload, onfail, retriesLeft - 1), 500);
+        }} else {{
+          onfail();
+        }}
+      }};
+      img.src = url;
+    }}
+
     // Dynamic Esri Satellite Tile Stitcher for Regional Curved Patch
     function loadRegionalHighResSatelliteTiles() {{
       const z = 8; // Zoom level 8 provides high-detail ~600m resolution per tile
@@ -746,25 +877,32 @@ def generate_embedded_3d_globe_html(
 
       for (let x = startX; x <= endX; x++) {{
         for (let y = startY; y <= endY; y++) {{
-          const tileImg = new Image();
-          tileImg.crossOrigin = "anonymous";
           const curX = x, curY = y;
-          tileImg.onload = () => {{
-            const tileLonLeft = (curX / n) * 360 - 180;
-            const tileLonRight = ((curX + 1) / n) * 360 - 180;
-            const tileLatTop = Math.atan(Math.sinh(Math.PI * (1 - (2 * curY) / n))) * 180 / Math.PI;
-            const tileLatBottom = Math.atan(Math.sinh(Math.PI * (1 - (2 * (curY + 1)) / n))) * 180 / Math.PI;
+          const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${{z}}/${{curY}}/${{curX}}`;
 
-            // Map into the regional patch 2048x2048 canvas
-            const dx = ((tileLonLeft - REG_MIN_LON) / (REG_MAX_LON - REG_MIN_LON)) * regionalCanvas.width;
-            const dw = ((tileLonRight - tileLonLeft) / (REG_MAX_LON - REG_MIN_LON)) * regionalCanvas.width;
-            const dy = ((REG_MAX_LAT - tileLatTop) / (REG_MAX_LAT - REG_MIN_LAT)) * regionalCanvas.height;
-            const dh = ((tileLatTop - tileLatBottom) / (REG_MAX_LAT - REG_MIN_LAT)) * regionalCanvas.height;
+          const tileLonLeft = (curX / n) * 360 - 180;
+          const tileLonRight = ((curX + 1) / n) * 360 - 180;
+          const tileLatTop = Math.atan(Math.sinh(Math.PI * (1 - (2 * curY) / n))) * 180 / Math.PI;
+          const tileLatBottom = Math.atan(Math.sinh(Math.PI * (1 - (2 * (curY + 1)) / n))) * 180 / Math.PI;
 
-            regionalCtx.drawImage(tileImg, dx, dy, dw + 1, dh + 1);
-            regionalSatTexture.needsUpdate = true;
-          }};
-          tileImg.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${{z}}/${{curY}}/${{curX}}`;
+          // Map into the regional patch 2048x2048 canvas
+          const dx = ((tileLonLeft - REG_MIN_LON) / (REG_MAX_LON - REG_MIN_LON)) * regionalCanvas.width;
+          const dw = ((tileLonRight - tileLonLeft) / (REG_MAX_LON - REG_MIN_LON)) * regionalCanvas.width;
+          const dy = ((REG_MAX_LAT - tileLatTop) / (REG_MAX_LAT - REG_MIN_LAT)) * regionalCanvas.height;
+          const dh = ((tileLatTop - tileLatBottom) / (REG_MAX_LAT - REG_MIN_LAT)) * regionalCanvas.height;
+
+          loadTileImage(
+            tileUrl,
+            (img) => {{
+              regionalCtx.drawImage(img, dx, dy, dw + 1, dh + 1);
+              regionalSatTexture.needsUpdate = true;
+            }},
+            () => {{
+              regionalCtx.fillStyle = "#223826";
+              regionalCtx.fillRect(dx, dy, dw + 1, dh + 1);
+              regionalSatTexture.needsUpdate = true;
+            }}
+          );
         }}
       }}
     }}
@@ -833,32 +971,40 @@ def generate_embedded_3d_globe_html(
 
       for (let x = startX; x <= endX; x++) {{
         for (let y = startY; y <= endY; y++) {{
-          const tileImg = new Image();
-          tileImg.crossOrigin = "anonymous";
           const curX = x, curY = y;
-          tileImg.onload = () => {{
-            const tileLonLeft = (curX / n) * 360 - 180;
-            const tileLonRight = ((curX + 1) / n) * 360 - 180;
-            const tileLatTop = Math.atan(Math.sinh(Math.PI * (1 - (2 * curY) / n))) * 180 / Math.PI;
-            const tileLatBottom = Math.atan(Math.sinh(Math.PI * (1 - (2 * (curY + 1)) / n))) * 180 / Math.PI;
+          const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${{z}}/${{curY}}/${{curX}}`;
 
-            const dx = ((tileLonLeft - minLon) / (maxLon - minLon)) * localCanvas.width;
-            const dw = ((tileLonRight - tileLonLeft) / (maxLon - minLon)) * localCanvas.width;
-            const dy = ((maxLat - tileLatTop) / (maxLat - minLat)) * localCanvas.height;
-            const dh = ((tileLatTop - tileLatBottom) / (maxLat - minLat)) * localCanvas.height;
+          const tileLonLeft = (curX / n) * 360 - 180;
+          const tileLonRight = ((curX + 1) / n) * 360 - 180;
+          const tileLatTop = Math.atan(Math.sinh(Math.PI * (1 - (2 * curY) / n))) * 180 / Math.PI;
+          const tileLatBottom = Math.atan(Math.sinh(Math.PI * (1 - (2 * (curY + 1)) / n))) * 180 / Math.PI;
 
-            localCtx.drawImage(tileImg, dx, dy, dw + 1, dh + 1);
-            localTexture.needsUpdate = true;
-          }};
-          tileImg.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${{z}}/${{curY}}/${{curX}}`;
+          const dx = ((tileLonLeft - minLon) / (maxLon - minLon)) * localCanvas.width;
+          const dw = ((tileLonRight - tileLonLeft) / (maxLon - minLon)) * localCanvas.width;
+          const dy = ((maxLat - tileLatTop) / (maxLat - minLat)) * localCanvas.height;
+          const dh = ((tileLatTop - tileLatBottom) / (maxLat - minLat)) * localCanvas.height;
+
+          loadTileImage(
+            tileUrl,
+            (img) => {{
+              localCtx.drawImage(img, dx, dy, dw + 1, dh + 1);
+              localTexture.needsUpdate = true;
+            }},
+            () => {{
+              localCtx.fillStyle = "#223826";
+              localCtx.fillRect(dx, dy, dw + 1, dh + 1);
+              localTexture.needsUpdate = true;
+            }}
+          );
         }}
       }}
     }}
 
     // 4. City lights on the dark side
+    const LOCAL_LIGHTS_TEX = {local_lights_tex_js};
     let lightsMesh = null;
     texLoader.load(
-      "https://unpkg.com/three-globe/example/img/earth-night.jpg",
+      LOCAL_LIGHTS_TEX || "https://unpkg.com/three-globe/example/img/earth-night.jpg",
       (lightsTex) => {{
         lightsTex.colorSpace = THREE.SRGBColorSpace;
         const lightsMat = new THREE.MeshBasicMaterial({{
@@ -874,9 +1020,10 @@ def generate_embedded_3d_globe_html(
     );
 
     // 5. Drifting cloud shell
+    const LOCAL_CLOUDS_TEX = {local_clouds_tex_js};
     let cloudsMesh = null;
     texLoader.load(
-      "https://unpkg.com/three-globe/example/img/clouds.png",
+      LOCAL_CLOUDS_TEX || "https://unpkg.com/three-globe/example/img/clouds.png",
       (cloudsTex) => {{
         const cloudsMat = new THREE.MeshLambertMaterial({{
           map: cloudsTex,
@@ -981,6 +1128,32 @@ def generate_embedded_3d_globe_html(
       return {{ lat, lon }};
     }}
 
+    // Real coastline outlines (Natural Earth 110m land polygons, bundled
+    // locally) — the globe previously relied purely on the photo texture
+    // for landmass shape, with no actual geographic line data.
+    function buildCoastlines() {{
+      if (!COASTLINE_GEOJSON) return;
+      const coastMat = new THREE.LineBasicMaterial({{ color: 0x8fa8c2, transparent: true, opacity: 0.4 }});
+      const coastRadius = GLOBE_RADIUS * 1.002;
+
+      function addRing(ring) {{
+        const pts = ring.map(([lon, lat]) => latLonToVec3(lat, lon, coastRadius));
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        earthGroup.add(new THREE.LineLoop(geo, coastMat));
+      }}
+
+      COASTLINE_GEOJSON.features.forEach((feature) => {{
+        const geom = feature && feature.geometry;
+        if (!geom) return;
+        if (geom.type === "Polygon") {{
+          geom.coordinates.forEach(addRing);
+        }} else if (geom.type === "MultiPolygon") {{
+          geom.coordinates.forEach((rings) => rings.forEach(addRing));
+        }}
+      }});
+    }}
+    buildCoastlines();
+
     // --- Thermal Beams & Ground Markers ---
     const markersGroup = new THREE.Group();
     earthGroup.add(markersGroup);
@@ -1006,12 +1179,21 @@ def generate_embedded_3d_globe_html(
       haloMeshes.length = 0;
       beamMeshes.length = 0;
 
+      // With hundreds of markers genuinely spread across a wide geographic
+      // area (not clustered in one small region), tall beams fan out into
+      // a chaotic "hedgehog" silhouette from almost any camera angle —
+      // each one individually correct (radially outward from its own
+      // point), but visually unreadable en masse. Scale beam height down
+      // as the rendered count grows so a wide spread reads as clean
+      // scattered points instead.
+      const densityFactor = Math.max(0.25, Math.min(1.0, 60 / RAW_EVENTS.length));
+
       RAW_EVENTS.forEach(event => {{
         const pos = latLonToVec3(event.latitude, event.longitude, GLOBE_RADIUS);
         const normal = pos.clone().normalize();
         const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
 
-        const baseHeight = 0.08 + (event.riskScore / 100) * 0.44;
+        const baseHeight = (0.015 + (event.riskScore / 100) * 0.045) * densityFactor;
         const colorHex = getEventColor(event);
         const color = new THREE.Color(colorHex);
 
@@ -1021,7 +1203,7 @@ def generate_embedded_3d_globe_html(
         beamGroup.userData = {{ event, baseHeight }};
 
         // 1. Vertical Glowing Cylinder Beam
-        const cylGeo = new THREE.CylinderGeometry(0.008, 0.016, baseHeight, 12);
+        const cylGeo = new THREE.CylinderGeometry(0.004, 0.008, baseHeight, 12);
         const cylMat = new THREE.MeshBasicMaterial({{
           color: color,
           transparent: true,
@@ -1032,18 +1214,20 @@ def generate_embedded_3d_globe_html(
         beamGroup.add(cylinder);
 
         // 2. Glowing Head Beacon
-        const sphereGeo = new THREE.SphereGeometry(0.028, 16, 16);
+        const sphereGeo = new THREE.SphereGeometry(0.012, 16, 16);
         const sphereMat = new THREE.MeshBasicMaterial({{ color: color }});
         const beacon = new THREE.Mesh(sphereGeo, sphereMat);
         beacon.position.set(0, baseHeight, 0);
         beamGroup.add(beacon);
 
         // 3. Ground Halo Ring (Pulsates in 2D Satellite View)
-        const ringGeo = new THREE.RingGeometry(0.035, 0.075, 32);
+        // Sized small enough that even a dense cluster of nearby grid-cell
+        // events reads as distinct dots instead of merging into one blob.
+        const ringGeo = new THREE.RingGeometry(0.016, 0.034, 24);
         const ringMat = new THREE.MeshBasicMaterial({{
           color: color,
           transparent: true,
-          opacity: 0.75,
+          opacity: 0.65,
           side: THREE.DoubleSide
         }});
         const ring = new THREE.Mesh(ringGeo, ringMat);
@@ -1052,7 +1236,7 @@ def generate_embedded_3d_globe_html(
         beamGroup.add(ring);
 
         // 4. Inner Tactical Hotspot Core Dot
-        const coreGeo = new THREE.CircleGeometry(0.02, 16);
+        const coreGeo = new THREE.CircleGeometry(0.009, 16);
         const coreMat = new THREE.MeshBasicMaterial({{ color: color, side: THREE.DoubleSide }});
         const core = new THREE.Mesh(coreGeo, coreMat);
         core.rotation.x = -Math.PI / 2;

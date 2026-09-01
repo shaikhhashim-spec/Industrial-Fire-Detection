@@ -10,7 +10,7 @@ from src.risk.anomaly import (
 
 
 def _history(dates_frps, cell="22.8_86.18"):
-    dates, frps = zip(*dates_frps)
+    dates, frps = zip(*dates_frps, strict=True)
     return pd.DataFrame({"grid_cell": [cell] * len(frps), "acq_date": list(dates), "frp": list(frps)})
 
 

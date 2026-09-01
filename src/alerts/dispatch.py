@@ -26,12 +26,12 @@ def sms_configured() -> bool:
                 and config.TWILIO_FROM_NUMBER and config.ALERT_SMS_TO_NUMBER)
 
 
-def telegram_configured() -> bool:
-    return bool(config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID)
+def telegram_configured(token: str | None = None, chat_id: str | None = None) -> bool:
+    return bool((token or config.TELEGRAM_BOT_TOKEN) and (chat_id or config.TELEGRAM_CHAT_ID))
 
 
-def webhook_configured() -> bool:
-    return bool(config.ALERT_WEBHOOK_URL)
+def webhook_configured(url: str | None = None) -> bool:
+    return bool(url or config.ALERT_WEBHOOK_URL)
 
 
 def send_sms(body: str) -> dict:
@@ -56,16 +56,18 @@ def send_sms(body: str) -> dict:
         return {"ok": False, "detail": f"SMS send failed: {exc}"}
 
 
-def send_telegram(text: str) -> dict:
-    """Sends `text` (Telegram Markdown) via the Bot API to
-    config.TELEGRAM_CHAT_ID. Returns {"ok": bool, "detail": str}."""
-    if not telegram_configured():
+def send_telegram(text: str, token: str | None = None, chat_id: str | None = None) -> dict:
+    """Sends `text` (Telegram Markdown) via the Bot API to the given chat_id
+    (or config.TELEGRAM_CHAT_ID). Returns {"ok": bool, "detail": str}."""
+    token = token or config.TELEGRAM_BOT_TOKEN
+    chat_id = chat_id or config.TELEGRAM_CHAT_ID
+    if not telegram_configured(token, chat_id):
         return {"ok": False, "detail": "Telegram not configured — set TELEGRAM_BOT_TOKEN and "
                                         "TELEGRAM_CHAT_ID in .env."}
-    url = TELEGRAM_SEND_URL.format(token=config.TELEGRAM_BOT_TOKEN)
+    url = TELEGRAM_SEND_URL.format(token=token)
     try:
         resp = requests.post(
-            url, json={"chat_id": config.TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"},
+            url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
             timeout=REQUEST_TIMEOUT_S,
         )
         payload = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
@@ -76,13 +78,14 @@ def send_telegram(text: str) -> dict:
         return {"ok": False, "detail": f"Telegram send failed: {exc}"}
 
 
-def send_webhook(payload: dict) -> dict:
-    """POSTs `payload` as JSON to config.ALERT_WEBHOOK_URL. Returns
-    {"ok": bool, "detail": str}."""
-    if not webhook_configured():
+def send_webhook(payload: dict, url: str | None = None) -> dict:
+    """POSTs `payload` as JSON to the given URL (or config.ALERT_WEBHOOK_URL).
+    Returns {"ok": bool, "detail": str}."""
+    url = url or config.ALERT_WEBHOOK_URL
+    if not webhook_configured(url):
         return {"ok": False, "detail": "No webhook configured — set ALERT_WEBHOOK_URL in .env."}
     try:
-        resp = requests.post(config.ALERT_WEBHOOK_URL, json=payload, timeout=REQUEST_TIMEOUT_S)
+        resp = requests.post(url, json=payload, timeout=REQUEST_TIMEOUT_S)
         if resp.ok:
             return {"ok": True, "detail": f"Webhook accepted (HTTP {resp.status_code})."}
         return {"ok": False, "detail": f"Webhook rejected the request (HTTP {resp.status_code}): {resp.text[:300]}"}

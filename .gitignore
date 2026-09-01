@@ -10,3 +10,5 @@ output/
 models/*.pkl
 .pytest_cache/
 streamlit_boot.log
+streamlit.log
+*.log

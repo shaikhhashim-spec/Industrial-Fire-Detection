@@ -18,7 +18,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from folium.plugins import Fullscreen, MarkerCluster, TimestampedGeoJson
-from streamlit.components import v1 as components
 from streamlit_folium import st_folium
 
 import config
@@ -28,13 +27,12 @@ from src.processing.spatial_clusters import find_spatial_clusters
 from src.utils.event_id import event_id_for_cell
 from src.utils.export_3d_globe import (
     export_pipeline_events_for_holo_view,
-    generate_embedded_3d_globe_html,
     load_or_export_holo_events,
 )
 
 TIMELAPSE_MAX_POINTS = 600
 
-st.set_page_config(page_title="Thermal Intelligence", layout="wide", page_icon="\U0001F6F0️", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Thermal Intelligence", layout="wide", page_icon=":material/local_fire_department:", initial_sidebar_state="expanded")
 
 CATEGORY_COLORS = {
     "Likely Industrial Fire": "#3987e5",
@@ -59,6 +57,8 @@ CSS = """
   --ink:#e8e9ea; --ink2:#9a9da1; --muted:#6b6e72;
   --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
   --page:#0c0d0e; --surface:#131415; --accent:#4d8fc4;
+  --accent-low:#0ca30c; --accent-moderate:#fab219; --accent-high:#ec835a; --accent-critical:#e66767;
+  --accent-violet:#9085e9;
 }
 html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], p, label {
   font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif !important;
@@ -73,22 +73,24 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], p, la
 .header .sub{ margin:0; color:var(--ink2); font-size:.83rem; max-width:52ch; }
 .header .meta{ text-align:right; font-family:'IBM Plex Mono',monospace; font-size:.72rem; color:var(--ink2); line-height:1.7; }
 .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; }
-.dot.live{ background:#0ca30c; } .dot.demo{ background:#fab219; } .dot.stale{ background:#6b6e72; }
+.dot.live{ background:var(--accent-low); } .dot.demo{ background:var(--accent-moderate); } .dot.stale{ background:var(--muted); }
 
 .statrow{ display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:.7rem; }
 .statrow + .statrow{ border-top:none; }
-.stat{ padding:.7rem 1rem; border-right:1px solid var(--line); background:var(--surface); border-top:2px solid transparent; }
+.stat{ padding:.7rem 1rem; border-right:1px solid var(--line); background:var(--surface); border-top:2px solid var(--stat-accent, transparent); }
 .stat:last-child{ border-right:none; }
-.stat.flag{ border-top-color:var(--accent); }
+.stat.flag{ border-top-color:var(--stat-accent, var(--accent)); }
 .stat .lbl{ font-family:'IBM Plex Mono',monospace; font-size:.63rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:.3rem; }
 .stat .val{ font-family:'IBM Plex Mono',monospace; font-size:1.25rem; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+.stat-icon{ font-size:.85rem; vertical-align:-2px; color:var(--stat-accent, var(--muted)); }
 
 .sec-hdr{ font-family:'IBM Plex Mono',monospace; font-size:.7rem; font-weight:500;
   letter-spacing:.08em; text-transform:uppercase; color:var(--ink2);
   padding-bottom:.5rem; margin-bottom:.8rem; border-bottom:1px solid var(--line); }
+.sec-hdr-icon{ font-size:.95rem; vertical-align:-2px; color:var(--accent); }
 
 .alertbar{ display:flex; align-items:center; justify-content:space-between; gap:1rem;
-  border:1px solid rgba(230,103,103,.35); border-left:3px solid #e66767; background:rgba(230,103,103,.08);
+  border:1px solid rgba(230,103,103,.35); border-left:3px solid var(--accent-critical); background:rgba(230,103,103,.08);
   border-radius:6px; padding:.8rem 1.1rem; margin-bottom:1rem; }
 .alertbar .txt{ font-size:.88rem; color:var(--ink); }
 .alertbar .txt b{ font-variant-numeric:tabular-nums; }
@@ -100,9 +102,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], p, la
 .pill{ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Mono',monospace; font-size:.68rem;
   font-weight:600; letter-spacing:.03em; padding:.18rem .55rem; border-radius:99px; text-transform:uppercase; }
 .pill::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.pill.has-icon::before{ content:none; }
+.pill-icon{ font-size:.85em; }
 
 .badge-demo{ font-family:'IBM Plex Mono',monospace; font-size:.68rem; font-weight:600; letter-spacing:.05em;
-  color:#fab219; border:1px solid rgba(250,178,25,.4); background:rgba(250,178,25,.1); border-radius:4px; padding:.2rem .6rem; }
+  color:var(--accent-moderate); border:1px solid rgba(250,178,25,.4); background:rgba(250,178,25,.1); border-radius:4px; padding:.2rem .6rem; }
 
 .panel{ border:1px solid var(--line); border-radius:6px; background:var(--surface); padding:1rem 1.15rem; }
 .panel .row{ display:flex; justify-content:space-between; padding:.35rem 0; border-bottom:1px solid var(--line); font-size:.83rem; }
@@ -110,7 +114,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], p, la
 .panel .row .k{ color:var(--ink2); } .panel .row .v{ color:var(--ink); font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; text-align:right; }
 .evidence{ font-size:.82rem; color:var(--ink2); padding:.25rem 0; border-bottom:1px dashed var(--line); }
 .evidence:last-child{ border-bottom:none; }
-.evidence::before{ content:"\2713  "; color:#0ca30c; }
+.evidence::before{ content:"\2713  "; color:var(--accent-low); }
 
 .side-label{ font-family:'IBM Plex Mono',monospace; font-size:.68rem; font-weight:500;
   letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin:.4rem 0 .6rem; }
@@ -137,8 +141,8 @@ section[data-testid="stSidebar"]{ border-right:1px solid var(--line); }
 .topbar-meta{ font-family:'IBM Plex Mono',monospace; font-size:.7rem; color:var(--ink2); line-height:1.6; padding-top:.15rem; }
 .topbar-rule{ border:none; border-top:1px solid var(--line-strong); margin:.9rem 0 1.2rem; }
 
-section[data-testid="stSidebar"] [data-testid="stRadio"] label{
-  padding:.28rem .15rem; font-family:'IBM Plex Mono',monospace; font-size:.76rem; letter-spacing:.02em; text-transform:uppercase;
+section[data-testid="stSidebar"] [data-testid="stButton"] button{
+  justify-content:flex-start; text-align:left; text-transform:none; font-weight:500 !important;
 }
 
 .funnel{ display:flex; align-items:stretch; gap:.4rem; margin-bottom:1rem; }
@@ -158,8 +162,12 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label{
 
 # ---------------------------------------------------------------- helpers --
 
-def _section_header(text: str):
-    st.markdown(f'<div class="sec-hdr">{text}</div>', unsafe_allow_html=True)
+def _section_header(text: str, icon: str | None = None, icon_color: str | None = None):
+    icon_html = ""
+    if icon:
+        style = f' style="color:{icon_color};"' if icon_color else ""
+        icon_html = f'<span class="sec-hdr-icon"{style}>:material/{icon}:</span> '
+    st.markdown(f'<div class="sec-hdr">{icon_html}{text}</div>', unsafe_allow_html=True)
 
 
 def _format_satellites(value) -> str:
@@ -181,16 +189,26 @@ def _format_satellites(value) -> str:
     return ", ".join(str(i) for i in items) if items else "n/a"
 
 
-def _pill(text: str, color: str) -> str:
-    return f'<span class="pill" style="color:{color};background:{color}22;border:1px solid {color}55;">{text}</span>'
+def _pill(text: str, color: str, icon: str | None = None) -> str:
+    cls = "pill has-icon" if icon else "pill"
+    icon_html = f'<span class="pill-icon">:material/{icon}:</span>' if icon else ""
+    return f'<span class="{cls}" style="color:{color};background:{color}22;border:1px solid {color}55;">{icon_html}{text}</span>'
 
 
-def _stat_row(cells: list[tuple[str, object, bool]]):
-    html = '<div class="statrow">' + "".join(
-        f'<div class="stat{" flag" if flag else ""}"><div class="lbl">{label}</div><div class="val">{value}</div></div>'
-        for label, value, flag in cells
-    ) + "</div>"
-    st.markdown(html, unsafe_allow_html=True)
+def _stat_row(cells: list[tuple]):
+    """Each cell is (label, value, flag) or optionally (label, value, flag, icon, accent_color)."""
+    parts = []
+    for cell in cells:
+        label, value, flag = cell[0], cell[1], cell[2]
+        icon = cell[3] if len(cell) > 3 else None
+        accent = cell[4] if len(cell) > 4 else None
+        icon_html = f'<span class="stat-icon">:material/{icon}:</span> ' if icon else ""
+        style_attr = f' style="--stat-accent:{accent}"' if accent else ""
+        parts.append(
+            f'<div class="stat{" flag" if flag else ""}"{style_attr}>'
+            f'<div class="lbl">{icon_html}{label}</div><div class="val">{value}</div></div>'
+        )
+    st.markdown('<div class="statrow">' + "".join(parts) + "</div>", unsafe_allow_html=True)
 
 
 @st.cache_data(show_spinner=False)
@@ -227,7 +245,7 @@ def run_and_cache(demo_mode: bool, api_key: str | None):
         try:
             info = pipeline.run_pipeline(demo_mode=demo_mode, api_key=api_key)
         except Exception as exc:
-            st.error(f"Pipeline run failed: {exc}")
+            st.error(f"Pipeline run failed: {exc}", icon=":material/cancel:")
             return
     st.session_state["run_info"] = {k: v for k, v in info.items() if k not in ("detail_gdf", "cluster_df")}
     st.session_state["run_info"]["n_alerts"] = len(info["alerts"])
@@ -241,7 +259,7 @@ def run_and_cache(demo_mode: bool, api_key: str | None):
         phone = st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE)
         crit_results = alert_messages.send_batch_critical_alerts(info["alerts"], phone=phone)
         if crit_results:
-            st.toast(f"🚨 {len(crit_results)} Critical Alert Message(s) Auto-Dispatched to {phone}", icon="📲")
+            st.toast(f"{len(crit_results)} Critical Alert Message(s) Auto-Dispatched to {phone}", icon=":material/sms:")
 
 
     # Synchronize live pipeline events with 3D Holo Globe
@@ -252,7 +270,7 @@ def run_and_cache(demo_mode: bool, api_key: str | None):
     except Exception as exc:
         print(f"[app] 3D globe export error: {exc}")
 
-    st.success(f"Done — {len(info['detail_gdf'])} detections, {len(info['cluster_df'])} clusters, {len(info['alerts'])} alerts (3D Holo Globe updated).")
+    st.success(f"Done — {len(info['detail_gdf'])} detections, {len(info['cluster_df'])} clusters, {len(info['alerts'])} alerts (3D Holo Globe updated).", icon=":material/check_circle:")
 
 
 def recompute_risk_and_cache(weights: dict):
@@ -266,7 +284,7 @@ def recompute_risk_and_cache(weights: dict):
     gdf = _load_cached_detail()
     cluster_df = _load_cached_clusters()
     if gdf is None or gdf.empty:
-        st.warning("No data loaded yet — run the pipeline first.")
+        st.warning("No data loaded yet — run the pipeline first.", icon=":material/warning:")
         return
 
     gdf = risk_scoring.compute_risk(gdf, weights=weights)
@@ -298,7 +316,7 @@ def recompute_risk_and_cache(weights: dict):
         phone = st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE)
         crit_results = alert_messages.send_batch_critical_alerts(alerts, phone=phone)
         if crit_results:
-            st.toast(f"🚨 {len(crit_results)} Critical Alert Message(s) Auto-Dispatched to {phone}", icon="📲")
+            st.toast(f"{len(crit_results)} Critical Alert Message(s) Auto-Dispatched to {phone}", icon=":material/sms:")
 
 
     # Synchronize recomputed risk events with 3D Holo Globe
@@ -309,7 +327,7 @@ def recompute_risk_and_cache(weights: dict):
     except Exception as exc:
         print(f"[app] 3D globe export error: {exc}")
 
-    st.success(f"Risk scores recomputed with custom weights — {len(alerts)} alerts regenerated (3D Holo Globe updated).")
+    st.success(f"Risk scores recomputed with custom weights — {len(alerts)} alerts regenerated (3D Holo Globe updated).", icon=":material/check_circle:")
 
 
 def run_national_and_cache(demo_mode: bool, api_key: str | None):
@@ -318,7 +336,7 @@ def run_national_and_cache(demo_mode: bool, api_key: str | None):
         try:
             info = run_national_pipeline(demo_mode=demo_mode, api_key=api_key)
         except Exception as exc:
-            st.error(f"National pipeline run failed: {exc}")
+            st.error(f"National pipeline run failed: {exc}", icon=":material/cancel:")
             return
     info["run_at"] = pd.Timestamp.now()
     st.session_state["national_info"] = info
@@ -335,7 +353,8 @@ def run_national_and_cache(demo_mode: bool, api_key: str | None):
         print(f"[app] 3D globe national export error: {exc}")
 
     st.success(f"Done — {info['n_observations']} observations, {info['n_events']} events across "
-               f"{info['state_summary']['state'].notna().sum() if not info['state_summary'].empty else 0} states (3D Holo Globe updated).")
+               f"{info['state_summary']['state'].notna().sum() if not info['state_summary'].empty else 0} states (3D Holo Globe updated).",
+               icon=":material/check_circle:")
 
 
 
@@ -358,6 +377,14 @@ function(cluster) {
 
 MAP_CHROME_CSS = f"""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+.material-symbols-rounded {{
+  font-family:'Material Symbols Rounded'; font-weight:normal; font-style:normal;
+  line-height:1; letter-spacing:normal; text-transform:none; display:inline-block;
+  white-space:nowrap; word-wrap:normal; direction:ltr; vertical-align:middle;
+  -webkit-font-smoothing:antialiased;
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+}}
 .thermal-cluster-icon {{ background: transparent !important; border: none !important; }}
 .thermal-cluster-inner {{
     width:100%; height:100%; display:flex; align-items:center; justify-content:center;
@@ -510,7 +537,7 @@ def render_investigation_panel(cluster_row: pd.Series, detail_rows: pd.DataFrame
     top3.markdown(_pill(risk_lvl, RISK_COLORS.get(risk_lvl, "#888")), unsafe_allow_html=True)
     top4.markdown(_pill(status, STATUS_COLORS.get(status, "#888")), unsafe_allow_html=True)
     if bool(cluster_row.get("is_anomalous")):
-        st.markdown(_pill("THERMAL ANOMALY DETECTED", "#e66767"), unsafe_allow_html=True)
+        st.markdown(_pill("THERMAL ANOMALY DETECTED", "#e66767", icon="warning"), unsafe_allow_html=True)
 
     window_col = f"persistence_{config.PERSISTENCE_DEFAULT_WINDOW_DAYS}d"
     rows_html = "".join(
@@ -601,15 +628,15 @@ def render_investigation_panel(cluster_row: pd.Series, detail_rows: pd.DataFrame
     b1, b2, b3 = st.columns(3)
     if b1.button("Mark Reviewed", key=f"review_btn_{cluster_row['grid_cell']}", width="stretch"):
         store.save_review(event_id, cluster_row["grid_cell"], "jharkhand_odisha", "Reviewed")
-        st.toast("Marked reviewed.")
+        st.toast("Marked reviewed.", icon=":material/check_circle:")
         st.rerun()
     if not existing_review.empty:
         b1.caption(f"✓ {existing_review.iloc[0]['decision']}")
     if b2.button("View Evidence", key=f"evidence_btn_{cluster_row['grid_cell']}", width="stretch"):
-        st.info("Satellite Evidence Preview — DEMO IMAGE, not live satellite imagery. Real imagery integration is a future improvement (see README).")
+        st.info("Satellite Evidence Preview — DEMO IMAGE, not live satellite imagery. Real imagery integration is a future improvement (see README).", icon=":material/info:")
         st.caption(f"Source: FIRMS thermal detection · Date: {cluster_row['last_detected']} · "
                    f"Coordinates: {cluster_row['latitude']:.4f}, {cluster_row['longitude']:.4f} · Resolution: ~375m (VIIRS) / ~1km (MODIS)")
-    b3.button("🌐 3D Holo Globe →", key=f"inv_jump_3d_{cluster_row['grid_cell']}", width="stretch",
+    b3.button("3D Holo Globe", key=f"inv_jump_3d_{cluster_row['grid_cell']}", width="stretch", icon=":material/public:",
               help="Inspect this thermal event on the interactive 3D Holo Globe",
               on_click=_navigate(page="3D Holo Globe"))
 
@@ -744,6 +771,12 @@ Generated: {pd.Timestamp.now().isoformat()}
 
 NAV_PAGES = ["Overview", "Live Map", "3D Holo Globe", "Events", "Alerts", "Analytics",
              "Investigations", "Validation", "AI Model", "Data", "Settings"]
+NAV_ICONS = {
+    "Overview": "space_dashboard", "Live Map": "map", "3D Holo Globe": "public",
+    "Events": "flare", "Alerts": "notifications_active", "Analytics": "monitoring",
+    "Investigations": "manage_search", "Validation": "fact_check",
+    "AI Model": "smart_toy", "Data": "database", "Settings": "settings",
+}
 PRESENTATION_ALLOWED_PAGES = {"Overview", "Live Map", "3D Holo Globe", "Alerts", "Analytics", "Investigations"}
 
 
@@ -751,7 +784,7 @@ PRESENTATION_ALLOWED_PAGES = {"Overview", "Live Map", "3D Holo Globe", "Alerts",
 def _navigate(page: str | None = None, region: str | None = None, selected_cell: str | None = None):
     """Returns an on_click callback that changes page/region/selected_cell.
     Must be wired via `st.button(..., on_click=_navigate(...))`, NOT called
-    inside an `if st.button(...):` block — the nav_radio/topbar_region
+    inside an `if st.button(...):` block — the sidebar nav buttons/topbar_region
     widgets are already instantiated earlier in the same script run (the
     sidebar and top bar render before any page's own content), so setting
     their session_state keys directly at that point raises
@@ -763,7 +796,6 @@ def _navigate(page: str | None = None, region: str | None = None, selected_cell:
             st.session_state["selected_cell"] = selected_cell
         if page is not None:
             st.session_state["page"] = page
-            st.session_state["nav_radio"] = page
         if region is not None:
             st.session_state["region"] = region
             st.session_state["topbar_region"] = "India" if region == "india" else "Jharkhand–Odisha Belt"
@@ -775,15 +807,13 @@ def _render_sidebar_nav() -> str:
         st.markdown('<div class="brand">THERMAL INTELLIGENCE</div>'
                      '<div class="brand-sub">AI-Assisted Satellite Monitoring</div>', unsafe_allow_html=True)
         st.markdown('<div class="side-label" style="margin-top:.9rem;">Navigation</div>', unsafe_allow_html=True)
-        # No `index=` here: nav_radio's own session_state key is the single
-        # source of truth once set (via a callback below or setdefault on
-        # first run) — passing both a computed index AND writing the key
-        # via the Session State API triggers a Streamlit widget-policy
-        # warning ("created with a default value but also had its value
-        # set via the Session State API").
-        st.session_state.setdefault("nav_radio", st.session_state.get("page", "Overview"))
-        page = st.radio("Navigation", NAV_PAGES, label_visibility="collapsed", key="nav_radio")
-        st.session_state["page"] = page
+        page = st.session_state.get("page", "Overview")
+        for p in NAV_PAGES:
+            st.button(
+                p, key=f"navbtn_{p}", icon=f":material/{NAV_ICONS[p]}:",
+                type="primary" if p == page else "secondary",
+                width="stretch", on_click=_navigate(page=p),
+            )
 
         st.divider()
         st.markdown('<div class="side-label">System</div>', unsafe_allow_html=True)
@@ -830,7 +860,7 @@ def _handle_global_search(query: str, region: str):
             st.caption(f"No match for '{query}'.")
         else:
             cell = matches.iloc[0]["grid_cell"]
-            st.button(f"Open {cell} →", key="search_jump_belt",
+            st.button(f"Open {cell}", key="search_jump_belt", icon=":material/manage_search:",
                       on_click=_navigate(page="Investigations", selected_cell=cell))
     else:
         info = st.session_state.get("national_info")
@@ -890,7 +920,7 @@ def _render_topbar():
             _handle_global_search(query, region)
     with c5:
         st.button(f"Alerts ({n_critical})", key="topbar_alerts_btn", width="stretch",
-                  on_click=_navigate(page="Alerts"))
+                  icon=":material/notifications_active:", on_click=_navigate(page="Alerts"))
         st.caption("Analyst · Administrator")
     st.markdown('<hr class="topbar-rule">', unsafe_allow_html=True)
 
@@ -935,7 +965,7 @@ def main():
 
     if st.session_state["presentation_mode"] and page not in PRESENTATION_ALLOWED_PAGES:
         st.info("This page is hidden in **Presentation Mode**. Turn it off on the Settings page to reach "
-                "technical/admin pages during setup.")
+                "technical/admin pages during setup.", icon=":material/info:")
         return
 
     if region == "india":
@@ -973,7 +1003,7 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
 
     if show_ui:
         with st.container(border=True):
-            _section_header("Filters")
+            _section_header("Filters", icon="tune")
             f1, f2, f3, f4 = st.columns(4)
             date_range = f1.slider("Date Range", min_value=min_date, max_value=max_date,
                                     value=(min_date, max_date), key="flt_date") if min_date != max_date else (min_date, max_date)
@@ -1027,9 +1057,9 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
 
 def _render_events_table(df: pd.DataFrame, region_key: str):
     with st.container(border=True):
-        _section_header(f"Events — {len(df)} rows")
+        _section_header(f"Events — {len(df)} rows", icon="flare")
         if df.empty:
-            st.info("No events match the current filters.")
+            st.info("No events match the current filters.", icon=":material/search_off:")
             return
         search = st.text_input("Search grid cell / state / classification", key=f"events_search_{region_key}")
         table = df.copy()
@@ -1043,12 +1073,12 @@ def _render_events_table(df: pd.DataFrame, region_key: str):
 
 def _render_validation_belt(filtered: pd.DataFrame):
     if filtered is None or filtered.empty:
-        st.info("No data in the current filter selection.")
+        st.info("No data in the current filter selection.", icon=":material/search_off:")
         return
     pending = filtered[filtered["rule_label"] == "Requires Verification"].drop_duplicates("grid_cell")
     reviews = store.load_reviews(region="jharkhand_odisha").set_index("event_id")
     reviewed_n = sum(1 for _, r in pending.iterrows() if event_id_for_cell(r["grid_cell"]) in reviews.index)
-    _section_header(f"Validation Queue — {reviewed_n} / {len(pending)} reviewed")
+    _section_header(f"Validation Queue — {reviewed_n} / {len(pending)} reviewed", icon="fact_check")
     st.caption("Analyst decisions below are written to a persistent SQLite audit trail "
                "(`analyst_reviews` table) — the latest decision per event, with a timestamp; "
                "not a full multi-review history log.")
@@ -1068,11 +1098,11 @@ def _render_validation_belt(filtered: pd.DataFrame):
             b1, b2, b3 = st.columns(3)
             if b1.button("Confirm", key=f"val_confirm_{cell}", width="stretch"):
                 store.save_review(eid, cell, "jharkhand_odisha", "Confirmed")
-                st.toast(f"{eid} marked confirmed.")
+                st.toast(f"{eid} marked confirmed.", icon=":material/check_circle:")
                 st.rerun()
             if b2.button("Reject", key=f"val_reject_{cell}", width="stretch"):
                 store.save_review(eid, cell, "jharkhand_odisha", "Rejected")
-                st.toast(f"{eid} marked rejected.")
+                st.toast(f"{eid} marked rejected.", icon=":material/cancel:")
                 st.rerun()
             b3.button("Open Investigation", key=f"val_open_{cell}", width="stretch",
                       on_click=_navigate(page="Investigations", selected_cell=cell))
@@ -1080,26 +1110,26 @@ def _render_validation_belt(filtered: pd.DataFrame):
 
 def _render_settings_belt(demo_mode: bool):
     with st.container(border=True):
-        _section_header("Pipeline")
+        _section_header("Pipeline", icon="tune")
         api_key_input = None
         if not demo_mode:
             if config.FIRMS_API_KEY:
-                st.success("FIRMS_API_KEY loaded from .env")
+                st.success("FIRMS_API_KEY loaded from .env", icon=":material/check_circle:")
             else:
-                st.warning("No FIRMS_API_KEY configured — pipeline will fall back to cache/demo data.")
+                st.warning("No FIRMS_API_KEY configured — pipeline will fall back to cache/demo data.", icon=":material/warning:")
             api_key_input = st.text_input("Or paste a FIRMS key for this session", type="password", key="settings_belt_key")
-            if st.button("Validate Key", key="settings_belt_validate") and (api_key_input or config.FIRMS_API_KEY):
+            if st.button("Validate Key", key="settings_belt_validate", icon=":material/verified:") and (api_key_input or config.FIRMS_API_KEY):
                 try:
                     check_map_key(api_key_input or config.FIRMS_API_KEY)
-                    st.success("Key is valid.")
+                    st.success("Key is valid.", icon=":material/check_circle:")
                 except FirmsAuthError as exc:
-                    st.error(str(exc))
-        if st.button("Run Pipeline", key="settings_belt_run", width="stretch"):
+                    st.error(str(exc), icon=":material/cancel:")
+        if st.button("Run Pipeline", key="settings_belt_run", width="stretch", icon=":material/play_circle:"):
             run_and_cache(demo_mode, api_key_input or None)
             st.rerun()
 
     with st.container(border=True):
-        _section_header("View")
+        _section_header("View", icon="visibility")
         st.session_state["analyst_mode"] = st.toggle("Analyst Mode", value=st.session_state["analyst_mode"], key="analyst_mode_toggle",
                                                        help="Expose raw features, model probabilities, and processing internals.")
         st.session_state["presentation_mode"] = st.toggle("Presentation Mode", value=st.session_state["presentation_mode"],
@@ -1107,7 +1137,7 @@ def _render_settings_belt(demo_mode: bool):
                                                             help="Hide technical/admin pages for a clean SIH demo view.")
 
     with st.container(border=True):
-        _section_header("Operational Parameters (prototype, not scientific constants)")
+        _section_header("Operational Parameters (prototype, not scientific constants)", icon="tune")
         min_days = st.slider("Persistence threshold (days)", 2, 15, config.PERSISTENCE_MIN_DAYS, key="settings_persist_slider")
         st.caption(f"Currently: ≥{min_days} distinct days in {config.PERSISTENCE_DEFAULT_WINDOW_DAYS} ⇒ persistent. "
                    "(Changing this requires re-running the pipeline with an updated threshold — wire-up left for a future iteration.)")
@@ -1125,14 +1155,14 @@ def _render_settings_belt(demo_mode: bool):
         weight_total = w_persistence + w_frp + w_confidence + w_industrial + w_recurrence
         st.caption(f"Weights sum to {weight_total:.2f} (need not be exactly 1.00 — each component score is already "
                    "0-100, and the total is clamped to 0-100 either way).")
-        if st.button("Recompute Risk Scores", key="recompute_risk_btn", width="stretch"):
+        if st.button("Recompute Risk Scores", key="recompute_risk_btn", width="stretch", icon=":material/calculate:"):
             custom_weights = {"persistence": w_persistence, "frp": w_frp, "confidence": w_confidence,
                                "industrial_proximity": w_industrial, "recurrence": w_recurrence}
             recompute_risk_and_cache(custom_weights)
             st.rerun()
 
     with st.container(border=True):
-        _section_header("Critical Alert SMS & Messaging Gateway")
+        _section_header("Critical Alert SMS & Messaging Gateway", icon="sms", icon_color="var(--accent-critical)")
         st.caption("Automated and manual high-priority text alert dispatch to field responders for CRITICAL thermal events.")
 
         msg1, msg2 = st.columns(2)
@@ -1163,7 +1193,7 @@ def _render_settings_belt(demo_mode: bool):
             wb_url = st.text_input("Custom Webhook URL", value=config.ALERT_WEBHOOK_URL, key="msg_wb_url")
 
         send_phone = alert_phone_val or config.ALERT_RECIPIENT_PHONE
-        if st.button("Send Test Critical Alert Message to " + send_phone, key="msg_settings_send_test", width="stretch"):
+        if st.button("Send Test Critical Alert Message to " + send_phone, key="msg_settings_send_test", width="stretch", icon=":material/sms:"):
             from src.alerts import messages as alert_messages
             sample_event = {
                 "event_id": "TH-TEST-CRIT",
@@ -1181,15 +1211,18 @@ def _render_settings_belt(demo_mode: bool):
                 twilio_sid=t_sid or None,
                 twilio_token=t_tok or None,
                 twilio_from=t_from or None,
+                telegram_token=tg_tok or None,
+                telegram_chat_id=tg_cid or None,
+                webhook_url=wb_url or None,
             )
             if res["status"] in ("delivered", "simulated"):
-                st.success(f"✅ Critical alert message dispatched successfully to {send_phone} ({res['detail']})!")
-                st.toast(f"Dispatched to {send_phone}", icon="📲")
+                st.success(f"Critical alert message dispatched successfully to {send_phone} ({res['detail']})!", icon=":material/check_circle:")
+                st.toast(f"Dispatched to {send_phone}", icon=":material/sms:")
             else:
-                st.error(f"❌ Dispatch failed: {res.get('detail', 'Unknown error')}")
+                st.error(f"Dispatch failed: {res.get('detail', 'Unknown error')}", icon=":material/cancel:")
 
     with st.container(border=True):
-        _section_header("3D Holo Globe & Digital Twin Integration")
+        _section_header("3D Holo Globe & Digital Twin Integration", icon="public")
         st.caption("Real-time synchronization between the Python intelligence pipeline and the Holo-View-Maker 3D WebGL Globe.")
 
         holo_host_belt = st.text_input(
@@ -1213,15 +1246,15 @@ def _render_settings_belt(demo_mode: bool):
                 unsafe_allow_html=True,
             )
         with c2:
-            if st.button("🔄 Sync Current Pipeline to 3D Globe Now", key="sync_holo_settings_belt", width="stretch"):
+            if st.button("Sync Current Pipeline to 3D Globe Now", key="sync_holo_settings_belt", width="stretch", icon=":material/sync:"):
                 with st.spinner("Exporting thermal events to 3D Holo Globe..."):
                     gdf_curr = _load_cached_detail()
                     c_df_curr = _load_cached_clusters()
                     exported_3d = export_pipeline_events_for_holo_view(gdf_curr, c_df_curr)
                     st.session_state["holo_events_count"] = len(exported_3d)
                     st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.toast(f"✅ Synced {len(exported_3d)} events to 3D Holo Globe!", icon="🌐")
-                    st.success(f"Successfully exported {len(exported_3d)} events to Holo-View 3D Globe!")
+                    st.toast(f"Synced {len(exported_3d)} events to 3D Holo Globe!", icon=":material/public:")
+                    st.success(f"Successfully exported {len(exported_3d)} events to Holo-View 3D Globe!", icon=":material/check_circle:")
 
 
 def _route_regional_page(page: str, demo_mode: bool):
@@ -1236,7 +1269,7 @@ def _route_regional_page(page: str, demo_mode: bool):
 
     if gdf is None or gdf.empty:
         st.info("No classified data yet for the Jharkhand–Odisha belt. Open **Settings** and click "
-                "**Run Pipeline** (Demo Mode works with zero setup).")
+                "**Run Pipeline** (Demo Mode works with zero setup).", icon=":material/info:")
         return
 
     filtered, filtered_clusters, label_field, color_by = _apply_regional_filters(gdf, cluster_df, page)
@@ -1284,13 +1317,16 @@ def _render_kpis(gdf, cluster_df, alerts):
     n_review = int((cluster_df["dominant_label"] == "Requires Verification").sum()) if not cluster_df.empty and "dominant_label" in cluster_df else 0
 
     _stat_row([
-        ("Satellite Observations", n_total, False), ("Thermal Events", n_events, False),
-        ("Persistent Sources", n_persistent, n_persistent > 0), ("High-Risk Events", n_high_risk, n_high_risk > 0),
+        ("Satellite Observations", n_total, False, "satellite_alt", None),
+        ("Thermal Events", n_events, False, "flare", None),
+        ("Persistent Sources", n_persistent, n_persistent > 0, "schedule", STATUS_COLORS["PERSISTENT"] if n_persistent else None),
+        ("High-Risk Events", n_high_risk, n_high_risk > 0, "warning", RISK_COLORS["HIGH"] if n_high_risk else None),
     ])
     _stat_row([
-        ("Critical Alerts", sum(1 for a in alerts if a.get("severity") == "CRITICAL"), n_critical > 0),
-        ("Industrial Fires", n_industrial_fire, n_industrial_fire > 0),
-        ("New Today", n_new_today, False), ("Requires Review", n_review, False),
+        ("Critical Alerts", sum(1 for a in alerts if a.get("severity") == "CRITICAL"), n_critical > 0, "warning", RISK_COLORS["CRITICAL"] if n_critical else None),
+        ("Industrial Fires", n_industrial_fire, n_industrial_fire > 0, "local_fire_department", CATEGORY_COLORS["Likely Industrial Fire"] if n_industrial_fire else None),
+        ("New Today", n_new_today, False, "today", None),
+        ("Requires Review", n_review, False, "fact_check", None),
     ])
 
 
@@ -1302,7 +1338,7 @@ def _render_alert_banner(alerts):
     if n_critical == 0 and n_high == 0:
         return
     st.markdown(
-        f'<div class="alertbar"><span class="txt">\U0001F6A8 <b>{n_critical}</b> critical and <b>{n_high}</b> '
+        f'<div class="alertbar"><span class="txt">:material/warning: <b>{n_critical}</b> critical and <b>{n_high}</b> '
         f'high-priority thermal events require review.</span></div>',
         unsafe_allow_html=True,
     )
@@ -1312,30 +1348,30 @@ def _render_overview(filtered, filtered_clusters, label_field, color_by):
     with st.container(border=True):
         r1, r2, r3, r4 = st.columns([2.5, 1.3, 1.3, 1.1])
         with r1:
-            _section_header("Regional Operations — Jharkhand–Odisha Belt")
-            st.caption("📍 Real-time AI satellite thermal intelligence, persistence tracking, and industrial hotspot monitoring.")
+            _section_header("Regional Operations — Jharkhand–Odisha Belt", icon="space_dashboard")
+            st.caption(":material/location_on: Real-time AI satellite thermal intelligence, persistence tracking, and industrial hotspot monitoring.")
         with r2:
-            st.button("🗺️ Open Live Map →", key="overview_open_live_map", width="stretch",
+            st.button("Open Live Map", key="overview_open_live_map", width="stretch", icon=":material/map:",
                       help="Explore interactive 2D GIS map with clustering, satellite imagery, and zone boundaries",
                       on_click=_navigate(page="Live Map"))
         with r3:
-            st.button("🌐 3D Holo Globe →", key="overview_open_3d_globe", width="stretch",
+            st.button("3D Holo Globe", key="overview_open_3d_globe", width="stretch", icon=":material/public:",
                       help="Explore these thermal events in the interactive 3D Holo Globe",
                       on_click=_navigate(page="3D Holo Globe"))
         with r4:
-            st.button("← India View", key="back_india_overview", width="stretch",
+            st.button("India View", key="back_india_overview", width="stretch", icon=":material/arrow_back:",
                       on_click=_navigate(page="Overview", region="india"))
 
     c1, c2 = st.columns(2)
     with c1:
         with st.container(border=True):
-            _section_header("Trend (Daily Detections)")
+            _section_header("Trend (Daily Detections)", icon="show_chart")
             if not filtered.empty:
                 daily = filtered.groupby([filtered["acq_date"].dt.date, label_field]).size().unstack(fill_value=0)
                 st.line_chart(daily)
     with c2:
         with st.container(border=True):
-            _section_header("Top Persistent Clusters")
+            _section_header("Top Persistent Clusters", icon="schedule")
             if not filtered_clusters.empty:
                 window_col = f"persistence_{config.PERSISTENCE_DEFAULT_WINDOW_DAYS}d"
                 top = filtered_clusters.sort_values(window_col, ascending=False).head(8)
@@ -1352,17 +1388,17 @@ def _render_live_map(filtered, label_field, color_by):
     with st.container(border=True):
         hdr, back_btn, globe_btn, toggle = st.columns([2.4, 1.3, 1.3, 1.0])
         with hdr:
-            _section_header(f"Live Map — {len(filtered)} hotspots (Jharkhand–Odisha Belt)")
+            _section_header(f"Live Map — {len(filtered)} hotspots (Jharkhand–Odisha Belt)", icon="map")
         with back_btn:
-            st.button("← Return to India", key="back_india_livemap", width="stretch",
+            st.button("Return to India", key="back_india_livemap", width="stretch", icon=":material/arrow_back:",
                       on_click=_navigate(page="Live Map", region="india"))
         with globe_btn:
-            st.button("🌐 3D Holo Globe →", key="livemap_open_3d_globe", width="stretch",
+            st.button("3D Holo Globe", key="livemap_open_3d_globe", width="stretch", icon=":material/public:",
                       help="Open interactive 3D orbital globe view",
                       on_click=_navigate(page="3D Holo Globe"))
         timelapse_on = toggle.toggle("Time-lapse")
         if filtered.empty:
-            st.info("No hotspots match the current filters.")
+            st.info("No hotspots match the current filters.", icon=":material/search_off:")
         elif timelapse_on:
             if len(filtered) > TIMELAPSE_MAX_POINTS:
                 st.caption(f"Showing the {TIMELAPSE_MAX_POINTS} most recent of {len(filtered)} points for smooth playback.")
@@ -1382,7 +1418,7 @@ def _render_alerts_tab(alerts):
     with st.container(border=True):
         w1, w2, w3 = st.columns([3, 2.2, 1.6])
         with w1:
-            _section_header("Critical Alert SMS & Message Dispatch (Automated)")
+            _section_header("Critical Alert SMS & Message Dispatch (Automated)", icon="sms", icon_color="var(--accent-critical)")
             st.markdown(
                 f'<div style="font-size:0.85rem;color:var(--ink);">'
                 f'<b>Recipient:</b> <span class="mono" style="color:#4d8fc4;font-weight:600;">{phone}</span> &middot; '
@@ -1396,9 +1432,9 @@ def _render_alerts_tab(alerts):
         with w2:
             st.markdown(
                 '<div style="font-size:0.78rem;padding:6px 10px;border-radius:4px;background:rgba(230,103,103,0.08);border:1px solid rgba(230,103,103,0.25);color:var(--ink);line-height:1.4;">'
-                '🚨 <b>Critical Alert Message Template:</b><br>'
+                ':material/warning: <b>Critical Alert Message Template:</b><br>'
                 '<span class="mono" style="font-size:0.72rem;color:var(--ink2);">'
-                '🚨 CRITICAL THERMAL EVENT DETECTED<br>'
+                ':material/warning: CRITICAL THERMAL EVENT DETECTED<br>'
                 'A high-priority persistent hotspot requires immediate verification.<br>'
                 'Status: Requires immediate verification.'
                 '</span></div>',
@@ -1414,13 +1450,13 @@ def _render_alerts_tab(alerts):
                 "ai_confidence": 94.5, "frp": 16.2, "persistence_days": 24,
                 "industrial_distance_km": 0.12, "status": "Requires immediate verification.",
             }
-            if st.button("📲 Test Critical SMS / Message", key="msg_send_test_top", width="stretch", help=f"Send test critical notification to {phone}"):
+            if st.button("Test Critical SMS / Message", key="msg_send_test_top", width="stretch", icon=":material/sms:", help=f"Send test critical notification to {phone}"):
                 res = alert_messages.send_critical_alert(sample_event, phone=phone, force=True)
                 if res["status"] in ("delivered", "simulated"):
-                    st.toast(f"✅ Critical alert message dispatched to {phone}!", icon="📲")
-                    st.success(f"Dispatched to {phone} ({res['detail']})")
+                    st.toast(f"Critical alert message dispatched to {phone}!", icon=":material/sms:")
+                    st.success(f"Dispatched to {phone} ({res['detail']})", icon=":material/check_circle:")
                 else:
-                    st.error(f"Failed: {res.get('detail', 'Unknown error')}")
+                    st.error(f"Failed: {res.get('detail', 'Unknown error')}", icon=":material/cancel:")
 
         with st.expander("Critical Alert Message Audit Log", expanded=False):
             logs = alert_messages.load_critical_dispatch_log()
@@ -1431,7 +1467,7 @@ def _render_alerts_tab(alerts):
                 st.dataframe(log_df, hide_index=True, width="stretch")
 
     if not alerts:
-        st.info("No alerts generated from the current dataset.")
+        st.info("No alerts generated from the current dataset.", icon=":material/info:")
         return
 
     sev_color = {"CRITICAL": "#e66767", "HIGH": "#ec835a", "MODERATE": "#fab219"}
@@ -1448,11 +1484,11 @@ def _render_alerts_tab(alerts):
                 f'<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;'
                 f'padding:3px 8px;border-radius:4px;background:rgba(230,103,103,0.12);'
                 f'border:1px solid rgba(230,103,103,0.35);font-size:0.75rem;color:#e66767;font-family:var(--font-mono,monospace);">'
-                f'🚨 <b>AUTO-NOTIFIED (CRITICAL)</b> &middot; Recipient: {phone} &middot; Risk: {risk_val:.1f}/100 &middot; AI Conf: {ai_conf:.1f}%</div>'
+                f':material/warning: <b>AUTO-NOTIFIED (CRITICAL)</b> &middot; Recipient: {phone} &middot; Risk: {risk_val:.1f}/100 &middot; AI Conf: {ai_conf:.1f}%</div>'
             )
 
         st.markdown(
-            f'<div class="alertcard" style="--sev:{color}"><div class="title">\U0001F6A8 {a["title"]} '
+            f'<div class="alertcard" style="--sev:{color}"><div class="title">:material/warning: {a["title"]} '
             f'<span class="mono" style="color:var(--ink2);font-size:.75em;">&middot; {event_id}</span></div>'
             f'<div class="meta">Location: {a["latitude"]:.3f}, {a["longitude"]:.3f} &middot; '
             f'Classification: {a["classification"]} &middot; Risk: {risk_val:.1f}/100 &middot; '
@@ -1466,19 +1502,19 @@ def _render_alerts_tab(alerts):
         b1, b2, b3 = st.columns([1.2, 1.2, 1.6])
         b1.button("View on Map", key=f"alert_view_{i}", width="stretch", disabled=True, help="Switch to the Live Map tab and locate this cell manually.")
         b2.button("Investigate", key=f"alert_inv_{i}", width="stretch", disabled=True, help="Open the Investigations tab and select this grid cell.")
-        if b3.button("📲 Send Critical Alert", key=f"alert_crit_send_{i}", width="stretch", help=f"Dispatch critical notification to {phone}"):
+        if b3.button("Send Critical Alert", key=f"alert_crit_send_{i}", width="stretch", icon=":material/sms:", help=f"Dispatch critical notification to {phone}"):
             res = alert_messages.send_critical_alert(a, phone=phone, force=True)
             if res["status"] in ("delivered", "simulated"):
-                st.toast(f"✅ Critical alert message dispatched for {event_id} to {phone}!", icon="📲")
+                st.toast(f"Critical alert message dispatched for {event_id} to {phone}!", icon=":material/sms:")
             else:
-                st.error(f"Dispatch failed: {res.get('detail', 'Error')}")
+                st.error(f"Dispatch failed: {res.get('detail', 'Error')}", icon=":material/cancel:")
 
 
 def _render_analytics(filtered, filtered_clusters, run_info):
     c1, c2 = st.columns(2)
     with c1:
         with st.container(border=True):
-            _section_header("Classification Distribution")
+            _section_header("Classification Distribution", icon="pie_chart")
             if not filtered.empty:
                 counts = filtered["rule_label"].value_counts()
                 fig = go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h",
@@ -1488,7 +1524,7 @@ def _render_analytics(filtered, filtered_clusters, run_info):
                 st.plotly_chart(fig, width="stretch")
     with c2:
         with st.container(border=True):
-            _section_header("Risk Distribution")
+            _section_header("Risk Distribution", icon="warning", icon_color="var(--accent-high)")
             if not filtered.empty:
                 counts = filtered["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
                 fig = go.Figure(go.Bar(x=counts.index, y=counts.values,
@@ -1500,12 +1536,12 @@ def _render_analytics(filtered, filtered_clusters, run_info):
     c3, c4 = st.columns(2)
     with c3:
         with st.container(border=True):
-            _section_header("Persistence Distribution (days active)")
+            _section_header("Persistence Distribution (days active)", icon="schedule")
             if not filtered.empty:
                 st.bar_chart(filtered["persistence_days"].value_counts().sort_index())
     with c4:
         with st.container(border=True):
-            _section_header("FRP Distribution (MW)")
+            _section_header("FRP Distribution (MW)", icon="local_fire_department")
             if not filtered.empty:
                 fig = go.Figure(go.Histogram(x=filtered["frp"], marker_color="#4d8fc4", nbinsx=30))
                 fig.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
@@ -1516,13 +1552,13 @@ def _render_analytics(filtered, filtered_clusters, run_info):
         ml = run_info.get("ml_metrics", {})
         if ml.get("trained"):
             with st.container(border=True):
-                _section_header("Feature Importance")
+                _section_header("Feature Importance", icon="insights")
                 imp = pd.Series(ml["feature_importances"]).sort_values()
                 st.bar_chart(imp)
                 st.markdown(f'<div class="caveat">{ml.get("caveat", "")}</div>', unsafe_allow_html=True)
 
     with st.container(border=True):
-        _section_header("Cluster Analysis — nearby events grouped into candidate sites")
+        _section_header("Cluster Analysis — nearby events grouped into candidate sites", icon="scatter_plot")
         st.caption("DBSCAN over event coordinates (haversine distance, default 2km radius / 2+ events) — groups "
                    "adjacent ~1km grid-cell events that plausibly belong to one larger real-world site. This is a "
                    "spatial grouping heuristic, not a claim that grouped events share one cause.")
@@ -1543,7 +1579,7 @@ def _render_analytics(filtered, filtered_clusters, run_info):
                 )
 
     with st.container(border=True):
-        _section_header("Emerging Thermal Sources")
+        _section_header("Emerging Thermal Sources", icon="trending_up")
         st.caption("Not yet persistent, but recently active with rising FRP relative to their own short history — "
                    "worth watching before they cross the persistence threshold.")
         if filtered_clusters is None or filtered_clusters.empty:
@@ -1569,13 +1605,13 @@ def _render_analytics(filtered, filtered_clusters, run_info):
 
 def _render_investigations(filtered_clusters, filtered_detail, analyst_mode: bool):
     if filtered_clusters is None or filtered_clusters.empty:
-        st.info("No clusters match the current filters.")
+        st.info("No clusters match the current filters.", icon=":material/search_off:")
         return
     window_col = f"persistence_{config.PERSISTENCE_DEFAULT_WINDOW_DAYS}d"
     table = filtered_clusters.sort_values(window_col, ascending=False).reset_index(drop=True)
     table.insert(0, "rank", range(1, len(table) + 1))
 
-    _section_header("Top Persistent Clusters — select a row to investigate")
+    _section_header("Top Persistent Clusters — select a row to investigate", icon="schedule")
     display_cols = ["rank", "event_id", "grid_cell", window_col, "detection_count", "avg_frp", "max_frp",
                      "dominant_label", "risk_score", "risk_level", "status", "latitude", "longitude"]
     display_cols = [c for c in display_cols if c in table.columns]
@@ -1602,23 +1638,23 @@ def _render_investigations(filtered_clusters, filtered_detail, analyst_mode: boo
 
 def _render_data_tab(filtered, run_info):
     with st.container(border=True):
-        _section_header("System Health")
+        _section_header("System Health", icon="monitor_heart")
         h1, h2, h3, h4, h5 = st.columns(5)
         firms_ok = (run_info or {}).get("hotspot_source") in ("firms_live", "local_cache")
         osm_ok = (run_info or {}).get("zone_source") in ("overpass_live", "cache")
         landcover_ok = (run_info or {}).get("landcover_source") in ("overpass_live", "cache", "cache_stale")
-        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#0ca30c" if firms_ok else "#fab219"), unsafe_allow_html=True)
-        h2.markdown(_pill("OSM Industrial: " + ("AVAILABLE" if osm_ok else "CACHED/DEMO"), "#0ca30c" if osm_ok else "#fab219"), unsafe_allow_html=True)
-        h3.markdown(_pill("OSM Landcover: " + ("AVAILABLE" if landcover_ok else "UNAVAILABLE"), "#0ca30c" if landcover_ok else "#6b6e72"), unsafe_allow_html=True)
-        h4.markdown(_pill("Database: HEALTHY" if config.DB_PATH.exists() else "DATABASE: NOT YET CREATED", "#0ca30c" if config.DB_PATH.exists() else "#6b6e72"), unsafe_allow_html=True)
-        h5.markdown(_pill("ML Model: LOADED" if config.MODEL_PATH.exists() else "ML MODEL: NOT YET TRAINED", "#0ca30c" if config.MODEL_PATH.exists() else "#6b6e72"), unsafe_allow_html=True)
+        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#0ca30c" if firms_ok else "#fab219", icon="check_circle" if firms_ok else "cached"), unsafe_allow_html=True)
+        h2.markdown(_pill("OSM Industrial: " + ("AVAILABLE" if osm_ok else "CACHED/DEMO"), "#0ca30c" if osm_ok else "#fab219", icon="check_circle" if osm_ok else "cached"), unsafe_allow_html=True)
+        h3.markdown(_pill("OSM Landcover: " + ("AVAILABLE" if landcover_ok else "UNAVAILABLE"), "#0ca30c" if landcover_ok else "#6b6e72", icon="check_circle" if landcover_ok else "cancel"), unsafe_allow_html=True)
+        h4.markdown(_pill("Database: HEALTHY" if config.DB_PATH.exists() else "DATABASE: NOT YET CREATED", "#0ca30c" if config.DB_PATH.exists() else "#6b6e72", icon="check_circle" if config.DB_PATH.exists() else "cancel"), unsafe_allow_html=True)
+        h5.markdown(_pill("ML Model: LOADED" if config.MODEL_PATH.exists() else "ML MODEL: NOT YET TRAINED", "#0ca30c" if config.MODEL_PATH.exists() else "#6b6e72", icon="check_circle" if config.MODEL_PATH.exists() else "cancel"), unsafe_allow_html=True)
         if run_info:
             st.caption(f"Records processed this run: {(run_info or {}).get('n_stored_total', 'n/a')} accumulated in store. "
                        f"Landcover zones loaded: {(run_info or {}).get('n_landcover_zones', 'n/a')} "
                        f"(forest/water/farmland — feeds wildfire/agri-burn evidence; not used when unavailable).")
 
     with st.container(border=True):
-        _section_header("Hotspot Table")
+        _section_header("Hotspot Table", icon="table_chart")
         cols = ["grid_cell", "acq_date", "acq_time", "latitude", "longitude", "frp", "confidence_numeric",
                 "persistence_days", "rule_label", "ml_label", "risk_score", "risk_level", "industrial_distance_km", "status"] \
             if "status" in filtered.columns else \
@@ -1634,7 +1670,7 @@ def _render_data_tab(filtered, run_info):
         st.download_button("Download CSV", table.to_csv(index=False), "hotspots.csv", "text/csv")
 
     with st.container(border=True):
-        _section_header("Data Provenance")
+        _section_header("Data Provenance", icon="history")
         st.markdown(
             "- **NASA FIRMS** — satellite thermal hotspot data (VIIRS/MODIS)\n"
             "- **OpenStreetMap** — industrial/mining geospatial context (via Overpass)\n"
@@ -1644,7 +1680,7 @@ def _render_data_tab(filtered, run_info):
         )
 
     with st.container(border=True):
-        _section_header("Analyst Review Audit Trail")
+        _section_header("Analyst Review Audit Trail", icon="fact_check")
         reviews = store.load_reviews(region="jharkhand_odisha")
         if reviews.empty:
             st.caption("No analyst decisions recorded yet — see the Validation page or an event's "
@@ -1661,7 +1697,7 @@ def _render_data_tab(filtered, run_info):
 def _render_model_tab(run_info):
     ml = (run_info or {}).get("ml_metrics", {})
     if not ml.get("trained"):
-        st.warning(ml.get("reason", "Model not yet trained — run the pipeline first.") if ml else "Run the pipeline first to train and evaluate the model.")
+        st.warning(ml.get("reason", "Model not yet trained — run the pipeline first.") if ml else "Run the pipeline first to train and evaluate the model.", icon=":material/warning:")
         return
 
     st.caption(f"Model version **{ml.get('version', 'unknown')}** &middot; trained {ml.get('trained_at', 'unknown')} "
@@ -1675,7 +1711,7 @@ def _render_model_tab(run_info):
     m4.markdown(f'<div class="stat"><div class="lbl">F1 Score</div><div class="val">{ml["f1"]:.0%}</div></div>', unsafe_allow_html=True)
 
     with st.container(border=True):
-        _section_header("Confusion Matrix")
+        _section_header("Confusion Matrix", icon="grid_view")
         cm = ml["confusion_matrix"]
         labels = ml["confusion_labels"]
         fig = go.Figure(go.Heatmap(z=cm, x=labels, y=labels, colorscale="Blues", showscale=False))
@@ -1685,7 +1721,7 @@ def _render_model_tab(run_info):
         st.plotly_chart(fig, width="stretch")
 
     with st.container(border=True):
-        _section_header("Feature Importance")
+        _section_header("Feature Importance", icon="insights")
         st.bar_chart(pd.Series(ml["feature_importances"]).sort_values())
 
     with st.expander("Full classification report"):
@@ -1741,18 +1777,18 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
     # Dedicated interactive Target Region zone for Jharkhand–Odisha Belt
     belt_popup_html = (
         f'<div style="font-family:{FONT_STACK};font-size:12.5px;line-height:1.6;padding:4px;min-width:210px;">'
-        f'<b style="color:#fab219;font-size:13px;">🎯 {config.REGION_NAME}</b><br>'
+        f'<b style="color:#fab219;font-size:13px;"><span class="material-symbols-rounded" style="font-size:13px;vertical-align:-2px;">adjust</span> {config.REGION_NAME}</b><br>'
         f'<span style="color:#9a9da1;">Target Industrial &amp; Mining GIS Region</span><br>'
         f'<div style="margin:6px 0;padding:5px 8px;background:rgba(250,178,25,0.12);border-left:3px solid #fab219;border-radius:3px;">'
         f'Full OSM steel/mines layers, AI classification &amp; anomaly detection active.'
         f'</div>'
-        f'<span style="font-family:{MONO_STACK};font-size:11px;color:#4d8fc4;">⚡ Click anywhere inside this region to open detailed map</span>'
+        f'<span style="font-family:{MONO_STACK};font-size:11px;color:#4d8fc4;"><span class="material-symbols-rounded" style="font-size:11px;vertical-align:-1px;">bolt</span> Click anywhere inside this region to open detailed map</span>'
         f'</div>'
     )
     folium.Rectangle(
         bounds=[[config.BBOX["min_lat"], config.BBOX["min_lon"]], [config.BBOX["max_lat"], config.BBOX["max_lon"]]],
         color="#fab219", weight=2.5, fill=True, fill_color="#fab219", fill_opacity=0.10, dash_array="5, 5",
-        tooltip="🎯 Click to Access Jharkhand–Odisha Belt Detailed Map",
+        tooltip="Click to Access Jharkhand–Odisha Belt Detailed Map",
         popup=folium.Popup(belt_popup_html, max_width=250),
         name="Target Region: Jharkhand–Odisha",
     ).add_to(m)
@@ -1770,10 +1806,10 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
                 'transform:translate(-50%, -50%);display:flex;align-items:center;gap:6px;'
                 'animation:pulse-glow 2.5s infinite;">'
                 '<span style="width:8px;height:8px;border-radius:50%;background:#fab219;display:inline-block;"></span>'
-                '🎯 Access Jharkhand–Odisha Map</div>'
+                '<span class="material-symbols-rounded" style="font-size:13px;">adjust</span> Access Jharkhand–Odisha Map</div>'
             )
         ),
-        tooltip="🎯 Click to Access Jharkhand–Odisha Detailed Map",
+        tooltip="Click to Access Jharkhand–Odisha Detailed Map",
         popup=folium.Popup(belt_popup_html, max_width=250),
     ).add_to(m)
 
@@ -1820,7 +1856,7 @@ def _apply_national_filters(detail_df: pd.DataFrame, page: str):
 
     if show_ui:
         with st.container(border=True):
-            _section_header("Filters")
+            _section_header("Filters", icon="tune")
             f1, f2, f3, f4 = st.columns(4)
             state_filter = f1.multiselect("State", states_available, default=states_available, key=f"nstate_{page}")
             satellite_filter = f2.multiselect("Satellite", satellites_available, default=satellites_available, key=f"nsat_{page}")
@@ -1876,12 +1912,12 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
     # 1. Page Header with Breadcrumbs & Sync Status
     h1, h2 = st.columns([3.2, 1.8])
     with h1:
-        _section_header("3D Holo Globe — Orbital Thermal Risk Radar")
-        st.caption("🌐 Real-time 3D planetary digital twin visualizing satellite thermal energy beams, AI risk tiers, and persistence.")
+        _section_header("3D Holo Globe — Orbital Thermal Risk Radar", icon="public")
+        st.caption(":material/public: Real-time 3D planetary digital twin visualizing satellite thermal energy beams, AI risk tiers, and persistence.")
     with h2:
         sync_cols = st.columns([1.2, 1.0])
         with sync_cols[0]:
-            if st.button("🔄 Sync Live Pipeline", key="sync_3d_globe_top", width="stretch",
+            if st.button("Sync Live Pipeline", key="sync_3d_globe_top", width="stretch", icon=":material/sync:",
                          help="Transform and sync current detection pipeline data to Holo-View 3D Globe"):
                 with st.spinner("Syncing thermal events to 3D Globe..."):
                     if is_regional:
@@ -1896,14 +1932,14 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
                         )
                     st.session_state["holo_events_count"] = len(events)
                     st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.toast(f"✅ {len(events)} events synced to 3D Holo Globe!", icon="🌐")
+                    st.toast(f"{len(events)} events synced to 3D Holo Globe!", icon=":material/public:")
                     st.rerun()
         with sync_cols[1]:
             if is_regional:
-                st.button("← 2D Live Map", key="back_to_livemap_regional", width="stretch",
+                st.button("2D Live Map", key="back_to_livemap_regional", width="stretch", icon=":material/arrow_back:",
                           on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
             else:
-                st.button("← 2D Live Map", key="back_to_livemap_national", width="stretch",
+                st.button("2D Live Map", key="back_to_livemap_national", width="stretch", icon=":material/arrow_back:",
                           on_click=_navigate(page="Live Map", region="india"))
 
     # Load 3D events
@@ -1916,10 +1952,10 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
 
     # 2. Stat Row
     _stat_row([
-        ("Active 3D Beams", n_events, False),
-        ("Critical Risk", n_critical, n_critical > 0),
-        ("High-Risk Events", n_high, n_high > 0),
-        ("Total Radiative Power", f"{total_frp:.0f} MW", False),
+        ("Active 3D Beams", n_events, False, "public", None),
+        ("Critical Risk", n_critical, n_critical > 0, "warning", RISK_COLORS["CRITICAL"] if n_critical else None),
+        ("High-Risk Events", n_high, n_high > 0, "warning", RISK_COLORS["HIGH"] if n_high else None),
+        ("Total Radiative Power", f"{total_frp:.0f} MW", False, "local_fire_department", None),
     ])
 
     # 3. View Mode and Interactive Control Toolbar
@@ -1927,7 +1963,7 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
         t1, t2, t3, t4 = st.columns([2.0, 1.4, 1.2, 1.4])
         view_mode = t1.radio(
             "Visualization Engine",
-            ["🌟 Embedded WebGL 3D Globe (Instant)", "🛰️ Holo-View-Maker React App (Live Server)"],
+            ["Embedded WebGL 3D Globe (Instant)", "Holo-View-Maker React App (Live Server)"],
             horizontal=True,
             key="globe_view_mode",
         )
@@ -1936,7 +1972,7 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
         auto_spin = t3.checkbox("Auto-Rotate Orbit", value=True, key="globe_auto_spin")
         min_risk_val = t4.slider("Min Risk Score", 0, 95, 0, step=5, key="globe_min_risk")
 
-    if view_mode.startswith("🌟 Embedded WebGL"):
+    if view_mode.startswith("Embedded WebGL"):
         # Embedded zero-dependency Three.js WebGL globe
         globe_html = generate_embedded_3d_globe_html(
             events=events,
@@ -1944,14 +1980,14 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
             auto_rotate=auto_spin,
             min_risk=min_risk_val,
         )
-        components.html(globe_html, height=730, scrolling=False)
+        st.iframe(globe_html, height=730)
 
         # Quick guide & tips beneath the globe
         g1, g2 = st.columns([3, 2])
         with g1:
-            st.caption("💡 **3D Interaction Guide:** Left-click and drag to orbit around the globe. Scroll to zoom in/out. Click on any vertical energy beam or ground halo to inspect its complete risk telemetry and auto-focus.")
+            st.caption(":material/lightbulb: **3D Interaction Guide:** Left-click and drag to orbit around the globe. Scroll to zoom in/out. Click on any vertical energy beam or ground halo to inspect its complete risk telemetry and auto-focus.")
         with g2:
-            st.caption(f"📡 **Data Pipeline Status:** {n_events} active thermal sources exported &middot; Last synced: `{last_synced}`")
+            st.caption(f":material/sensors: **Data Pipeline Status:** {n_events} active thermal sources exported &middot; Last synced: `{last_synced}`")
     else:
         # Live React + Three.js Holo-View-Maker Dev Server (Iframe)
         holo_host = st.session_state.get("holo_host_url", "http://localhost:5173")
@@ -1964,17 +2000,17 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
         with i2:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
             holo_url = holo_url_input or "http://localhost:5173"
-            st.link_button("↗ Open in New Window", holo_url, width="stretch",
+            st.link_button("Open in New Window", holo_url, width="stretch", icon=":material/open_in_new:",
                            help="Open the standalone React + Three.js application in a full browser tab")
         with i3:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("🔄 Refresh Iframe", key="refresh_holo_iframe", width="stretch"):
+            if st.button("Refresh Iframe", key="refresh_holo_iframe", width="stretch", icon=":material/refresh:"):
                 st.rerun()
 
         # Iframe component
-        components.iframe(holo_url_input or "http://localhost:5173", height=730, scrolling=True)
+        st.iframe(holo_url_input or "http://localhost:5173", height=730)
 
-        with st.expander("🛠️ How to launch the Holo-View-Maker Dev Server locally", expanded=False):
+        with st.expander("How to launch the Holo-View-Maker Dev Server locally", expanded=False, icon=":material/build:"):
             st.markdown(
                 "If the iframe above shows a connection error, start the local Vite development server with one command:\n"
                 "```bash\n"
@@ -1987,23 +2023,23 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
 
     # 4. Export & Data Provenance Card
     with st.container(border=True):
-        _section_header("3D Holo-View Pipeline Export Details")
+        _section_header("3D Holo-View Pipeline Export Details", icon="data_object")
         e1, e2, e3 = st.columns([2.5, 1.5, 1.5])
         with e1:
             st.caption(
-                f"**Export Destinations:** `holo-view-maker/public/data/events.json` and `output/holo_events.json` &middot; "
-                f"**Schema:** `ThermalEvent` (TypeScript interface matching `holo-view-maker/src/lib/thermal.ts`)."
+                "**Export Destinations:** `holo-view-maker/public/data/events.json` and `output/holo_events.json` &middot; "
+                "**Schema:** `ThermalEvent` (TypeScript interface matching `holo-view-maker/src/lib/thermal.ts`)."
             )
         with e2:
             events_json_str = json.dumps(events, indent=2)
-            st.download_button("📥 Download events.json", events_json_str, "events.json", "application/json",
+            st.download_button("Download events.json", events_json_str, "events.json", "application/json",
                                key="download_holo_json_btn", width="stretch")
         with e3:
             if is_regional:
-                st.button("🎯 Open Investigations", key="jump_inv_from_globe", width="stretch",
+                st.button("Open Investigations", key="jump_inv_from_globe", width="stretch", icon=":material/manage_search:",
                           on_click=_navigate(page="Investigations"))
             else:
-                st.button("🎯 Access Belt Map →", key="jump_belt_from_globe", width="stretch",
+                st.button("Access Belt Map", key="jump_belt_from_globe", width="stretch", icon=":material/map:",
                           on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
 
 
@@ -2040,10 +2076,10 @@ def _render_detection_funnel(state_summary: pd.DataFrame, n_observations: int):
     html = '<div class="funnel">' + arrow.join(steps) + '</div>'
     st.markdown(html, unsafe_allow_html=True)
     c1, c2, c3 = st.columns([3.8, 1.4, 1.4])
-    c1.caption("🎯 **Target Region Ready:** Stages 3-5 contain the detailed geospatial & AI pipeline for the Jharkhand–Odisha Belt.")
-    c2.button("Access Belt Map →", key="funnel_open_belt", width="stretch",
+    c1.caption(":material/adjust: **Target Region Ready:** Stages 3-5 contain the detailed geospatial & AI pipeline for the Jharkhand–Odisha Belt.")
+    c2.button("Access Belt Map", key="funnel_open_belt", width="stretch", icon=":material/map:",
               on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
-    c3.button("🌐 3D Holo Globe →", key="funnel_open_3d_globe", width="stretch",
+    c3.button("3D Holo Globe", key="funnel_open_3d_globe", width="stretch", icon=":material/public:",
               help="Open the interactive 3D Holo Globe",
               on_click=_navigate(page="3D Holo Globe"))
 
@@ -2054,16 +2090,16 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
     n_critical = int((filtered_events["risk_level"] == "CRITICAL").sum()) if not filtered_events.empty else 0
     satellites = sorted(filtered_detail["satellite"].dropna().unique().astype(str)) if not filtered_detail.empty else []
     _stat_row([
-        ("Satellite Hotspots", len(filtered_detail), False),
-        ("Detected Events", len(filtered_events), False),
-        ("Persistent Sources", n_persistent, n_persistent > 0),
-        ("High-Risk Events", n_high, n_high > 0),
+        ("Satellite Hotspots", len(filtered_detail), False, "satellite_alt", None),
+        ("Detected Events", len(filtered_events), False, "flare", None),
+        ("Persistent Sources", n_persistent, n_persistent > 0, "schedule", STATUS_COLORS["PERSISTENT"] if n_persistent else None),
+        ("High-Risk Events", n_high, n_high > 0, "warning", RISK_COLORS["HIGH"] if n_high else None),
     ])
     _stat_row([
-        ("Critical Alerts", n_critical, n_critical > 0),
-        ("Industrial Events", "See Belt view", False),
-        ("States Active", int(filtered_detail["state"].nunique()) if not filtered_detail.empty else 0, False),
-        ("Satellites", ", ".join(satellites) or "—", False),
+        ("Critical Alerts", n_critical, n_critical > 0, "warning", RISK_COLORS["CRITICAL"] if n_critical else None),
+        ("Industrial Events", "See Belt view", False, "factory", None),
+        ("States Active", int(filtered_detail["state"].nunique()) if not filtered_detail.empty else 0, False, "map", None),
+        ("Satellites", ", ".join(satellites) or "—", False, "satellite_alt", None),
     ])
 
 
@@ -2073,13 +2109,13 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
     with st.container(border=True):
         h1, h2, h3 = st.columns([3.0, 1.4, 1.4])
         with h1:
-            _section_header(f"National Map — {map_mode} ({len(map_points)} shown)")
-            st.caption("💡 **Interactive Access:** Click on the **Jharkhand–Odisha Belt** on the map (or click button) to open the detailed GIS map.")
+            _section_header(f"National Map — {map_mode} ({len(map_points)} shown)", icon="map")
+            st.caption(":material/lightbulb: **Interactive Access:** Click the button to open the detailed Jharkhand–Odisha Belt GIS map.")
         with h2:
-            st.button("🎯 Access Belt Map →", key=f"jump_belt_top_{key}", width="stretch",
+            st.button("Access Belt Map", key=f"jump_belt_top_{key}", width="stretch", icon=":material/map:",
                       on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
         with h3:
-            st.button("🌐 3D Holo Globe →", key=f"jump_3d_top_{key}", width="stretch",
+            st.button("3D Holo Globe", key=f"jump_3d_top_{key}", width="stretch", icon=":material/public:",
                       help="Open interactive 3D orbital globe view",
                       on_click=_navigate(page="3D Holo Globe"))
 
@@ -2087,58 +2123,30 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
         if map_mode == "Industrial Sources":
             st.info("Industrial-zone classification requires the OSM geospatial join, which only runs for the detailed "
                     "Jharkhand–Odisha belt (running it for all of India on every load would be far too slow). "
-                    "Switch **Region** (top bar) or click above for the detailed belt view.")
+                    "Switch **Region** (top bar) or click above for the detailed belt view.", icon=":material/info:")
         elif map_points.empty:
-            st.info("No observations match the current filters.")
+            st.info("No observations match the current filters.", icon=":material/search_off:")
         else:
-            map_data = st_folium(
+            # Region no longer auto-switches on a map click — it was jumping
+            # to the Jharkhand–Odisha Belt (and away from the India view)
+            # just from clicking near it on the map, with no way to opt out.
+            # The "Access Belt Map" button above is the only way in now.
+            st_folium(
                 build_national_map(map_points, map_mode, show_heatmap),
                 width=None,
                 height=620,
-                returned_objects=["last_object_clicked", "last_active_drawing", "last_clicked"],
+                returned_objects=[],
                 key=key,
             )
-            # Handle map click interactions:
-            if map_data:
-                clicked_target = False
-                # 1. Check if clicked object or point is in Jharkhand-Odisha region bbox
-                last_clicked = map_data.get("last_object_clicked") or map_data.get("last_clicked")
-                if last_clicked and isinstance(last_clicked, dict):
-                    c_lat = last_clicked.get("lat")
-                    c_lng = last_clicked.get("lng")
-                    if c_lat is not None and c_lng is not None:
-                        if (config.BBOX["min_lat"] - 0.2 <= c_lat <= config.BBOX["max_lat"] + 0.2 and
-                            config.BBOX["min_lon"] - 0.2 <= c_lng <= config.BBOX["max_lon"] + 0.2):
-                            clicked_target = True
-
-                # 2. Check if clicked drawing / polygon is Jharkhand or Odisha
-                last_drawing = map_data.get("last_active_drawing")
-                if last_drawing and isinstance(last_drawing, dict):
-                    props = last_drawing.get("properties", {})
-                    state_clicked = props.get("state_name") or props.get("name")
-                    if state_clicked in ("Jharkhand", "Odisha") or "Jharkhand" in str(state_clicked) or "Odisha" in str(state_clicked):
-                        clicked_target = True
-
-                if clicked_target:
-                    # Prevent endless rerun loops with a session state debounce key
-                    last_processed_click = st.session_state.get("_last_processed_map_click")
-                    click_sig = str(last_clicked) + str(map_data.get("last_active_drawing"))
-                    if last_processed_click != click_sig:
-                        st.session_state["_last_processed_map_click"] = click_sig
-                        st.session_state["region"] = "jharkhand_odisha"
-                        st.session_state["topbar_region"] = "Jharkhand–Odisha Belt"
-                        st.session_state["page"] = "Live Map" if st.session_state.get("page") == "Live Map" else "Overview"
-                        st.toast("🎯 Accessed Jharkhand–Odisha Iron Ore & Steel Belt Map", icon="🗺️")
-                        st.rerun()
 
 
 def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter: list[str]):
     with st.container(border=True):
         c1, c2 = st.columns([3, 2])
         with c1:
-            _section_header("Top States by Thermal Activity")
+            _section_header("Top States by Thermal Activity", icon="bar_chart")
         with c2:
-            st.button("🎯 Access Jharkhand–Odisha Map →", key="top_states_access_belt", width="stretch",
+            st.button("Access Jharkhand–Odisha Map", key="top_states_access_belt", width="stretch", icon=":material/map:",
                       on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
         if state_summary.empty:
             st.caption("No state summary available yet.")
@@ -2157,7 +2165,7 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
         _render_national_top_states_chart(state_summary, state_filter)
     with c2:
         with st.container(border=True):
-            _section_header("Risk Distribution (Events)")
+            _section_header("Risk Distribution (Events)", icon="warning", icon_color="var(--accent-high)")
             if filtered_events.empty:
                 st.caption("No events in the current filter selection.")
             else:
@@ -2168,7 +2176,7 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
                 st.plotly_chart(fig, width="stretch")
 
     with st.container(border=True):
-        _section_header("Hotspots / Persistent / High-Risk by State")
+        _section_header("Hotspots / Persistent / High-Risk by State", icon="map")
         if not state_summary.empty:
             st.dataframe(
                 state_summary[state_summary["state"].isin(state_filter)]
@@ -2180,17 +2188,19 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
 
 def _render_national_data_page(info: dict):
     with st.container(border=True):
-        _section_header("System Health")
+        _section_header("System Health", icon="monitor_heart")
         h1, h2 = st.columns(2)
         firms_ok = info.get("hotspot_source") in ("firms_live", "local_cache")
-        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#0ca30c" if firms_ok else "#fab219"),
+        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#0ca30c" if firms_ok else "#fab219",
+                           icon="check_circle" if firms_ok else "cached"),
                     unsafe_allow_html=True)
         boundary_ok = config.INDIA_STATES_PATH.exists()
         h2.markdown(_pill("India Boundary Data: " + ("LOADED" if boundary_ok else "NOT FOUND"),
-                           "#0ca30c" if boundary_ok else "#e66767"), unsafe_allow_html=True)
+                           "#0ca30c" if boundary_ok else "#e66767",
+                           icon="check_circle" if boundary_ok else "cancel"), unsafe_allow_html=True)
 
     with st.container(border=True):
-        _section_header("Historical Accumulation")
+        _section_header("Historical Accumulation", icon="history")
         if info.get("used_accumulated_history"):
             st.caption(
                 f"Persistence is judged against **{info.get('history_days_covered', 0)} days** of real accumulated "
@@ -2207,7 +2217,7 @@ def _render_national_data_page(info: dict):
             )
 
     with st.container(border=True):
-        _section_header("Data Quality & Observation Notes")
+        _section_header("Data Quality & Observation Notes", icon="fact_check")
         report = info.get("clean_report", {})
         detail_df = info.get("detail_df")
         n_untagged = int(detail_df["state"].isna().sum()) if detail_df is not None and "state" in detail_df.columns else 0
@@ -2227,7 +2237,7 @@ def _render_national_data_page(info: dict):
         )
 
     with st.container(border=True):
-        _section_header("Observations Table")
+        _section_header("Observations Table", icon="table_chart")
         detail_df = info["detail_df"]
         st.dataframe(detail_df.sort_values("acq_date", ascending=False).head(500), hide_index=True, width="stretch")
         st.download_button("Export CSV", detail_df.to_csv(index=False), "national_observations.csv", "text/csv",
@@ -2236,27 +2246,27 @@ def _render_national_data_page(info: dict):
 
 def _render_settings_national(demo_mode: bool):
     with st.container(border=True):
-        _section_header("Pipeline")
+        _section_header("Pipeline", icon="tune")
         api_key_input = None
         if not demo_mode:
             if config.FIRMS_API_KEY:
-                st.success("FIRMS_API_KEY loaded from .env")
+                st.success("FIRMS_API_KEY loaded from .env", icon=":material/check_circle:")
             else:
-                st.warning("No FIRMS_API_KEY configured — pipeline will fall back to cache/demo data.")
+                st.warning("No FIRMS_API_KEY configured — pipeline will fall back to cache/demo data.", icon=":material/warning:")
             api_key_input = st.text_input("Or paste a FIRMS key for this session", type="password", key="settings_nat_key")
-        if st.button("Run Pipeline", key="settings_nat_run", width="stretch"):
+        if st.button("Run Pipeline", key="settings_nat_run", width="stretch", icon=":material/play_circle:"):
             run_national_and_cache(demo_mode, api_key_input or None)
             st.rerun()
         st.caption("Or switch **Region** (top bar) to Jharkhand–Odisha Belt to run the detailed pipeline instead.")
 
     with st.container(border=True):
-        _section_header("View")
+        _section_header("View", icon="visibility")
         st.session_state["presentation_mode"] = st.toggle("Presentation Mode", value=st.session_state["presentation_mode"],
                                                             key="presentation_mode_toggle_national",
                                                             help="Hide technical/admin pages for a clean SIH demo view.")
 
     with st.container(border=True):
-        _section_header("National Operational Parameters")
+        _section_header("National Operational Parameters", icon="tune")
         st.caption(f"Live fetch per run: latest {config.NATIONAL_DAY_RANGE * 24}h, merged into a persistent store "
                    f"(never touched in Demo Mode). Persistence is then judged over up to a "
                    f"{config.NATIONAL_HISTORY_DAYS}-day rolling window of accumulated history "
@@ -2266,7 +2276,7 @@ def _render_settings_national(demo_mode: bool):
         st.caption("National risk weights: " + ", ".join(f"{k} {v:.0%}" for k, v in config.NATIONAL_RISK_WEIGHTS.items()))
 
     with st.container(border=True):
-        _section_header("Critical Alert SMS & Messaging Gateway")
+        _section_header("Critical Alert SMS & Messaging Gateway", icon="sms", icon_color="var(--accent-critical)")
         st.caption("Automated and manual high-priority text alert dispatch to field responders for CRITICAL thermal events.")
 
         msg1, msg2 = st.columns(2)
@@ -2288,7 +2298,7 @@ def _render_settings_national(demo_mode: bool):
             st.session_state["alert_auto_dispatch"] = alert_auto
 
         send_phone_nat = alert_phone_val or config.ALERT_RECIPIENT_PHONE
-        if st.button("Send Test Critical Alert Message to " + send_phone_nat, key="msg_settings_send_test_nat", width="stretch"):
+        if st.button("Send Test Critical Alert Message to " + send_phone_nat, key="msg_settings_send_test_nat", width="stretch", icon=":material/sms:"):
             from src.alerts import messages as alert_messages
             sample_event = {
                 "event_id": "TH-INDIA-CRIT",
@@ -2305,13 +2315,13 @@ def _render_settings_national(demo_mode: bool):
                 force=True,
             )
             if res["status"] in ("delivered", "simulated"):
-                st.success(f"✅ Critical alert message dispatched successfully to {send_phone_nat} ({res['detail']})!")
-                st.toast(f"Dispatched to {send_phone_nat}", icon="📲")
+                st.success(f"Critical alert message dispatched successfully to {send_phone_nat} ({res['detail']})!", icon=":material/check_circle:")
+                st.toast(f"Dispatched to {send_phone_nat}", icon=":material/sms:")
             else:
-                st.error(f"❌ Dispatch failed: {res.get('detail', 'Unknown error')}")
+                st.error(f"Dispatch failed: {res.get('detail', 'Unknown error')}", icon=":material/cancel:")
 
     with st.container(border=True):
-        _section_header("3D Holo Globe & Digital Twin Integration")
+        _section_header("3D Holo Globe & Digital Twin Integration", icon="public")
         st.caption("Real-time synchronization between the Python intelligence pipeline and the Holo-View-Maker 3D WebGL Globe.")
 
         holo_host_nat = st.text_input(
@@ -2335,7 +2345,7 @@ def _render_settings_national(demo_mode: bool):
                 unsafe_allow_html=True,
             )
         with c2:
-            if st.button("🔄 Sync Current Pipeline to 3D Globe Now", key="sync_holo_settings_nat", width="stretch"):
+            if st.button("Sync Current Pipeline to 3D Globe Now", key="sync_holo_settings_nat", width="stretch", icon=":material/sync:"):
                 with st.spinner("Exporting thermal events to 3D Holo Globe..."):
                     info_curr = st.session_state.get("national_info")
                     exported_3d = export_pipeline_events_for_holo_view(
@@ -2344,8 +2354,8 @@ def _render_settings_national(demo_mode: bool):
                     )
                     st.session_state["holo_events_count"] = len(exported_3d)
                     st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.toast(f"✅ Synced {len(exported_3d)} events to 3D Holo Globe!", icon="🌐")
-                    st.success(f"Successfully exported {len(exported_3d)} events to Holo-View 3D Globe!")
+                    st.toast(f"Synced {len(exported_3d)} events to 3D Holo Globe!", icon=":material/public:")
+                    st.success(f"Successfully exported {len(exported_3d)} events to Holo-View 3D Globe!", icon=":material/check_circle:")
 
 
 def _route_national_page(page: str, demo_mode: bool):
@@ -2356,7 +2366,7 @@ def _route_national_page(page: str, demo_mode: bool):
     info = st.session_state.get("national_info")
     if not info:
         st.info("No national data yet. Open **Settings** and click **Run Pipeline** to fetch the latest "
-                "observations (Demo Mode works with zero setup).")
+                "observations (Demo Mode works with zero setup).", icon=":material/info:")
         return
 
     detail_df: pd.DataFrame = info["detail_df"]
@@ -2388,9 +2398,9 @@ def _route_national_page(page: str, demo_mode: bool):
     elif page in ("Investigations", "Validation", "AI Model"):
         st.info(f"**{page}** requires the full geospatial + AI pipeline, which only runs for the detailed "
                 "Jharkhand–Odisha belt (no rule-based classification or OSM join runs country-wide — see "
-                "Data page for why).")
-        st.button(f"🎯 Access Jharkhand–Odisha Belt to Open {page} →",
-                  key=f"nav_restricted_{page}",
+                "Data page for why).", icon=":material/info:")
+        st.button(f"Access Jharkhand–Odisha Belt to Open {page}",
+                  key=f"nav_restricted_{page}", icon=":material/map:",
                   on_click=_navigate(page=page, region="jharkhand_odisha"))
     elif page == "Data":
         _render_national_data_page(info)

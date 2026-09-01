@@ -15,75 +15,75 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "CRITICAL",
-    "acqDate": "2026-08-29",
+    "acqDate": "2026-08-31",
     "history": [
       {
-        "date": "2026-08-09",
+        "date": "2026-08-11",
         "frp": 10.1,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-11",
+        "date": "2026-08-13",
         "frp": 11.9,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-13",
+        "date": "2026-08-15",
         "frp": 12.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-15",
+        "date": "2026-08-17",
         "frp": 9.6,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-17",
+        "date": "2026-08-19",
         "frp": 12.5,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-19",
+        "date": "2026-08-21",
         "frp": 10.9,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 9.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-21",
+        "date": "2026-08-23",
         "frp": 15.9,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-22",
+        "date": "2026-08-24",
         "frp": 17.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-24",
+        "date": "2026-08-26",
         "frp": 12.3,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-25",
+        "date": "2026-08-27",
         "frp": 16.1,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-08-28",
         "frp": 8.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-08-29",
         "frp": 9.1,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-08-31",
         "frp": 9.5,
         "confidence": 90.0
       }
@@ -105,35 +105,35 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-22",
+    "acqDate": "2026-08-24",
     "history": [
       {
-        "date": "2026-08-02",
+        "date": "2026-08-04",
         "frp": 10.9,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-05",
+        "date": "2026-08-07",
         "frp": 15.6,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-12",
+        "date": "2026-08-14",
         "frp": 12.8,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-15",
+        "date": "2026-08-17",
         "frp": 10.0,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 8.1,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-22",
+        "date": "2026-08-24",
         "frp": 12.0,
         "confidence": 90.0
       }
@@ -155,35 +155,35 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-26",
+    "acqDate": "2026-08-28",
     "history": [
       {
-        "date": "2026-08-06",
+        "date": "2026-08-08",
         "frp": 13.2,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-10",
+        "date": "2026-08-12",
         "frp": 8.2,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-11",
+        "date": "2026-08-13",
         "frp": 15.7,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-13",
+        "date": "2026-08-15",
         "frp": 9.3,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-21",
+        "date": "2026-08-23",
         "frp": 15.2,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-08-28",
         "frp": 8.8,
         "confidence": 90.0
       }
@@ -205,10 +205,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-10",
+    "acqDate": "2026-08-12",
     "history": [
       {
-        "date": "2026-08-10",
+        "date": "2026-08-12",
         "frp": 17.2,
         "confidence": 90.0
       }
@@ -230,35 +230,35 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-29",
+    "acqDate": "2026-08-31",
     "history": [
       {
-        "date": "2026-08-01",
+        "date": "2026-08-03",
         "frp": 9.1,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-16",
+        "date": "2026-08-18",
         "frp": 10.0,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-19",
+        "date": "2026-08-21",
         "frp": 9.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-23",
+        "date": "2026-08-25",
         "frp": 12.8,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-08-30",
         "frp": 9.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-08-31",
         "frp": 13.7,
         "confidence": 90.0
       }
@@ -280,10 +280,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-08",
+    "acqDate": "2026-08-10",
     "history": [
       {
-        "date": "2026-08-08",
+        "date": "2026-08-10",
         "frp": 12.7,
         "confidence": 90.0
       }
@@ -305,25 +305,25 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-27",
+    "acqDate": "2026-08-29",
     "history": [
       {
-        "date": "2026-08-03",
+        "date": "2026-08-05",
         "frp": 9.0,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-04",
+        "date": "2026-08-06",
         "frp": 12.0,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-07",
+        "date": "2026-08-09",
         "frp": 10.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-08-29",
         "frp": 13.1,
         "confidence": 90.0
       }
@@ -345,15 +345,15 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-30",
+    "acqDate": "2026-09-01",
     "history": [
       {
-        "date": "2026-08-07",
+        "date": "2026-08-09",
         "frp": 12.4,
         "confidence": 90.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "frp": 17.1,
         "confidence": 90.0
       }
@@ -375,10 +375,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-09",
+    "acqDate": "2026-08-11",
     "history": [
       {
-        "date": "2026-08-09",
+        "date": "2026-08-11",
         "frp": 6.3,
         "confidence": 60.0
       }
@@ -400,10 +400,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "HIGH RISK",
-    "acqDate": "2026-08-14",
+    "acqDate": "2026-08-16",
     "history": [
       {
-        "date": "2026-08-14",
+        "date": "2026-08-16",
         "frp": 6.3,
         "confidence": 60.0
       }
@@ -425,40 +425,40 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "PERSISTENT",
-    "acqDate": "2026-08-22",
+    "acqDate": "2026-08-24",
     "history": [
       {
-        "date": "2026-08-03",
+        "date": "2026-08-05",
         "frp": 3.0,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-07",
+        "date": "2026-08-09",
         "frp": 1.6,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-09",
+        "date": "2026-08-11",
         "frp": 3.1,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-10",
+        "date": "2026-08-12",
         "frp": 3.3,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-13",
+        "date": "2026-08-15",
         "frp": 3.6,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 3.9,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-22",
+        "date": "2026-08-24",
         "frp": 2.4,
         "confidence": 60.0
       }
@@ -480,10 +480,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-02",
+    "acqDate": "2026-08-04",
     "history": [
       {
-        "date": "2026-08-02",
+        "date": "2026-08-04",
         "frp": 4.6,
         "confidence": 60.0
       }
@@ -505,10 +505,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-08",
+    "acqDate": "2026-08-10",
     "history": [
       {
-        "date": "2026-08-08",
+        "date": "2026-08-10",
         "frp": 4.1,
         "confidence": 60.0
       }
@@ -555,35 +555,35 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "PERSISTENT",
-    "acqDate": "2026-08-29",
+    "acqDate": "2026-08-31",
     "history": [
       {
-        "date": "2026-08-06",
+        "date": "2026-08-08",
         "frp": 1.4,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-17",
+        "date": "2026-08-19",
         "frp": 3.4,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-18",
+        "date": "2026-08-20",
         "frp": 3.1,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-26",
+        "date": "2026-08-28",
         "frp": 2.3,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-28",
+        "date": "2026-08-30",
         "frp": 1.5,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-29",
+        "date": "2026-08-31",
         "frp": 3.7,
         "confidence": 60.0
       }
@@ -655,20 +655,20 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-27",
+    "acqDate": "2026-08-29",
     "history": [
       {
-        "date": "2026-08-01",
+        "date": "2026-08-03",
         "frp": 4.6,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-03",
+        "date": "2026-08-05",
         "frp": 6.1,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-08-29",
         "frp": 5.1,
         "confidence": 60.0
       }
@@ -690,30 +690,30 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "PERSISTENT",
-    "acqDate": "2026-08-24",
+    "acqDate": "2026-08-26",
     "history": [
       {
-        "date": "2026-08-04",
+        "date": "2026-08-06",
         "frp": 3.4,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-11",
+        "date": "2026-08-13",
         "frp": 2.8,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-15",
+        "date": "2026-08-17",
         "frp": 2.9,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-21",
+        "date": "2026-08-23",
         "frp": 1.3,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-24",
+        "date": "2026-08-26",
         "frp": 3.8,
         "confidence": 60.0
       }
@@ -810,10 +810,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-11",
+    "acqDate": "2026-08-13",
     "history": [
       {
-        "date": "2026-08-11",
+        "date": "2026-08-13",
         "frp": 2.4,
         "confidence": 30.0
       }
@@ -885,20 +885,20 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-30",
+    "acqDate": "2026-09-01",
     "history": [
       {
-        "date": "2026-08-05",
+        "date": "2026-08-07",
         "frp": 1.2,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-27",
+        "date": "2026-08-29",
         "frp": 1.5,
         "confidence": 60.0
       },
       {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "frp": 1.5,
         "confidence": 60.0
       }
@@ -915,7 +915,7 @@
     "frp": 2.2,
     "brightness": 327,
     "confidence": 1,
-    "persistenceDays": 1,
+    "persistenceDays": 0,
     "detectionCount": 1,
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
@@ -945,10 +945,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-09",
+    "acqDate": "2026-08-11",
     "history": [
       {
-        "date": "2026-08-09",
+        "date": "2026-08-11",
         "frp": 1.4,
         "confidence": 30.0
       }
@@ -995,10 +995,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-24",
+    "acqDate": "2026-08-26",
     "history": [
       {
-        "date": "2026-08-24",
+        "date": "2026-08-26",
         "frp": 2.9,
         "confidence": 30.0
       }
@@ -1020,10 +1020,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-18",
+    "acqDate": "2026-08-20",
     "history": [
       {
-        "date": "2026-08-18",
+        "date": "2026-08-20",
         "frp": 2.3,
         "confidence": 30.0
       }
@@ -1045,10 +1045,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-06",
+    "acqDate": "2026-08-08",
     "history": [
       {
-        "date": "2026-08-06",
+        "date": "2026-08-08",
         "frp": 0.5,
         "confidence": 30.0
       }
@@ -1070,10 +1070,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-08",
+    "acqDate": "2026-08-10",
     "history": [
       {
-        "date": "2026-08-08",
+        "date": "2026-08-10",
         "frp": 3.0,
         "confidence": 30.0
       }
@@ -1095,10 +1095,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-08",
+    "acqDate": "2026-08-10",
     "history": [
       {
-        "date": "2026-08-08",
+        "date": "2026-08-10",
         "frp": 2.3,
         "confidence": 30.0
       }
@@ -1120,10 +1120,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-20",
+    "acqDate": "2026-08-22",
     "history": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 2.7,
         "confidence": 30.0
       }
@@ -1145,10 +1145,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-10",
+    "acqDate": "2026-08-12",
     "history": [
       {
-        "date": "2026-08-10",
+        "date": "2026-08-12",
         "frp": 3.0,
         "confidence": 30.0
       }
@@ -1170,10 +1170,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-11",
+    "acqDate": "2026-08-13",
     "history": [
       {
-        "date": "2026-08-11",
+        "date": "2026-08-13",
         "frp": 2.9,
         "confidence": 30.0
       }
@@ -1195,10 +1195,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-19",
+    "acqDate": "2026-08-21",
     "history": [
       {
-        "date": "2026-08-19",
+        "date": "2026-08-21",
         "frp": 2.8,
         "confidence": 30.0
       }
@@ -1220,10 +1220,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-21",
+    "acqDate": "2026-08-23",
     "history": [
       {
-        "date": "2026-08-21",
+        "date": "2026-08-23",
         "frp": 3.0,
         "confidence": 30.0
       }
@@ -1245,10 +1245,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-07",
+    "acqDate": "2026-08-09",
     "history": [
       {
-        "date": "2026-08-07",
+        "date": "2026-08-09",
         "frp": 2.7,
         "confidence": 30.0
       }
@@ -1270,10 +1270,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-06",
+    "acqDate": "2026-08-08",
     "history": [
       {
-        "date": "2026-08-06",
+        "date": "2026-08-08",
         "frp": 2.7,
         "confidence": 30.0
       }
@@ -1295,10 +1295,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-25",
+    "acqDate": "2026-08-27",
     "history": [
       {
-        "date": "2026-08-25",
+        "date": "2026-08-27",
         "frp": 2.9,
         "confidence": 30.0
       }
@@ -1320,10 +1320,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-23",
+    "acqDate": "2026-08-25",
     "history": [
       {
-        "date": "2026-08-23",
+        "date": "2026-08-25",
         "frp": 3.0,
         "confidence": 30.0
       }
@@ -1345,10 +1345,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-10",
+    "acqDate": "2026-08-12",
     "history": [
       {
-        "date": "2026-08-10",
+        "date": "2026-08-12",
         "frp": 2.6,
         "confidence": 30.0
       }
@@ -1370,10 +1370,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-20",
+    "acqDate": "2026-08-22",
     "history": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 2.4,
         "confidence": 30.0
       }
@@ -1395,10 +1395,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-10",
+    "acqDate": "2026-08-12",
     "history": [
       {
-        "date": "2026-08-10",
+        "date": "2026-08-12",
         "frp": 2.7,
         "confidence": 30.0
       }
@@ -1420,10 +1420,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-24",
+    "acqDate": "2026-08-26",
     "history": [
       {
-        "date": "2026-08-24",
+        "date": "2026-08-26",
         "frp": 2.7,
         "confidence": 30.0
       }
@@ -1445,10 +1445,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-29",
+    "acqDate": "2026-08-31",
     "history": [
       {
-        "date": "2026-08-29",
+        "date": "2026-08-31",
         "frp": 2.1,
         "confidence": 30.0
       }
@@ -1470,10 +1470,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-25",
+    "acqDate": "2026-08-27",
     "history": [
       {
-        "date": "2026-08-25",
+        "date": "2026-08-27",
         "frp": 2.3,
         "confidence": 30.0
       }
@@ -1495,10 +1495,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-05",
+    "acqDate": "2026-08-07",
     "history": [
       {
-        "date": "2026-08-05",
+        "date": "2026-08-07",
         "frp": 0.7,
         "confidence": 30.0
       }
@@ -1520,10 +1520,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-03",
+    "acqDate": "2026-08-05",
     "history": [
       {
-        "date": "2026-08-03",
+        "date": "2026-08-05",
         "frp": 2.2,
         "confidence": 30.0
       }
@@ -1545,10 +1545,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-18",
+    "acqDate": "2026-08-20",
     "history": [
       {
-        "date": "2026-08-18",
+        "date": "2026-08-20",
         "frp": 2.4,
         "confidence": 30.0
       }
@@ -1570,10 +1570,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-13",
+    "acqDate": "2026-08-15",
     "history": [
       {
-        "date": "2026-08-13",
+        "date": "2026-08-15",
         "frp": 2.4,
         "confidence": 30.0
       }
@@ -1595,10 +1595,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-05",
+    "acqDate": "2026-08-07",
     "history": [
       {
-        "date": "2026-08-05",
+        "date": "2026-08-07",
         "frp": 1.9,
         "confidence": 30.0
       }
@@ -1620,10 +1620,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-26",
+    "acqDate": "2026-08-28",
     "history": [
       {
-        "date": "2026-08-26",
+        "date": "2026-08-28",
         "frp": 1.8,
         "confidence": 30.0
       }
@@ -1645,10 +1645,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-22",
+    "acqDate": "2026-08-24",
     "history": [
       {
-        "date": "2026-08-22",
+        "date": "2026-08-24",
         "frp": 1.9,
         "confidence": 30.0
       }
@@ -1670,10 +1670,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-09",
+    "acqDate": "2026-08-11",
     "history": [
       {
-        "date": "2026-08-09",
+        "date": "2026-08-11",
         "frp": 2.1,
         "confidence": 30.0
       }
@@ -1695,10 +1695,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-18",
+    "acqDate": "2026-08-20",
     "history": [
       {
-        "date": "2026-08-18",
+        "date": "2026-08-20",
         "frp": 1.6,
         "confidence": 30.0
       }
@@ -1720,10 +1720,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-01",
+    "acqDate": "2026-08-03",
     "history": [
       {
-        "date": "2026-08-01",
+        "date": "2026-08-03",
         "frp": 1.3,
         "confidence": 30.0
       }
@@ -1745,10 +1745,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-23",
+    "acqDate": "2026-08-25",
     "history": [
       {
-        "date": "2026-08-23",
+        "date": "2026-08-25",
         "frp": 1.8,
         "confidence": 30.0
       }
@@ -1770,10 +1770,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-30",
+    "acqDate": "2026-09-01",
     "history": [
       {
-        "date": "2026-08-30",
+        "date": "2026-09-01",
         "frp": 1.7,
         "confidence": 30.0
       }
@@ -1795,10 +1795,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-19",
+    "acqDate": "2026-08-21",
     "history": [
       {
-        "date": "2026-08-19",
+        "date": "2026-08-21",
         "frp": 1.4,
         "confidence": 30.0
       }
@@ -1820,10 +1820,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-20",
+    "acqDate": "2026-08-22",
     "history": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 1.4,
         "confidence": 30.0
       }
@@ -1845,10 +1845,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-01",
+    "acqDate": "2026-08-03",
     "history": [
       {
-        "date": "2026-08-01",
+        "date": "2026-08-03",
         "frp": 0.9,
         "confidence": 30.0
       }
@@ -1870,10 +1870,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-21",
+    "acqDate": "2026-08-23",
     "history": [
       {
-        "date": "2026-08-21",
+        "date": "2026-08-23",
         "frp": 0.9,
         "confidence": 30.0
       }
@@ -1895,10 +1895,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-15",
+    "acqDate": "2026-08-17",
     "history": [
       {
-        "date": "2026-08-15",
+        "date": "2026-08-17",
         "frp": 0.9,
         "confidence": 30.0
       }
@@ -1920,10 +1920,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-01",
+    "acqDate": "2026-08-03",
     "history": [
       {
-        "date": "2026-08-01",
+        "date": "2026-08-03",
         "frp": 1.1,
         "confidence": 30.0
       }
@@ -1945,10 +1945,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "NEW",
-    "acqDate": "2026-08-29",
+    "acqDate": "2026-08-31",
     "history": [
       {
-        "date": "2026-08-29",
+        "date": "2026-08-31",
         "frp": 0.9,
         "confidence": 30.0
       }
@@ -1970,10 +1970,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-03",
+    "acqDate": "2026-08-05",
     "history": [
       {
-        "date": "2026-08-03",
+        "date": "2026-08-05",
         "frp": 0.9,
         "confidence": 30.0
       }
@@ -1995,10 +1995,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-13",
+    "acqDate": "2026-08-15",
     "history": [
       {
-        "date": "2026-08-13",
+        "date": "2026-08-15",
         "frp": 0.8,
         "confidence": 30.0
       }
@@ -2020,10 +2020,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "RECURRING",
-    "acqDate": "2026-08-23",
+    "acqDate": "2026-08-25",
     "history": [
       {
-        "date": "2026-08-23",
+        "date": "2026-08-25",
         "frp": 0.5,
         "confidence": 30.0
       }
@@ -2045,10 +2045,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-20",
+    "acqDate": "2026-08-22",
     "history": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 0.7,
         "confidence": 30.0
       }
@@ -2070,10 +2070,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-09",
+    "acqDate": "2026-08-11",
     "history": [
       {
-        "date": "2026-08-09",
+        "date": "2026-08-11",
         "frp": 0.6,
         "confidence": 30.0
       }
@@ -2095,10 +2095,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "N",
     "status": "NEW",
-    "acqDate": "2026-08-29",
+    "acqDate": "2026-08-31",
     "history": [
       {
-        "date": "2026-08-29",
+        "date": "2026-08-31",
         "frp": 0.2,
         "confidence": 30.0
       }
@@ -2120,10 +2120,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-24",
+    "acqDate": "2026-08-26",
     "history": [
       {
-        "date": "2026-08-24",
+        "date": "2026-08-26",
         "frp": 0.4,
         "confidence": 30.0
       }
@@ -2145,10 +2145,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-17",
+    "acqDate": "2026-08-19",
     "history": [
       {
-        "date": "2026-08-17",
+        "date": "2026-08-19",
         "frp": 0.2,
         "confidence": 30.0
       }
@@ -2170,10 +2170,10 @@
     "satellite": "VIIRS S-NPP",
     "daynight": "D",
     "status": "RECURRING",
-    "acqDate": "2026-08-20",
+    "acqDate": "2026-08-22",
     "history": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-22",
         "frp": 0.3,
         "confidence": 30.0
       }

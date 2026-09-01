@@ -34,7 +34,7 @@ def evaluate(bundle: dict, split: dict) -> dict:
     label_names = [encoder.classes_[i] for i in labels_present]
     cm = confusion_matrix(y_test, y_pred, labels=labels_present)
     report = classification_report(y_test, y_pred, labels=labels_present, target_names=label_names, zero_division=0)
-    importances = dict(sorted(zip(feature_cols, clf.feature_importances_.tolist()), key=lambda kv: -kv[1]))
+    importances = dict(sorted(zip(feature_cols, clf.feature_importances_.tolist(), strict=True), key=lambda kv: -kv[1]))
 
     return {
         "trained": True,

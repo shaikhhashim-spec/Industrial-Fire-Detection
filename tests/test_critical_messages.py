@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import pytest
 
-import config
 from src.alerts.messages import (
     format_critical_alert_message,
     is_critical_alert,
-    load_critical_dispatch_log,
-    log_critical_dispatch,
     normalize_phone_number,
     send_batch_critical_alerts,
     send_critical_alert,

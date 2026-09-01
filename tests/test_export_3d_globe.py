@@ -1,5 +1,4 @@
 """Unit tests for 3D Holo-View export converter."""
-import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,7 +7,6 @@ import pandas as pd
 from src.utils.export_3d_globe import (
     export_pipeline_events_for_holo_view,
     generate_embedded_3d_globe_html,
-    load_or_export_holo_events,
     transform_regional_to_holo_events,
     transform_national_to_holo_events,
 )

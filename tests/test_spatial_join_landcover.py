@@ -1,6 +1,6 @@
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Point, box
+from shapely.geometry import box
 
 from src.geospatial.spatial_join import join_landcover_context
 

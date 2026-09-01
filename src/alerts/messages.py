@@ -123,6 +123,9 @@ def send_critical_alert(
     twilio_sid: str | None = None,
     twilio_token: str | None = None,
     twilio_from: str | None = None,
+    telegram_token: str | None = None,
+    telegram_chat_id: str | None = None,
+    webhook_url: str | None = None,
 ) -> dict[str, Any]:
     """Evaluate and dispatch a message notification if alert is CRITICAL (or force=True).
 
@@ -179,8 +182,8 @@ def send_critical_alert(
             details.append(f"SMS send error: {exc}")
 
     # 2. Attempt Telegram if configured
-    if dispatch.telegram_configured():
-        tg_res = dispatch.send_telegram(f"🚨 *CRITICAL ALERT*\n\n{message_text}")
+    if dispatch.telegram_configured(telegram_token, telegram_chat_id):
+        tg_res = dispatch.send_telegram(f"🚨 *CRITICAL ALERT*\n\n{message_text}", telegram_token, telegram_chat_id)
         if tg_res.get("ok"):
             channels_dispatched.append("telegram")
             details.append("Telegram notification sent")
@@ -188,14 +191,14 @@ def send_critical_alert(
             details.append(f"Telegram failed: {tg_res.get('detail')}")
 
     # 3. Attempt Webhook if configured
-    if dispatch.webhook_configured():
+    if dispatch.webhook_configured(webhook_url):
         wb_res = dispatch.send_webhook({
             "alert_type": "CRITICAL",
             "recipient": formatted_phone,
             "message": message_text,
             "event": event_or_alert,
             "timestamp": now_iso,
-        })
+        }, webhook_url)
         if wb_res.get("ok"):
             channels_dispatched.append("webhook")
             details.append("Webhook payload delivered")
