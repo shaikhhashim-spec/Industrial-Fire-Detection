@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Graticule } from "./Coastlines";
 import { Markers } from "./Markers";
-import { Earth, Atmosphere } from "./Earth";
+import { Earth, Atmosphere, SUN_DIRECTION } from "./Earth";
 import { type ThermalEvent } from "@/lib/thermal";
 
 /** Rotation that brings ~80E to face the camera. */
@@ -65,11 +65,15 @@ export function ThermalGlobe({
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
     >
       <color attach="background" args={["#04060a"]} />
-      <ambientLight intensity={0.12} />
+      <ambientLight intensity={0.045} />
       {/* sun */}
-      <directionalLight position={[6, 2.5, 4]} intensity={2.6} color="#fff4e2" />
+      <directionalLight
+        position={SUN_DIRECTION.clone().multiplyScalar(6)}
+        intensity={3.1}
+        color="#fff4e2"
+      />
       {/* faint bounce so the night side isn't pure black */}
-      <directionalLight position={[-6, -2, -4]} intensity={0.18} color="#3f6d9c" />
+      <directionalLight position={[-6, -2, -4]} intensity={0.12} color="#3f6d9c" />
       <Stars radius={80} depth={40} count={3000} factor={3} fade speed={0.3} />
       <Atmosphere />
 

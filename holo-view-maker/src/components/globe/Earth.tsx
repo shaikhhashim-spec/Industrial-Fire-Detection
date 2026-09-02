@@ -5,6 +5,36 @@ import * as THREE from "three";
 
 const R = 2;
 
+/** Direction toward the "sun" — must match the directional light position in ThermalGlobe. */
+export const SUN_DIRECTION = new THREE.Vector3(6, 2.5, 4).normalize();
+
+const lightsVertex = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  void main() {
+    vUv = uv;
+    vNormalW = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const lightsFragment = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  uniform sampler2D map;
+  uniform vec3 uSunDir;
+  uniform float uOpacity;
+  void main() {
+    float ndotl = dot(vNormalW, uSunDir);
+    // 1 on the night side, 0 in daylight, soft-edged across the terminator.
+    // smoothstep requires edge0 < edge1 (reversed edges are undefined behavior
+    // per the GLSL spec and can bleed lights onto the day side on some GPUs).
+    float night = 1.0 - smoothstep(-0.15, 0.12, ndotl);
+    vec4 tex = texture2D(map, vUv);
+    gl_FragColor = vec4(tex.rgb, tex.r * night * uOpacity);
+  }
+`;
+
 /** Photoreal day/night Earth with normal + specular relief and a drifting cloud shell. */
 export function Earth() {
   const maps = useTexture([
@@ -25,7 +55,25 @@ export function Earth() {
   day.colorSpace = THREE.SRGBColorSpace;
   lights.colorSpace = THREE.SRGBColorSpace;
   day.anisotropy = 8;
+  normal.anisotropy = 4;
+  spec.anisotropy = 4;
 
+  const lightsMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: lightsVertex,
+        fragmentShader: lightsFragment,
+        uniforms: {
+          map: { value: lights },
+          uSunDir: { value: SUN_DIRECTION },
+          uOpacity: { value: 1.4 },
+        },
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    [lights],
+  );
 
   const cloudRef = useRef<THREE.Mesh>(null);
   useFrame((state, delta) => {
@@ -41,27 +89,20 @@ export function Earth() {
     <group>
       {/* surface */}
       <mesh>
-        <sphereGeometry args={[R, 96, 96]} />
+        <sphereGeometry args={[R, 128, 128]} />
         <meshPhongMaterial
           map={day}
           normalMap={normal}
-          normalScale={new THREE.Vector2(0.85, 0.85)}
+          normalScale={new THREE.Vector2(1.0, 1.0)}
           specularMap={spec}
-          specular={new THREE.Color("#3a5a72")}
-          shininess={18}
+          specular={new THREE.Color("#4c7a99")}
+          shininess={34}
         />
       </mesh>
 
-      {/* city lights on the dark side */}
-      <mesh scale={1.001}>
-        <sphereGeometry args={[R, 96, 96]} />
-        <meshBasicMaterial
-          map={lights}
-          blending={THREE.AdditiveBlending}
-          transparent
-          opacity={0.55}
-          depthWrite={false}
-        />
+      {/* city lights, visible only on the night side */}
+      <mesh scale={1.001} material={lightsMaterial}>
+        <sphereGeometry args={[R, 128, 128]} />
       </mesh>
 
       {/* clouds */}
