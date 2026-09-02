@@ -69,7 +69,12 @@ def _cache_is_fresh() -> bool:
 
 def load_cached_industrial_zones() -> gpd.GeoDataFrame | None:
     if config.OSM_CACHE_PATH.exists():
-        return gpd.read_file(config.OSM_CACHE_PATH)
+        from src.utils.geo_io import read_geojson
+        try:
+            return read_geojson(config.OSM_CACHE_PATH)
+        except Exception as e:
+            print(f"[geospatial.osm] failed to read cache: {e}")
+            return None
     return None
 
 

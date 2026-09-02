@@ -215,10 +215,17 @@ def _stat_row(cells: list[tuple]):
 def _load_cached_detail() -> gpd.GeoDataFrame | None:
     if not config.CLASSIFIED_GEOJSON.exists():
         return None
-    gdf = gpd.read_file(config.CLASSIFIED_GEOJSON)
-    gdf["acq_date"] = pd.to_datetime(gdf["acq_date"])
-    return gdf
+    with open(config.CLASSIFIED_GEOJSON, "r", encoding="utf-8") as f:
+        geojson_data = json.load(f)
 
+    gdf = gpd.GeoDataFrame.from_features(
+        geojson_data.get("features", []),
+        crs=geojson_data.get("crs", {}).get("properties", {}).get("name", "EPSG:4326")
+    )
+
+    if "acq_date" in gdf.columns:
+        gdf["acq_date"] = pd.to_datetime(gdf["acq_date"])
+    return gdf
 
 @st.cache_data(show_spinner=False)
 def _load_cached_clusters() -> pd.DataFrame:
@@ -298,7 +305,8 @@ def recompute_risk_and_cache(weights: dict):
 
     export = gdf.copy()
     export["acq_date"] = export["acq_date"].astype(str)
-    export.to_file(config.CLASSIFIED_GEOJSON, driver="GeoJSON")
+    from src.utils.geo_io import write_geojson
+    write_geojson(export, config.CLASSIFIED_GEOJSON)
     export.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
     cluster_export: pd.DataFrame = cluster_df.copy()
     cluster_export["first_detected"] = cluster_export["first_detected"].astype(str)

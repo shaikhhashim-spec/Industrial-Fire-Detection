@@ -357,10 +357,15 @@ def add_persistence_flags(
 
 if __name__ == "__main__":
     # Example run — needs a real MAP_KEY in the environment to actually hit the API.
-    result = fetch_firms_data(
-        source="VIIRS_SNPP_NRT",
-        day_range=1,
-        area_coords="-125,32,-114,42",  # rough California bounding box
-    )
-    print(result.head())
-    print(f"\n{len(result)} detections fetched.")
+    try:
+        result = fetch_firms_data(
+            source="VIIRS_SNPP_NRT",
+            day_range=1,
+            area_coords="-125,32,-114,42",  # rough California bounding box
+        )
+        print(result.head())
+        print(f"\n{len(result)} detections fetched.")
+    except FirmsAuthError as exc:
+        print(f"[fetch_firms_data] Notice: {exc}")
+        print("To run live fetching, set FIRMS_MAP_KEY / FIRMS_API_KEY in your .env or pass it as an argument.")
+

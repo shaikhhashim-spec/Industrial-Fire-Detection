@@ -321,8 +321,9 @@ def export_pipeline_events_for_holo_view(
         events.extend(transform_regional_to_holo_events(detail_gdf, cluster_df))
     elif config.CLASSIFIED_GEOJSON.exists() and (config.PROCESSED_DIR / "cluster_summary.csv").exists():
         try:
+            from src.utils.geo_io import read_geojson
             c_df = pd.read_csv(config.PROCESSED_DIR / "cluster_summary.csv")
-            g_df = gpd.read_file(config.CLASSIFIED_GEOJSON)
+            g_df = read_geojson(config.CLASSIFIED_GEOJSON)
             events.extend(transform_regional_to_holo_events(g_df, c_df))
         except Exception as e:
             print(f"[export_3d_globe] failed to read cached regional data: {e}")
@@ -1037,65 +1038,52 @@ def generate_embedded_3d_globe_html(
       }}
     );
 
-    // 6. Vibrant Cyan Atmospheric Glow Halo (Dissolves on Deep Zoom)
+    // 6. Vibrant Cyan Atmospheric Glow Halo (Fresnel Shader matching Image 2)
     const atmosVertexShader = `
       varying vec3 vNormal;
-      varying vec3 vPosition;
+      varying vec3 vView;
       void main() {{
         vNormal = normalize(normalMatrix * normal);
-        vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
       }}
     `;
 
     const atmosFragmentShader = `
       varying vec3 vNormal;
-      varying vec3 vPosition;
+      varying vec3 vView;
+      uniform vec3 uColor;
+      uniform float uPower;
+      uniform float uStrength;
       uniform float uOpacity;
       void main() {{
-        vec3 viewDir = normalize(-vPosition);
-        float intensity = pow(0.68 - dot(vNormal, viewDir), 2.2);
-        vec3 atmosColor = vec3(0.22, 0.74, 0.98);
-        gl_FragColor = vec4(atmosColor, intensity * 1.6 * uOpacity);
+        float f = pow(1.0 - abs(dot(vNormal, vView)), uPower);
+        gl_FragColor = vec4(uColor, f * uStrength * uOpacity);
       }}
     `;
 
-    const atmosMaterial = new THREE.ShaderMaterial({{
-      vertexShader: atmosVertexShader,
-      fragmentShader: atmosFragmentShader,
-      uniforms: {{ uOpacity: {{ value: 1.0 }} }},
-      blending: THREE.AdditiveBlending,
-      side: THREE.BackSide,
-      transparent: true,
-      depthWrite: false
-    }});
-
-    const atmosphereMesh = new THREE.Mesh(new THREE.SphereGeometry(GLOBE_RADIUS * 1.15, 64, 64), atmosMaterial);
+    const atmosphereMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(GLOBE_RADIUS * 1.09, 64, 64),
+      new THREE.ShaderMaterial({{
+        vertexShader: atmosVertexShader,
+        fragmentShader: atmosFragmentShader,
+        uniforms: {{
+          uColor: {{ value: new THREE.Color("#5aa9e6") }},
+          uPower: {{ value: 2.8 }},
+          uStrength: {{ value: 1.3 }},
+          uOpacity: {{ value: 1.0 }}
+        }},
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide,
+        depthWrite: false
+      }})
+    );
     scene.add(atmosphereMesh);
 
-    const innerAtmosMat = new THREE.ShaderMaterial({{
-      vertexShader: atmosVertexShader,
-      fragmentShader: `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        uniform float uOpacity;
-        void main() {{
-          vec3 viewDir = normalize(-vPosition);
-          float intensity = pow(1.0 - dot(vNormal, viewDir), 3.2);
-          gl_FragColor = vec4(0.24, 0.72, 0.98, intensity * 0.45 * uOpacity);
-        }}
-      `,
-      uniforms: {{ uOpacity: {{ value: 1.0 }} }},
-      blending: THREE.AdditiveBlending,
-      side: THREE.FrontSide,
-      transparent: true,
-      depthWrite: false
-    }});
-    const innerAtmosMesh = new THREE.Mesh(new THREE.SphereGeometry(GLOBE_RADIUS * 1.003, 64, 64), innerAtmosMat);
-    earthGroup.add(innerAtmosMesh);
-
     // Coordinate Graticule (Lat/Lon Lines)
-    const gridMat = new THREE.LineBasicMaterial({{ color: 0x38bdf8, transparent: true, opacity: 0.18 }});
+    const gridMat = new THREE.LineBasicMaterial({{ color: 0x38bdf8, transparent: true, opacity: 0.16 }});
     for (let lat = -75; lat <= 75; lat += 15) {{
       const phi = (90 - lat) * (Math.PI / 180);
       const r = GLOBE_RADIUS * 1.002 * Math.sin(phi);
@@ -1128,12 +1116,10 @@ def generate_embedded_3d_globe_html(
       return {{ lat, lon }};
     }}
 
-    // Real coastline outlines (Natural Earth 110m land polygons, bundled
-    // locally) — the globe previously relied purely on the photo texture
-    // for landmass shape, with no actual geographic line data.
+    // Real coastline outlines
     function buildCoastlines() {{
       if (!COASTLINE_GEOJSON) return;
-      const coastMat = new THREE.LineBasicMaterial({{ color: 0x8fa8c2, transparent: true, opacity: 0.4 }});
+      const coastMat = new THREE.LineBasicMaterial({{ color: 0x8fa8c2, transparent: true, opacity: 0.35 }});
       const coastRadius = GLOBE_RADIUS * 1.002;
 
       function addRing(ring) {{
@@ -1154,7 +1140,7 @@ def generate_embedded_3d_globe_html(
     }}
     buildCoastlines();
 
-    // --- Thermal Beams & Ground Markers ---
+    // --- Spatial Clustering & 3D Light Pillar Beams ---
     const markersGroup = new THREE.Group();
     earthGroup.add(markersGroup);
 
@@ -1168,7 +1154,45 @@ def generate_embedded_3d_globe_html(
       if (colorByMode === "risk") {{
         return RISK_COLORS[event.riskLevel] || "#fab219";
       }}
-      return CATEGORY_COLORS[event.category] || "#e66767";
+      return CATEGORY_COLORS[event.category] || "#fab219";
+    }}
+
+    // Spatial clustering algorithm to group nearby detections into clean, prominent 3D pillars
+    function clusterEvents(events, gridDeg = 0.65) {{
+      const map = new Map();
+      events.forEach(e => {{
+        const latBin = Math.round(e.latitude / gridDeg);
+        const lonBin = Math.round(e.longitude / gridDeg);
+        const key = `${{latBin}}_${{lonBin}}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(e);
+      }});
+
+      const clusters = [];
+      map.forEach((evList, key) => {{
+        const lead = evList.reduce((a, b) => {{
+          if (b.riskScore !== a.riskScore) return b.riskScore > a.riskScore ? b : a;
+          return (b.frp || 0) > (a.frp || 0) ? b : a;
+        }});
+        const avgLat = evList.reduce((s, e) => s + e.latitude, 0) / evList.length;
+        const avgLon = evList.reduce((s, e) => s + e.longitude, 0) / evList.length;
+        const totalFrp = evList.reduce((s, e) => s + (e.frp || 0), 0);
+        const maxRisk = Math.max(...evList.map(e => e.riskScore || 0));
+
+        clusters.push({{
+          key,
+          latitude: avgLat,
+          longitude: avgLon,
+          events: evList,
+          leadEvent: lead,
+          count: evList.length,
+          totalFrp,
+          maxRisk
+        }});
+      }});
+
+      clusters.sort((a, b) => b.maxRisk - a.maxRisk);
+      return clusters;
     }}
 
     function buildBeams() {{
@@ -1179,77 +1203,103 @@ def generate_embedded_3d_globe_html(
       haloMeshes.length = 0;
       beamMeshes.length = 0;
 
-      // With hundreds of markers genuinely spread across a wide geographic
-      // area (not clustered in one small region), tall beams fan out into
-      // a chaotic "hedgehog" silhouette from almost any camera angle —
-      // each one individually correct (radially outward from its own
-      // point), but visually unreadable en masse. Scale beam height down
-      // as the rendered count grows so a wide spread reads as clean
-      // scattered points instead.
-      const densityFactor = Math.max(0.25, Math.min(1.0, 60 / RAW_EVENTS.length));
+      const clusters = clusterEvents(RAW_EVENTS, 0.65);
 
-      RAW_EVENTS.forEach(event => {{
-        const pos = latLonToVec3(event.latitude, event.longitude, GLOBE_RADIUS);
+      clusters.forEach(cluster => {{
+        const lead = cluster.leadEvent;
+        const pos = latLonToVec3(cluster.latitude, cluster.longitude, GLOBE_RADIUS);
         const normal = pos.clone().normalize();
         const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
 
-        const baseHeight = (0.015 + (event.riskScore / 100) * 0.045) * densityFactor;
-        const colorHex = getEventColor(event);
+        // Marker scale based on count of detections in cluster
+        const countScale = 1.0 + Math.min(0.65, Math.log2(cluster.count) * 0.18);
+        // Tall majestic vertical pillar height matching Image 2
+        const height = (0.12 + (lead.riskScore / 100) * 0.36 + Math.min(0.12, (lead.frp / 25) * 0.12)) * countScale;
+
+        const colorHex = getEventColor(lead);
         const color = new THREE.Color(colorHex);
 
         const beamGroup = new THREE.Group();
         beamGroup.position.copy(pos);
         beamGroup.quaternion.copy(quat);
-        beamGroup.userData = {{ event, baseHeight }};
+        beamGroup.userData = {{ event: lead, cluster, height, baseHeight: height, size: countScale }};
 
-        // 1. Vertical Glowing Cylinder Beam
-        const cylGeo = new THREE.CylinderGeometry(0.004, 0.008, baseHeight, 12);
+        // 1. Vertical Luminous Cylindrical Pillar Beam
+        const cylRadiusTop = 0.010 * countScale;
+        const cylRadiusBottom = 0.018 * countScale;
+        const cylGeo = new THREE.CylinderGeometry(cylRadiusTop, cylRadiusBottom, height, 16);
         const cylMat = new THREE.MeshBasicMaterial({{
           color: color,
           transparent: true,
-          opacity: 0.88
+          opacity: 0.88,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
         }});
         const cylinder = new THREE.Mesh(cylGeo, cylMat);
-        cylinder.position.set(0, baseHeight / 2, 0);
+        cylinder.position.set(0, height / 2, 0);
         beamGroup.add(cylinder);
 
-        // 2. Glowing Head Beacon
-        const sphereGeo = new THREE.SphereGeometry(0.012, 16, 16);
-        const sphereMat = new THREE.MeshBasicMaterial({{ color: color }});
+        // 2. Glowing Top Beacon Sphere
+        const topRadius = 0.028 * countScale;
+        const sphereGeo = new THREE.SphereGeometry(topRadius, 16, 16);
+        const sphereMat = new THREE.MeshBasicMaterial({{
+          color: color,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        }});
         const beacon = new THREE.Mesh(sphereGeo, sphereMat);
-        beacon.position.set(0, baseHeight, 0);
+        beacon.position.set(0, height, 0);
         beamGroup.add(beacon);
 
-        // 3. Ground Halo Ring (Pulsates in 2D Satellite View)
-        // Sized small enough that even a dense cluster of nearby grid-cell
-        // events reads as distinct dots instead of merging into one blob.
-        const ringGeo = new THREE.RingGeometry(0.016, 0.034, 24);
+        // 3. Mid-Shaft Energy Node Sphere
+        const midRadius = 0.016 * countScale;
+        const midGeo = new THREE.SphereGeometry(midRadius, 12, 12);
+        const midMat = new THREE.MeshBasicMaterial({{
+          color: color,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        }});
+        const midSphere = new THREE.Mesh(midGeo, midMat);
+        midSphere.position.set(0, height * 0.5, 0);
+        beamGroup.add(midSphere);
+
+        // 4. Ground Glow Base Ring (Additive Blending)
+        const ringInner = 0.020 * countScale;
+        const ringOuter = 0.036 * countScale;
+        const ringGeo = new THREE.RingGeometry(ringInner, ringOuter, 32);
         const ringMat = new THREE.MeshBasicMaterial({{
           color: color,
           transparent: true,
           opacity: 0.65,
-          side: THREE.DoubleSide
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
         }});
         const ring = new THREE.Mesh(ringGeo, ringMat);
         ring.rotation.x = -Math.PI / 2;
         ring.position.set(0, 0.004, 0);
         beamGroup.add(ring);
 
-        // 4. Inner Tactical Hotspot Core Dot
-        const coreGeo = new THREE.CircleGeometry(0.009, 16);
-        const coreMat = new THREE.MeshBasicMaterial({{ color: color, side: THREE.DoubleSide }});
+        // 5. Tactical Ground Core Dot
+        const coreGeo = new THREE.CircleGeometry(0.012 * countScale, 16);
+        const coreMat = new THREE.MeshBasicMaterial({{
+          color: color,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        }});
         const core = new THREE.Mesh(coreGeo, coreMat);
         core.rotation.x = -Math.PI / 2;
         core.position.set(0, 0.005, 0);
         beamGroup.add(core);
 
         markersGroup.add(beamGroup);
-        interactiveObjects.push(cylinder, beacon, ring, core);
-        haloMeshes.push({{ ring, core, event, baseScale: 1.0 }});
-        beamMeshes.push({{ beamGroup, cylinder, beacon, baseHeight }});
+        interactiveObjects.push(cylinder, beacon, midSphere, ring, core);
+        haloMeshes.push({{ ring, core, event: lead, cluster, baseScale: countScale }});
+        beamMeshes.push({{ beamGroup, cylinder, beacon, midSphere, baseHeight: height, size: countScale }});
 
-        if (initialSelectedId && event.id === initialSelectedId) {{
-          selectEvent(event, beamGroup);
+        if (initialSelectedId && (lead.id === initialSelectedId || cluster.events.some(e => e.id === initialSelectedId))) {{
+          selectEvent(lead, beamGroup, cluster);
         }}
       }});
     }}
@@ -1273,7 +1323,6 @@ def generate_embedded_3d_globe_html(
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(interactiveObjects, false);
       if (intersects.length > 0) {{
-        // Stop spinning permanently upon click
         isSpinning = false;
         controls.autoRotate = false;
         const btnSpin = document.getElementById("btn-spin");
@@ -1282,7 +1331,7 @@ def generate_embedded_3d_globe_html(
         const hit = intersects[0].object;
         const beamGroup = hit.parent;
         if (beamGroup && beamGroup.userData && beamGroup.userData.event) {{
-          selectEvent(beamGroup.userData.event, beamGroup);
+          selectEvent(beamGroup.userData.event, beamGroup, beamGroup.userData.cluster);
         }}
       }}
     }}
@@ -1305,8 +1354,7 @@ def generate_embedded_3d_globe_html(
       }}
     }}
 
-    function selectEvent(event, groupMesh) {{
-      // Stop spinning on event selection
+    function selectEvent(event, groupMesh, cluster) {{
       isSpinning = false;
       controls.autoRotate = false;
       const btnSpin = document.getElementById("btn-spin");
@@ -1314,28 +1362,29 @@ def generate_embedded_3d_globe_html(
 
       selectedEvent = event;
       selectedMesh = groupMesh;
-      
+
+      const count = cluster ? cluster.count : (event.detectionCount || 1);
       const card = document.getElementById("detail-card");
       card.classList.add("active");
       document.getElementById("card-id").innerText = event.id;
-      document.getElementById("card-region").innerText = event.region;
-      
+      document.getElementById("card-region").innerText = count > 1 ? `${{event.region}} (${{count}} Detections)` : event.region;
+
       const col = getEventColor(event);
       const badgeCont = document.getElementById("card-badge-container");
       badgeCont.innerHTML = `<span class="card-badge" style="background:${{col}}22;color:${{col}};border:1px solid ${{col}}66;">${{event.category}}</span>`;
-      
+
       document.getElementById("card-risk-val").innerText = `${{event.riskScore}}/100 (${{event.riskLevel}})`;
       document.getElementById("card-risk-val").style.color = RISK_COLORS[event.riskLevel] || "#fab219";
-      
+
       const fill = document.getElementById("card-risk-fill");
       fill.style.width = `${{event.riskScore}}%`;
       fill.style.background = RISK_COLORS[event.riskLevel] || "#fab219";
-      
+
       document.getElementById("card-coords").innerText = `${{event.latitude.toFixed(4)}}, ${{event.longitude.toFixed(4)}}`;
       document.getElementById("card-frp").innerText = `${{event.frp.toFixed(1)}} MW`;
       document.getElementById("card-brightness").innerText = `${{event.brightness}} K`;
       document.getElementById("card-conf").innerText = `${{event.confidence}}%`;
-      document.getElementById("card-persist").innerText = `${{event.persistenceDays}} days (${{event.detectionCount}} det)`;
+      document.getElementById("card-persist").innerText = `${{event.persistenceDays}} days (${{count}} clustered)`;
       document.getElementById("card-sat").innerText = event.satellite;
       document.getElementById("card-status").innerText = event.status;
 

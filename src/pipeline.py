@@ -77,7 +77,8 @@ def run_pipeline(demo_mode: bool = False, api_key: str | None = None, use_osm_ca
     gdf = gpd.GeoDataFrame(detail_df, geometry=gpd.points_from_xy(detail_df["longitude"], detail_df["latitude"]), crs="EPSG:4326")
     export = gdf.copy()
     export["acq_date"] = export["acq_date"].astype(str)
-    export.to_file(config.CLASSIFIED_GEOJSON, driver="GeoJSON")
+    from src.utils.geo_io import write_geojson
+    write_geojson(export, config.CLASSIFIED_GEOJSON)
     export.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
 
     if not cluster_df.empty:

@@ -11,6 +11,8 @@ import pandas as pd
 
 import config
 
+from src.utils.geo_io import read_geojson
+
 _cache: gpd.GeoDataFrame | None = None
 
 
@@ -18,7 +20,9 @@ def load_states() -> gpd.GeoDataFrame:
     global _cache
     if _cache is not None:
         return _cache
-    gdf = gpd.read_file(config.INDIA_STATES_PATH)
+    gdf = read_geojson(config.INDIA_STATES_PATH)
+    if gdf.crs is not None and str(gdf.crs).upper() != "EPSG:4326":
+        gdf = gdf.to_crs("EPSG:4326")
     gdf["state_name"] = gdf["state_name"].replace(config.STATE_NAME_ALIASES)
     _cache = gdf
     return gdf
