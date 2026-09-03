@@ -40,8 +40,6 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const CATEGORIES = Object.keys(CATEGORY_COLORS) as Category[];
-
 function Index() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [colorBy, setColorBy] = useState<"category" | "risk">("category");
