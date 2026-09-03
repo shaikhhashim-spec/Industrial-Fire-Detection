@@ -1911,6 +1911,9 @@ def _map_points_for_mode(filtered_detail: pd.DataFrame, filtered_events: pd.Data
 def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
                           filtered_clusters_or_events: pd.DataFrame | None,
                           is_regional: bool = True):
+    import importlib
+    import src.utils.export_3d_globe as _export_3d_mod
+    importlib.reload(_export_3d_mod)
     from src.utils.export_3d_globe import (
         export_pipeline_events_for_holo_view,
         generate_embedded_3d_globe_html,

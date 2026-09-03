@@ -534,7 +534,17 @@ def generate_embedded_3d_globe_html(
     .card-action-btn:hover {{ background: #38bdf8; color: #04060a; }}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {{
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\\/script>');
+    }}
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    if (typeof THREE !== 'undefined' && typeof THREE.OrbitControls === 'undefined') {{
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js"><\\/script>');
+    }}
+  </script>
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -632,7 +642,7 @@ def generate_embedded_3d_globe_html(
       "Likely Industrial Fire": "#3987e5",
       "Persistent Non-Industrial Thermal Source": "#d95926",
       "Transient Industrial Flare": "#199e70",
-      "Likely Agricultural Burning": "#c98500",
+      "Likely Agricultural Burning": "#fab219",
       "Sun Glint / False Positive": "#d55181",
       "Likely Wildfire": "#008300",
       "Persistent Industrial Activity": "#9085e9",
@@ -650,18 +660,52 @@ def generate_embedded_3d_globe_html(
 
     // --- Three.js Setup ---
     const container = document.getElementById("canvas-container");
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x030508);
+    const hasThree = typeof THREE !== "undefined";
+    if (!hasThree) {{
+      container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#fab219;font-family:sans-serif;text-align:center;padding:24px;">
+        <h3 style="margin-bottom:8px;">⚠️ 3D Library (Three.js) Could Not Load</h3>
+        <p style="color:#9a9da1;font-size:0.85rem;max-width:440px;line-height:1.5;">Please check your internet connection or network firewall, then refresh the page.</p>
+      </div>`;
+    }}
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
-    camera.position.set(0, 1.4, 4.8);
+    const scene = hasThree ? new THREE.Scene() : null;
+    if (scene) scene.background = new THREE.Color(0x030508);
 
-    const renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: false, powerPreference: "high-performance" }});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
-    container.appendChild(renderer.domElement);
+    const camera = hasThree ? new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000) : null;
+    if (camera) camera.position.set(0, 1.4, 4.8);
+
+    let renderer = null;
+    if (hasThree) {{
+      try {{
+        renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: false, powerPreference: "high-performance" }});
+      }} catch(e) {{
+        try {{
+          renderer = new THREE.WebGLRenderer({{ antialias: false }});
+        }} catch(err) {{
+          container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#e66767;font-family:sans-serif;text-align:center;padding:24px;">
+            <h3 style="margin-bottom:8px;">⚠️ WebGL Not Supported</h3>
+            <p style="color:#9a9da1;font-size:0.85rem;max-width:440px;line-height:1.5;">Hardware acceleration or WebGL is disabled in your browser settings.</p>
+          </div>`;
+        }}
+      }}
+      if (renderer) {{
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+      }}
+    }}
+
+    function applyTextureSRGB(t) {{
+      if (!t) return;
+      if (THREE.SRGBColorSpace) {{
+        t.colorSpace = THREE.SRGBColorSpace;
+      }} else if (THREE.sRGBEncoding) {{
+        t.encoding = THREE.sRGBEncoding;
+      }}
+    }}
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -760,7 +804,7 @@ def generate_embedded_3d_globe_html(
     texLoader.load(
       LOCAL_DAY_TEX || "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
       (tex) => {{
-        tex.colorSpace = THREE.SRGBColorSpace;
+        applyTextureSRGB(tex);
         tex.anisotropy = 16;
         tex.generateMipmaps = true;
         earthMat.map = tex;
@@ -824,7 +868,7 @@ def generate_embedded_3d_globe_html(
     regionalCtx.fillRect(0, 0, regionalCanvas.width, regionalCanvas.height);
 
     const regionalSatTexture = new THREE.CanvasTexture(regionalCanvas);
-    regionalSatTexture.colorSpace = THREE.SRGBColorSpace;
+    applyTextureSRGB(regionalSatTexture);
     regionalSatTexture.anisotropy = 16;
     regionalSatTexture.generateMipmaps = true;
     regionalSatTexture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -916,7 +960,7 @@ def generate_embedded_3d_globe_html(
     localCanvas.height = 1024;
     const localCtx = localCanvas.getContext('2d');
     const localTexture = new THREE.CanvasTexture(localCanvas);
-    localTexture.colorSpace = THREE.SRGBColorSpace;
+    applyTextureSRGB(localTexture);
     localTexture.anisotropy = 16;
     localTexture.generateMipmaps = true;
 
@@ -1007,7 +1051,7 @@ def generate_embedded_3d_globe_html(
     texLoader.load(
       LOCAL_LIGHTS_TEX || "https://unpkg.com/three-globe/example/img/earth-night.jpg",
       (lightsTex) => {{
-        lightsTex.colorSpace = THREE.SRGBColorSpace;
+        applyTextureSRGB(lightsTex);
         const lightsMat = new THREE.MeshBasicMaterial({{
           map: lightsTex,
           blending: THREE.AdditiveBlending,
@@ -1069,9 +1113,9 @@ def generate_embedded_3d_globe_html(
         vertexShader: atmosVertexShader,
         fragmentShader: atmosFragmentShader,
         uniforms: {{
-          uColor: {{ value: new THREE.Color("#5aa9e6") }},
-          uPower: {{ value: 2.8 }},
-          uStrength: {{ value: 1.3 }},
+          uColor: {{ value: new THREE.Color("#38bdf8") }},
+          uPower: {{ value: 2.2 }},
+          uStrength: {{ value: 1.6 }},
           uOpacity: {{ value: 1.0 }}
         }},
         transparent: true,
@@ -1192,7 +1236,7 @@ def generate_embedded_3d_globe_html(
       }});
 
       clusters.sort((a, b) => b.maxRisk - a.maxRisk);
-      return clusters;
+      return clusters.slice(0, 42);
     }}
 
     function buildBeams() {{
@@ -1203,7 +1247,7 @@ def generate_embedded_3d_globe_html(
       haloMeshes.length = 0;
       beamMeshes.length = 0;
 
-      const clusters = clusterEvents(RAW_EVENTS, 0.65);
+      const clusters = clusterEvents(RAW_EVENTS, 1.15);
 
       clusters.forEach(cluster => {{
         const lead = cluster.leadEvent;
@@ -1212,9 +1256,9 @@ def generate_embedded_3d_globe_html(
         const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
 
         // Marker scale based on count of detections in cluster
-        const countScale = 1.0 + Math.min(0.65, Math.log2(cluster.count) * 0.18);
-        // Tall majestic vertical pillar height matching Image 2
-        const height = (0.12 + (lead.riskScore / 100) * 0.36 + Math.min(0.12, (lead.frp / 25) * 0.12)) * countScale;
+        const countScale = 1.0 + Math.min(0.45, Math.log2(cluster.count) * 0.12);
+        // Slender majestic vertical pillar height matching Image 2
+        const height = (0.13 + (lead.riskScore / 100) * 0.32 + Math.min(0.08, (lead.frp / 40) * 0.08));
 
         const colorHex = getEventColor(lead);
         const color = new THREE.Color(colorHex);
@@ -1224,79 +1268,65 @@ def generate_embedded_3d_globe_html(
         beamGroup.quaternion.copy(quat);
         beamGroup.userData = {{ event: lead, cluster, height, baseHeight: height, size: countScale }};
 
-        // 1. Vertical Luminous Cylindrical Pillar Beam
-        const cylRadiusTop = 0.010 * countScale;
-        const cylRadiusBottom = 0.018 * countScale;
-        const cylGeo = new THREE.CylinderGeometry(cylRadiusTop, cylRadiusBottom, height, 16);
-        const cylMat = new THREE.MeshBasicMaterial({{
+        // 1. Slender Vertical Pillar Stalk (Shaded with natural depth, NO AdditiveBlending blowout)
+        const cylRadius = 0.007 * countScale;
+        const cylGeo = new THREE.CylinderGeometry(cylRadius, cylRadius * 1.25, height, 16);
+        const cylMat = new THREE.MeshPhongMaterial({{
           color: color,
+          emissive: color,
+          emissiveIntensity: 0.22,
           transparent: true,
-          opacity: 0.88,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
+          opacity: 0.90,
+          shininess: 20,
         }});
         const cylinder = new THREE.Mesh(cylGeo, cylMat);
         cylinder.position.set(0, height / 2, 0);
         beamGroup.add(cylinder);
 
-        // 2. Glowing Top Beacon Sphere
-        const topRadius = 0.028 * countScale;
-        const sphereGeo = new THREE.SphereGeometry(topRadius, 16, 16);
-        const sphereMat = new THREE.MeshBasicMaterial({{
+        // 2. Glowing Top Beacon Sphere (Reflects directional sun light like in Image 2)
+        const topRadius = 0.026 * countScale;
+        const sphereGeo = new THREE.SphereGeometry(topRadius, 24, 24);
+        const sphereMat = new THREE.MeshPhongMaterial({{
           color: color,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
+          emissive: color,
+          emissiveIntensity: 0.28,
+          shininess: 30,
+          specular: new THREE.Color(0x444444),
         }});
         const beacon = new THREE.Mesh(sphereGeo, sphereMat);
         beacon.position.set(0, height, 0);
         beamGroup.add(beacon);
 
-        // 3. Mid-Shaft Energy Node Sphere
-        const midRadius = 0.016 * countScale;
-        const midGeo = new THREE.SphereGeometry(midRadius, 12, 12);
-        const midMat = new THREE.MeshBasicMaterial({{
-          color: color,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
-        }});
-        const midSphere = new THREE.Mesh(midGeo, midMat);
-        midSphere.position.set(0, height * 0.5, 0);
-        beamGroup.add(midSphere);
-
-        // 4. Ground Glow Base Ring (Additive Blending)
-        const ringInner = 0.020 * countScale;
-        const ringOuter = 0.036 * countScale;
+        // 3. Ground Base Ring on Earth Surface
+        const ringInner = 0.016 * countScale;
+        const ringOuter = 0.032 * countScale;
         const ringGeo = new THREE.RingGeometry(ringInner, ringOuter, 32);
         const ringMat = new THREE.MeshBasicMaterial({{
           color: color,
           transparent: true,
           opacity: 0.65,
           side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
         }});
         const ring = new THREE.Mesh(ringGeo, ringMat);
         ring.rotation.x = -Math.PI / 2;
-        ring.position.set(0, 0.004, 0);
+        ring.position.set(0, 0.003, 0);
         beamGroup.add(ring);
 
-        // 5. Tactical Ground Core Dot
-        const coreGeo = new THREE.CircleGeometry(0.012 * countScale, 16);
+        // 4. Tactical Ground Core Dot
+        const coreGeo = new THREE.CircleGeometry(0.009 * countScale, 16);
         const coreMat = new THREE.MeshBasicMaterial({{
           color: color,
           side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
         }});
         const core = new THREE.Mesh(coreGeo, coreMat);
         core.rotation.x = -Math.PI / 2;
-        core.position.set(0, 0.005, 0);
+        core.position.set(0, 0.004, 0);
         beamGroup.add(core);
 
         markersGroup.add(beamGroup);
-        interactiveObjects.push(cylinder, beacon, midSphere, ring, core);
+        interactiveObjects.push(cylinder, beacon, ring, core);
         haloMeshes.push({{ ring, core, event: lead, cluster, baseScale: countScale }});
-        beamMeshes.push({{ beamGroup, cylinder, beacon, midSphere, baseHeight: height, size: countScale }});
+        beamMeshes.push({{ beamGroup, cylinder, beacon, baseHeight: height, size: countScale }});
 
         if (initialSelectedId && (lead.id === initialSelectedId || cluster.events.some(e => e.id === initialSelectedId))) {{
           selectEvent(lead, beamGroup, cluster);
@@ -1518,9 +1548,6 @@ def generate_embedded_3d_globe_html(
       if (atmosphereMesh && atmosphereMesh.material.uniforms) {{
         atmosphereMesh.material.uniforms.uOpacity.value = Math.pow(altFactor, 1.6);
       }}
-      if (innerAtmosMesh && innerAtmosMesh.material.uniforms) {{
-        innerAtmosMesh.material.uniforms.uOpacity.value = Math.pow(altFactor, 1.2);
-      }}
 
       // 3. High-Resolution Regional & Local Satellite Patches Blend to 100% Clarity
       const satBlend = Math.max(0, Math.min(1, (2.85 - camDist) / (2.85 - 2.10)));
@@ -1571,23 +1598,29 @@ def generate_embedded_3d_globe_html(
         resBadge.style.color = "#4ade80";
       }}
 
-      controls.update();
-      renderer.render(scene, camera);
+      if (controls && renderer) {{
+        controls.update();
+        renderer.render(scene, camera);
+      }}
     }}
 
     // --- Window Listeners & Init ---
-    window.addEventListener("resize", () => {{
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }});
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("click", onClick);
-    window.addEventListener("dblclick", onDoubleClick);
+    if (hasThree && renderer) {{
+      window.addEventListener("resize", () => {{
+        if (camera && renderer) {{
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        }}
+      }});
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("click", onClick);
+      window.addEventListener("dblclick", onDoubleClick);
 
-    buildBeams();
-    resetToOrbit();
-    animate();
+      buildBeams();
+      resetToOrbit();
+      animate();
+    }}
   </script>
 </body>
 </html>
