@@ -444,7 +444,7 @@ def _legend_html(title: str, items: dict[str, str]) -> str:
     </div>"""
 
 
-def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.Map:
+def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str, show_heatmap: bool = False) -> folium.Map:
     center_lat = (config.BBOX["min_lat"] + config.BBOX["max_lat"]) / 2
     center_lon = (config.BBOX["min_lon"] + config.BBOX["max_lon"]) / 2
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8, tiles=None, control_scale=True)
@@ -454,6 +454,38 @@ def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.
         bounds=[[config.BBOX["min_lat"], config.BBOX["min_lon"]], [config.BBOX["max_lat"], config.BBOX["max_lon"]]],
         color="#4d8fc4", weight=1, fill=False, dash_array="4", tooltip="Target region bounding box",
     ).add_to(m)
+
+    if show_heatmap and not gdf.empty:
+        from folium.plugins import HeatMap
+        if color_by == "risk":
+            # Risk-weighted heatmap gradient matching Risk Distribution
+            risk_gradient = {
+                0.2: RISK_COLORS["LOW"],
+                0.5: RISK_COLORS["MODERATE"],
+                0.75: RISK_COLORS["HIGH"],
+                1.0: RISK_COLORS["CRITICAL"],
+            }
+            heat_data = []
+            for _, row in gdf.iterrows():
+                risk_val = float(row.get("risk_score", 0) or 0)
+                w = max(0.15, min(1.0, risk_val / 100.0))
+                heat_data.append([row.geometry.y, row.geometry.x, w])
+            HeatMap(heat_data, radius=18, blur=22, max_zoom=11, gradient=risk_gradient,
+                    name="Risk Heatmap").add_to(m)
+        else:
+            # Classification-colored heatmaps matching Classification Distribution
+            for cat, group_df in gdf.groupby(label_field):
+                cat_color = CATEGORY_COLORS.get(cat, "#888888")
+                heat_data = [
+                    [r.geometry.y, r.geometry.x, max(0.2, min(1.0, float(r.get("frp", 10) or 10) / 50.0))]
+                    for _, r in group_df.iterrows()
+                ]
+                HeatMap(
+                    heat_data,
+                    radius=18, blur=22, max_zoom=11,
+                    gradient={0.2: cat_color + "44", 0.6: cat_color + "bb", 1.0: cat_color},
+                    name=f"Heatmap: {cat}",
+                ).add_to(m)
 
     cluster = MarkerCluster(disableClusteringAtZoom=12, maxClusterRadius=45,
                              icon_create_function=CLUSTER_ICON_JS).add_to(m)
@@ -495,35 +527,41 @@ def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.
     return m
 
 
-def build_timelapse_map(gdf: gpd.GeoDataFrame, label_field: str) -> folium.Map:
+def build_timelapse_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str = "classification") -> folium.Map:
     if len(gdf) > TIMELAPSE_MAX_POINTS:
         gdf = gdf.sort_values("acq_date").tail(TIMELAPSE_MAX_POINTS)
     center_lat = (config.BBOX["min_lat"] + config.BBOX["max_lat"]) / 2
     center_lon = (config.BBOX["min_lon"] + config.BBOX["max_lon"]) / 2
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8, tiles=None, control_scale=True)
     _add_base_layers(m)
-    features = [
-        {
+    
+    features = []
+    for _, row in gdf.iterrows():
+        if color_by == "risk":
+            color = RISK_COLORS.get(row.get("risk_level", ""), "#888888")
+        else:
+            color = CATEGORY_COLORS.get(row[label_field], "#888888")
+        features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [row.geometry.x, row.geometry.y]},
             "properties": {
                 "time": row["acq_date"].strftime("%Y-%m-%d"), "icon": "circle",
                 "iconstyle": {
-                    "fillColor": CATEGORY_COLORS.get(row[label_field], "#888888"),
-                    "color": CATEGORY_COLORS.get(row[label_field], "#888888"),
+                    "fillColor": color,
+                    "color": color,
                     "fillOpacity": 0.85, "radius": 5 + min(row["frp"], 40) / 8,
                 },
-                "popup": f"<b>{row[label_field]}</b><br>{row['acq_date'].date()} · FRP {row['frp']:.1f} MW",
+                "popup": f"<b>{row[label_field]}</b><br>Risk: {row.get('risk_level', '?')}<br>{row['acq_date'].date()} · FRP {row['frp']:.1f} MW",
             },
-        }
-        for _, row in gdf.iterrows()
-    ]
+        })
     TimestampedGeoJson(
         {"type": "FeatureCollection", "features": features}, period="P1D", duration="P1D",
         add_last_point=False, auto_play=False, loop=False, max_speed=4, loop_button=True,
         date_options="YYYY-MM-DD", time_slider_drag_update=True,
     ).add_to(m)
-    _add_map_chrome(m, _legend_html("Classification", CATEGORY_COLORS))
+    legend_source = CATEGORY_COLORS if color_by != "risk" else RISK_COLORS
+    legend_title = "Classification" if color_by != "risk" else "Risk Level"
+    _add_map_chrome(m, _legend_html(legend_title, legend_source))
     return m
 
 
@@ -1394,7 +1432,7 @@ def _render_overview(filtered, filtered_clusters, label_field, color_by):
 
 def _render_live_map(filtered, label_field, color_by):
     with st.container(border=True):
-        hdr, back_btn, globe_btn, toggle = st.columns([2.4, 1.3, 1.3, 1.0])
+        hdr, back_btn, globe_btn, t_heat, t_tl = st.columns([2.0, 1.2, 1.2, 0.9, 0.9])
         with hdr:
             _section_header(f"Live Map — {len(filtered)} hotspots (Jharkhand–Odisha Belt)", icon="map")
         with back_btn:
@@ -1404,15 +1442,43 @@ def _render_live_map(filtered, label_field, color_by):
             st.button("3D Holo Globe", key="livemap_open_3d_globe", width="stretch", icon=":material/public:",
                       help="Open interactive 3D orbital globe view",
                       on_click=_navigate(page="3D Holo Globe"))
-        timelapse_on = toggle.toggle("Time-lapse")
+        heatmap_on = t_heat.toggle("Heatmap", key="livemap_toggle_heatmap")
+        timelapse_on = t_tl.toggle("Time-lapse", key="livemap_toggle_timelapse")
         if filtered.empty:
             st.info("No hotspots match the current filters.", icon=":material/search_off:")
         elif timelapse_on:
             if len(filtered) > TIMELAPSE_MAX_POINTS:
                 st.caption(f"Showing the {TIMELAPSE_MAX_POINTS} most recent of {len(filtered)} points for smooth playback.")
-            st_folium(build_timelapse_map(filtered, label_field), width=None, height=660, returned_objects=[], key="map_live_timelapse")
+            st_folium(build_timelapse_map(filtered, label_field, color_by), width=None, height=660, returned_objects=[], key="map_live_timelapse")
         else:
-            st_folium(build_map(filtered, label_field, color_by), width=None, height=660, returned_objects=[], key="map_live")
+            st_folium(build_map(filtered, label_field, color_by, show_heatmap=heatmap_on), width=None, height=660, returned_objects=[], key="map_live")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        with st.container(border=True):
+            _section_header("Classification Distribution", icon="pie_chart")
+            if not filtered.empty:
+                field = label_field if label_field in filtered.columns else "rule_label"
+                counts = filtered[field].value_counts()
+                fig = go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h",
+                                        marker_color=[CATEGORY_COLORS.get(l, "#888") for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415", yaxis=dict(autorange="reversed"))
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No hotspots match the current filters.")
+    with c2:
+        with st.container(border=True):
+            _section_header("Risk Distribution", icon="warning", icon_color="var(--accent-high)")
+            if not filtered.empty:
+                counts = filtered["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values,
+                                        marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No hotspots match the current filters.")
 
 
 
@@ -1522,39 +1588,21 @@ def _render_analytics(filtered, filtered_clusters, run_info):
     c1, c2 = st.columns(2)
     with c1:
         with st.container(border=True):
-            _section_header("Classification Distribution", icon="pie_chart")
-            if not filtered.empty:
-                counts = filtered["rule_label"].value_counts()
-                fig = go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h",
-                                        marker_color=[CATEGORY_COLORS.get(l, "#888") for l in counts.index]))
-                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
-                                   paper_bgcolor="#131415", plot_bgcolor="#131415", yaxis=dict(autorange="reversed"))
-                st.plotly_chart(fig, width="stretch")
-    with c2:
-        with st.container(border=True):
-            _section_header("Risk Distribution", icon="warning", icon_color="var(--accent-high)")
-            if not filtered.empty:
-                counts = filtered["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
-                fig = go.Figure(go.Bar(x=counts.index, y=counts.values,
-                                        marker_color=[RISK_COLORS[l] for l in counts.index]))
-                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
-                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
-                st.plotly_chart(fig, width="stretch")
-
-    c3, c4 = st.columns(2)
-    with c3:
-        with st.container(border=True):
             _section_header("Persistence Distribution (days active)", icon="schedule")
             if not filtered.empty:
                 st.bar_chart(filtered["persistence_days"].value_counts().sort_index())
-    with c4:
+            else:
+                st.caption("No events in the current filter selection.")
+    with c2:
         with st.container(border=True):
             _section_header("FRP Distribution (MW)", icon="local_fire_department")
             if not filtered.empty:
                 fig = go.Figure(go.Histogram(x=filtered["frp"], marker_color="#4d8fc4", nbinsx=30))
-                fig.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
                                    paper_bgcolor="#131415", plot_bgcolor="#131415")
                 st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No events in the current filter selection.")
 
     if run_info:
         ml = run_info.get("ml_metrics", {})
@@ -1823,8 +1871,19 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
 
     if show_heatmap and not points.empty:
         from folium.plugins import HeatMap
-        HeatMap(points[["latitude", "longitude", "frp"]].values.tolist(), radius=12, blur=16, max_zoom=6,
-                name="Heat Intensity").add_to(m)
+        risk_gradient = {
+            0.2: RISK_COLORS["LOW"],
+            0.5: RISK_COLORS["MODERATE"],
+            0.75: RISK_COLORS["HIGH"],
+            1.0: RISK_COLORS["CRITICAL"],
+        }
+        heat_data = []
+        for _, row in points.iterrows():
+            risk_score_val = float(row.get("risk_score", 0) or 0)
+            weight = max(0.15, min(1.0, risk_score_val / 100.0)) if risk_score_val > 0 else max(0.15, min(1.0, float(row.get("frp", 10) or 10) / 50.0))
+            heat_data.append([row["latitude"], row["longitude"], weight])
+        HeatMap(heat_data, radius=14, blur=18, max_zoom=7, gradient=risk_gradient,
+                name="Risk Heat Intensity").add_to(m)
 
     if not points.empty and not show_heatmap:
         cluster = MarkerCluster(disableClusteringAtZoom=8, maxClusterRadius=40,
