@@ -52,110 +52,242 @@ STATUS_COLORS = {
 
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
 :root{
-  --ink:#e8e9ea; --ink2:#9a9da1; --muted:#6b6e72;
-  --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
-  --page:#0c0d0e; --surface:#131415; --accent:#4d8fc4;
-  --accent-low:#0ca30c; --accent-moderate:#fab219; --accent-high:#ec835a; --accent-critical:#e66767;
-  --accent-violet:#9085e9;
+  --ink: #f1f3f7;
+  --ink2: #9da4b0;
+  --muted: #64748b;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --line-glow: rgba(59, 130, 246, 0.3);
+  --page: #090a0d;
+  --surface: #111317;
+  --surface-glass: rgba(17, 19, 24, 0.82);
+  --surface-card: #15181f;
+  --surface-card-glass: rgba(21, 24, 31, 0.88);
+  --surface-elevated: #1b1f28;
+  --accent: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-low: #10b981;
+  --accent-moderate: #f59e0b;
+  --accent-high: #f97316;
+  --accent-critical: #ef4444;
+  --accent-violet: #8b5cf6;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
 }
+
 html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], p, label {
-  font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif !important;
+  font-family: 'Inter', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  color: var(--ink);
 }
-.mono{ font-family:'IBM Plex Mono',ui-monospace,monospace; }
 
-.header{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1rem;
-  padding-bottom:1.1rem; margin-bottom:1.3rem; border-bottom:1px solid var(--line-strong); }
-.header .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:.7rem; font-weight:500;
-  letter-spacing:.10em; text-transform:uppercase; color:var(--accent); margin-bottom:.5rem; }
-.header h1{ margin:0 0 .4rem; font-size:1.45rem; font-weight:600; letter-spacing:-.005em; color:var(--ink); }
-.header .sub{ margin:0; color:var(--ink2); font-size:.83rem; max-width:52ch; }
-.header .meta{ text-align:right; font-family:'IBM Plex Mono',monospace; font-size:.72rem; color:var(--ink2); line-height:1.7; }
-.dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; }
-.dot.live{ background:var(--accent-low); } .dot.demo{ background:var(--accent-moderate); } .dot.stale{ background:var(--muted); }
+.mono {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace !important;
+}
 
-.statrow{ display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:.7rem; }
-.statrow + .statrow{ border-top:none; }
-.stat{ padding:.7rem 1rem; border-right:1px solid var(--line); background:var(--surface); border-top:2px solid var(--stat-accent, transparent); }
-.stat:last-child{ border-right:none; }
-.stat.flag{ border-top-color:var(--stat-accent, var(--accent)); }
-.stat .lbl{ font-family:'IBM Plex Mono',monospace; font-size:.63rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:.3rem; }
-.stat .val{ font-family:'IBM Plex Mono',monospace; font-size:1.25rem; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
-.stat-icon{ font-size:.85rem; vertical-align:-2px; color:var(--stat-accent, var(--muted)); }
+/* Custom Sleek Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--page); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.5); }
 
-.sec-hdr{ font-family:'IBM Plex Mono',monospace; font-size:.7rem; font-weight:500;
-  letter-spacing:.08em; text-transform:uppercase; color:var(--ink2);
-  padding-bottom:.5rem; margin-bottom:.8rem; border-bottom:1px solid var(--line); }
-.sec-hdr-icon{ font-size:.95rem; vertical-align:-2px; color:var(--accent); }
+/* Glassmorphic Streamlit Containers */
+[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: var(--surface-glass) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
 
-.alertbar{ display:flex; align-items:center; justify-content:space-between; gap:1rem;
-  border:1px solid rgba(230,103,103,.35); border-left:3px solid var(--accent-critical); background:rgba(230,103,103,.08);
-  border-radius:6px; padding:.8rem 1.1rem; margin-bottom:1rem; }
-.alertbar .txt{ font-size:.88rem; color:var(--ink); }
-.alertbar .txt b{ font-variant-numeric:tabular-nums; }
-.alertcard{ border:1px solid var(--line); border-left:3px solid var(--sev, var(--accent)); background:var(--surface);
-  border-radius:6px; padding:.7rem .95rem; margin-bottom:.5rem; }
-.alertcard .title{ font-weight:600; font-size:.85rem; color:var(--ink); }
-.alertcard .meta{ font-family:'IBM Plex Mono',monospace; font-size:.72rem; color:var(--ink2); margin-top:.3rem; line-height:1.7; }
+/* Header & Top Branding */
+.header{
+  display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;
+  padding-bottom: 1.1rem; margin-bottom: 1.3rem; border-bottom: 1px solid var(--line-strong);
+}
+.header .eyebrow{
+  font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: .35rem;
+}
+.header h1{
+  margin: 0 0 .35rem; font-size: 1.55rem; font-weight: 700; letter-spacing: -.015em; color: var(--ink);
+  background: linear-gradient(135deg, #ffffff 40%, var(--ink2) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header .sub{ margin: 0; color: var(--ink2); font-size: .84rem; max-width: 54ch; line-height: 1.5; }
+.header .meta{ text-align: right; font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--ink2); line-height: 1.7; }
 
-.pill{ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Mono',monospace; font-size:.68rem;
-  font-weight:600; letter-spacing:.03em; padding:.18rem .55rem; border-radius:99px; text-transform:uppercase; }
-.pill::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
-.pill.has-icon::before{ content:none; }
-.pill-icon{ font-size:.85em; }
+/* Status Dot Indicator with Radar Glow */
+.dot{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0px; }
+.dot.live{ background: var(--accent-low); box-shadow: 0 0 10px rgba(16, 185, 129, 0.7); animation: pulse-dot 2s infinite; }
+.dot.demo{ background: var(--accent-moderate); box-shadow: 0 0 10px rgba(245, 158, 11, 0.7); animation: pulse-dot 2.5s infinite; }
+.dot.stale{ background: var(--muted); }
 
-.badge-demo{ font-family:'IBM Plex Mono',monospace; font-size:.68rem; font-weight:600; letter-spacing:.05em;
-  color:var(--accent-moderate); border:1px solid rgba(250,178,25,.4); background:rgba(250,178,25,.1); border-radius:4px; padding:.2rem .6rem; }
+/* High-Tech Telemetry KPI Stat Row */
+.statrow{
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: .75rem;
+}
+.stat{
+  padding: .85rem 1.1rem; background: var(--surface-card-glass); backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-top: 2px solid var(--stat-accent, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm); position: relative; overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+}
+.stat:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.stat.flag{
+  border-top-color: var(--stat-accent, var(--accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.stat .lbl{
+  font-family: 'JetBrains Mono', monospace; font-size: .65rem; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: .4rem;
+  display: flex; align-items: center; gap: 5px;
+}
+.stat .val{
+  font-family: 'JetBrains Mono', monospace; font-size: 1.35rem; font-weight: 700;
+  color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.stat-icon{ font-size: .95rem; color: var(--stat-accent, var(--muted)); }
 
-.panel{ border:1px solid var(--line); border-radius:6px; background:var(--surface); padding:1rem 1.15rem; }
-.panel .row{ display:flex; justify-content:space-between; padding:.35rem 0; border-bottom:1px solid var(--line); font-size:.83rem; }
-.panel .row:last-child{ border-bottom:none; }
-.panel .row .k{ color:var(--ink2); } .panel .row .v{ color:var(--ink); font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; text-align:right; }
-.evidence{ font-size:.82rem; color:var(--ink2); padding:.25rem 0; border-bottom:1px dashed var(--line); }
-.evidence:last-child{ border-bottom:none; }
-.evidence::before{ content:"\2713  "; color:var(--accent-low); }
+/* Section Header */
+.sec-hdr{
+  font-family: 'JetBrains Mono', monospace; font-size: .72rem; font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--ink);
+  padding-bottom: .55rem; margin-bottom: .85rem; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 6px;
+}
+.sec-hdr-icon{ font-size: 1rem; vertical-align: -2px; color: var(--accent); }
 
-.side-label{ font-family:'IBM Plex Mono',monospace; font-size:.68rem; font-weight:500;
-  letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin:.4rem 0 .6rem; }
-section[data-testid="stSidebar"]{ border-right:1px solid var(--line); }
+/* Emergency Alert Bar */
+.alertbar{
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  border: 1px solid rgba(239, 68, 68, 0.45); border-left: 4px solid var(--accent-critical);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(17, 19, 24, 0.8) 100%);
+  border-radius: var(--radius-md); padding: .85rem 1.2rem; margin-bottom: 1.1rem;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); animation: critical-glow 3s infinite alternate;
+}
+.alertbar .txt{ font-size: .88rem; color: var(--ink); font-weight: 500; }
+.alertbar .txt b{ font-variant-numeric: tabular-nums; color: #ff8585; font-weight: 700; }
+
+.alertcard{
+  border: 1px solid var(--line); border-left: 3px solid var(--sev, var(--accent));
+  background: var(--surface-card); border-radius: var(--radius-sm); padding: .8rem 1rem; margin-bottom: .6rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.alertcard:hover{
+  transform: translateX(2px);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.alertcard .title{ font-weight: 600; font-size: .88rem; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+.alertcard .meta{ font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--ink2); margin-top: .35rem; line-height: 1.7; }
+
+/* Status Pills & Badges */
+.pill{
+  display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace;
+  font-size: .68rem; font-weight: 600; letter-spacing: .04em; padding: .22rem .65rem;
+  border-radius: 9999px; text-transform: uppercase;
+}
+.pill::before{ content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.pill.has-icon::before{ content: none; }
+.pill-icon{ font-size: .9em; }
+
+.badge-demo{
+  font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 600; letter-spacing: .06em;
+  color: var(--accent-moderate); border: 1px solid rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12);
+  border-radius: var(--radius-xs); padding: .22rem .65rem; box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+.panel{ border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-card); padding: 1rem 1.15rem; }
+.panel .row{ display: flex; justify-content: space-between; padding: .35rem 0; border-bottom: 1px solid var(--line); font-size: .83rem; }
+.panel .row:last-child{ border-bottom: none; }
+.panel .row .k{ color: var(--ink2); } .panel .row .v{ color: var(--ink); font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; text-align: right; }
+.evidence{ font-size: .82rem; color: var(--ink2); padding: .25rem 0; border-bottom: 1px dashed var(--line); }
+.evidence:last-child{ border-bottom: none; }
+.evidence::before{ content: "\\2713  "; color: var(--accent-low); }
+
+.side-label{ font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 600;
+  letter-spacing: .10em; text-transform: uppercase; color: var(--muted); margin: .4rem 0 .6rem; }
+section[data-testid="stSidebar"]{
+  background: #0d0e12 !important;
+  border-right: 1px solid var(--line) !important;
+}
 
 [data-testid="stButton"] button, [data-testid="stDownloadButton"] button{
-  border-radius:4px !important; font-weight:500 !important; letter-spacing:.03em !important;
-  font-size:.76rem !important; text-transform:uppercase; font-family:'IBM Plex Mono',monospace !important;
-  transition:filter .12s ease !important; }
-[data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover{ filter:brightness(1.15); }
-
-.legend-chip{ display:inline-flex;align-items:center;gap:6px;font-size:.76rem;margin:2px 10px 2px 0;color:var(--ink2); }
-.legend-dot{ width:9px;height:9px;border-radius:50%;display:inline-block;flex:none; }
-
-.caveat{ font-size:.76rem; color:var(--muted); border-top:1px dashed var(--line); padding-top:.5rem; margin-top:.6rem; line-height:1.6; }
-
-.brand{ font-family:'IBM Plex Mono',monospace; font-size:.86rem; font-weight:600; letter-spacing:.05em; color:var(--ink); }
-.brand-sub{ font-family:'IBM Plex Mono',monospace; font-size:.6rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-top:.15rem; margin-bottom:.2rem; }
-
-.topbar-brand h1{ margin:0 0 .2rem; font-size:1.18rem; font-weight:600; letter-spacing:-.005em; color:var(--ink); }
-.topbar-brand .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:.62rem; font-weight:500; letter-spacing:.09em;
-  text-transform:uppercase; color:var(--accent); margin-bottom:.3rem; }
-.topbar-brand .sub{ margin:0; color:var(--ink2); font-size:.74rem; }
-.topbar-meta{ font-family:'IBM Plex Mono',monospace; font-size:.7rem; color:var(--ink2); line-height:1.6; padding-top:.15rem; }
-.topbar-rule{ border:none; border-top:1px solid var(--line-strong); margin:.9rem 0 1.2rem; }
-
-section[data-testid="stSidebar"] [data-testid="stButton"] button{
-  justify-content:flex-start; text-align:left; text-transform:none; font-weight:500 !important;
+  border-radius: var(--radius-sm) !important; font-weight: 600 !important; letter-spacing: .03em !important;
+  font-size: .78rem !important; text-transform: uppercase; font-family: 'JetBrains Mono', monospace !important;
+  border: 1px solid var(--line) !important; background: var(--surface-card) !important;
+  color: var(--ink) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+[data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover{
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.25) !important;
+  filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 
-.funnel{ display:flex; align-items:stretch; gap:.4rem; margin-bottom:1rem; }
-.funnel-step{ flex:1; min-width:0; border:1px solid var(--line); border-radius:6px; background:var(--surface);
-  padding:.65rem .8rem; border-top:2px solid var(--line); }
-.funnel-step.on{ border-top-color:var(--accent); }
-.funnel-step.off{ opacity:.55; }
-.funnel-step .fnum{ font-family:'IBM Plex Mono',monospace; font-size:.62rem; letter-spacing:.08em; color:var(--muted); }
-.funnel-step .ftitle{ font-weight:600; font-size:.8rem; color:var(--ink); margin:.15rem 0 .3rem; }
-.funnel-step .fmetric{ font-family:'IBM Plex Mono',monospace; font-size:1rem; font-weight:600; color:var(--ink); }
-.funnel-step .fsub{ font-size:.68rem; color:var(--ink2); margin-top:.1rem; }
-.funnel-arrow{ display:flex; align-items:center; color:var(--muted); font-size:1rem; flex:0 0 auto; padding:0 .1rem; }
-@keyframes pulse-glow { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.96); } }
+.legend-chip{ display: inline-flex; align-items: center; gap: 6px; font-size: .76rem; margin: 2px 10px 2px 0; color: var(--ink2); }
+.legend-dot{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+
+.caveat{ font-size: .76rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: .5rem; margin-top: .6rem; line-height: 1.6; }
+
+.brand{ font-family: 'JetBrains Mono', monospace; font-size: .92rem; font-weight: 700; letter-spacing: .06em; color: var(--ink); }
+.brand-sub{ font-family: 'JetBrains Mono', monospace; font-size: .62rem; letter-spacing: .10em; text-transform: uppercase; color: var(--accent); margin-top: .15rem; margin-bottom: .2rem; }
+
+.topbar-brand h1{ margin: 0 0 .2rem; font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.topbar-brand .eyebrow{ font-family: 'JetBrains Mono', monospace; font-size: .64rem; font-weight: 600; letter-spacing: .10em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: .3rem; }
+.topbar-brand .sub{ margin: 0; color: var(--ink2); font-size: .76rem; }
+.topbar-meta{ font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--ink2); line-height: 1.6; padding-top: .15rem; }
+.topbar-rule{ border: none; border-top: 1px solid var(--line-strong); margin: .9rem 0 1.2rem; }
+
+section[data-testid="stSidebar"] [data-testid="stButton"] button{
+  justify-content: flex-start; text-align: left; text-transform: none; font-weight: 500 !important;
+  background: transparent !important; border: 1px solid transparent !important;
+  border-radius: var(--radius-sm) !important; padding: .45rem .75rem !important;
+  color: var(--ink2) !important; transition: all 0.15s ease !important;
+}
+section[data-testid="stSidebar"] [data-testid="stButton"] button:hover{
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+
+.funnel{ display: flex; align-items: stretch; gap: .5rem; margin-bottom: 1.1rem; }
+.funnel-step{
+  flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-glass); backdrop-filter: blur(10px);
+  padding: .75rem .9rem; border-top: 2px solid var(--line);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.funnel-step:hover{ transform: translateY(-1px); }
+.funnel-step.on{
+  border-top-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+}
+.funnel-step.off{ opacity: .5; }
+.funnel-step .fnum{ font-family: 'JetBrains Mono', monospace; font-size: .64rem; font-weight: 600; letter-spacing: .10em; color: var(--muted); }
+.funnel-step .ftitle{ font-weight: 600; font-size: .82rem; color: var(--ink); margin: .2rem 0 .35rem; }
+.funnel-step .fmetric{ font-family: 'JetBrains Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.funnel-step .fsub{ font-size: .7rem; color: var(--ink2); margin-top: .15rem; }
+.funnel-arrow{ display: flex; align-items: center; color: var(--muted); font-size: 1.1rem; flex: 0 0 auto; padding: 0 .15rem; }
+
+@keyframes pulse-dot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.6; } }
+@keyframes critical-glow { 0% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.15); } 100% { box-shadow: 0 0 24px rgba(239, 68, 68, 0.35); } }
+@keyframes pulse-glow { 0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.96); } }
 </style>
 """
 
@@ -192,7 +324,7 @@ def _format_satellites(value) -> str:
 def _pill(text: str, color: str, icon: str | None = None) -> str:
     cls = "pill has-icon" if icon else "pill"
     icon_html = f'<span class="pill-icon">:material/{icon}:</span>' if icon else ""
-    return f'<span class="{cls}" style="color:{color};background:{color}22;border:1px solid {color}55;">{icon_html}{text}</span>'
+    return f'<span class="{cls}" style="color:{color};background:{color}1c;border:1px solid {color}44;box-shadow:0 0 8px {color}1a;">{icon_html}{text}</span>'
 
 
 def _stat_row(cells: list[tuple]):
@@ -1544,9 +1676,9 @@ def _render_alerts_tab(alerts):
         st.info("No alerts generated from the current dataset.", icon=":material/info:")
         return
 
-    sev_color = {"CRITICAL": "#e66767", "HIGH": "#ec835a", "MODERATE": "#fab219"}
+    sev_color = {"CRITICAL": "var(--accent-critical)", "HIGH": "var(--accent-high)", "MODERATE": "var(--accent-moderate)"}
     for i, a in enumerate(alerts[:50]):
-        color = sev_color.get(a["severity"], "#888")
+        color = sev_color.get(a["severity"], "var(--muted)")
         event_id = a.get("event_id", a.get("grid_cell", "?"))
         risk_val = float(a.get("risk_score", 0))
         ai_conf = float(a.get("ai_confidence", 85.0))
@@ -1556,13 +1688,14 @@ def _render_alerts_tab(alerts):
         if is_crit:
             crit_badge_html = (
                 f'<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;'
-                f'padding:3px 8px;border-radius:4px;background:rgba(230,103,103,0.12);'
-                f'border:1px solid rgba(230,103,103,0.35);font-size:0.75rem;color:#e66767;font-family:var(--font-mono,monospace);">'
+                f'padding:3px 8px;border-radius:var(--radius-xs);background:rgba(239,68,68,0.12);'
+                f'border:1px solid rgba(239,68,68,0.35);font-size:0.73rem;color:var(--accent-critical);font-family:\'JetBrains Mono\',monospace;">'
                 f':material/warning: <b>AUTO-NOTIFIED (CRITICAL)</b> &middot; Recipient: {phone} &middot; Risk: {risk_val:.1f}/100 &middot; AI Conf: {ai_conf:.1f}%</div>'
             )
 
+        card_class = "alertcard"
         st.markdown(
-            f'<div class="alertcard" style="--sev:{color}"><div class="title">:material/warning: {a["title"]} '
+            f'<div class="{card_class}" style="--sev:{color}"><div class="title">:material/warning: {a["title"]} '
             f'<span class="mono" style="color:var(--ink2);font-size:.75em;">&middot; {event_id}</span></div>'
             f'<div class="meta">Location: {a["latitude"]:.3f}, {a["longitude"]:.3f} &middot; '
             f'Classification: {a["classification"]} &middot; Risk: {risk_val:.1f}/100 &middot; '
@@ -1699,11 +1832,11 @@ def _render_data_tab(filtered, run_info):
         firms_ok = (run_info or {}).get("hotspot_source") in ("firms_live", "local_cache")
         osm_ok = (run_info or {}).get("zone_source") in ("overpass_live", "cache")
         landcover_ok = (run_info or {}).get("landcover_source") in ("overpass_live", "cache", "cache_stale")
-        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#0ca30c" if firms_ok else "#fab219", icon="check_circle" if firms_ok else "cached"), unsafe_allow_html=True)
-        h2.markdown(_pill("OSM Industrial: " + ("AVAILABLE" if osm_ok else "CACHED/DEMO"), "#0ca30c" if osm_ok else "#fab219", icon="check_circle" if osm_ok else "cached"), unsafe_allow_html=True)
-        h3.markdown(_pill("OSM Landcover: " + ("AVAILABLE" if landcover_ok else "UNAVAILABLE"), "#0ca30c" if landcover_ok else "#6b6e72", icon="check_circle" if landcover_ok else "cancel"), unsafe_allow_html=True)
-        h4.markdown(_pill("Database: HEALTHY" if config.DB_PATH.exists() else "DATABASE: NOT YET CREATED", "#0ca30c" if config.DB_PATH.exists() else "#6b6e72", icon="check_circle" if config.DB_PATH.exists() else "cancel"), unsafe_allow_html=True)
-        h5.markdown(_pill("ML Model: LOADED" if config.MODEL_PATH.exists() else "ML MODEL: NOT YET TRAINED", "#0ca30c" if config.MODEL_PATH.exists() else "#6b6e72", icon="check_circle" if config.MODEL_PATH.exists() else "cancel"), unsafe_allow_html=True)
+        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#10b981" if firms_ok else "#f59e0b", icon="check_circle" if firms_ok else "cached"), unsafe_allow_html=True)
+        h2.markdown(_pill("OSM Industrial: " + ("AVAILABLE" if osm_ok else "CACHED/DEMO"), "#10b981" if osm_ok else "#f59e0b", icon="check_circle" if osm_ok else "cached"), unsafe_allow_html=True)
+        h3.markdown(_pill("OSM Landcover: " + ("AVAILABLE" if landcover_ok else "UNAVAILABLE"), "#10b981" if landcover_ok else "#6b7280", icon="check_circle" if landcover_ok else "cancel"), unsafe_allow_html=True)
+        h4.markdown(_pill("Database: HEALTHY" if config.DB_PATH.exists() else "DATABASE: NOT YET CREATED", "#10b981" if config.DB_PATH.exists() else "#6b7280", icon="check_circle" if config.DB_PATH.exists() else "cancel"), unsafe_allow_html=True)
+        h5.markdown(_pill("ML Model: LOADED" if config.MODEL_PATH.exists() else "ML MODEL: NOT YET TRAINED", "#10b981" if config.MODEL_PATH.exists() else "#6b7280", icon="check_circle" if config.MODEL_PATH.exists() else "cancel"), unsafe_allow_html=True)
         if run_info:
             st.caption(f"Records processed this run: {(run_info or {}).get('n_stored_total', 'n/a')} accumulated in store. "
                        f"Landcover zones loaded: {(run_info or {}).get('n_landcover_zones', 'n/a')} "
@@ -2174,7 +2307,9 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
 
 
 def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
-                                map_mode: str, show_heatmap: bool, key: str):
+                                map_mode: str, show_heatmap: bool, key: str,
+                                state_summary: pd.DataFrame | None = None,
+                                state_filter: list[str] | None = None):
     map_points = _map_points_for_mode(filtered_detail, filtered_events, map_mode)
     with st.container(border=True):
         h1, h2, h3 = st.columns([3.0, 1.4, 1.4])
@@ -2209,6 +2344,61 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
                 key=key,
             )
 
+    c1, c2 = st.columns(2)
+    with c1:
+        with st.container(border=True):
+            _section_header("Classification Distribution", icon="pie_chart")
+            df_to_use = filtered_events if not filtered_events.empty else filtered_detail
+            if not df_to_use.empty:
+                def _nat_label(r):
+                    if "rule_label" in r and pd.notna(r["rule_label"]) and r["rule_label"] in CATEGORY_COLORS:
+                        return r["rule_label"]
+                    if "classification" in r and pd.notna(r["classification"]) and r["classification"] in CATEGORY_COLORS:
+                        return r["classification"]
+                    if "category" in r and pd.notna(r["category"]) and r["category"] in CATEGORY_COLORS:
+                        return r["category"]
+                    st_val = str(r.get("state", ""))
+                    frp_val = float(r.get("max_frp", r.get("avg_frp", r.get("frp", 10.0))) or 0)
+                    is_p = bool(r.get("is_persistent", False))
+                    if st_val in ("Punjab", "Haryana") and frp_val < 18:
+                        return "Likely Agricultural Burning"
+                    elif is_p and frp_val > 15:
+                        return "Persistent Industrial Activity"
+                    elif is_p:
+                        return "Persistent Non-Industrial Thermal Source"
+                    elif frp_val > 30:
+                        return "Likely Industrial Fire"
+                    elif st_val in ("Uttarakhand", "Himachal Pradesh", "Odisha", "Chhattisgarh", "Madhya Pradesh") and frp_val > 15:
+                        return "Likely Wildfire"
+                    return "Requires Verification"
+
+                cats = df_to_use.apply(_nat_label, axis=1)
+                counts = cats.value_counts()
+                fig = go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h",
+                                        marker_color=[CATEGORY_COLORS.get(l, "#888") for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415", yaxis=dict(autorange="reversed"))
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No hotspots match the current filters.")
+    with c2:
+        with st.container(border=True):
+            _section_header("Risk Distribution", icon="warning", icon_color="var(--accent-high)")
+            if not filtered_events.empty and "risk_level" in filtered_events.columns:
+                counts = filtered_events["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            elif not filtered_detail.empty and "risk_level" in filtered_detail.columns:
+                counts = filtered_detail["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No events in the current filter selection.")
+
 
 def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter: list[str]):
     with st.container(border=True):
@@ -2235,15 +2425,14 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
         _render_national_top_states_chart(state_summary, state_filter)
     with c2:
         with st.container(border=True):
-            _section_header("Risk Distribution (Events)", icon="warning", icon_color="var(--accent-high)")
-            if filtered_events.empty:
-                st.caption("No events in the current filter selection.")
-            else:
-                counts = filtered_events["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
-                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+            _section_header("FRP Distribution (MW)", icon="local_fire_department")
+            if not filtered_detail.empty:
+                fig = go.Figure(go.Histogram(x=filtered_detail["frp"], marker_color="#4d8fc4", nbinsx=30))
                 fig.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
                                    paper_bgcolor="#131415", plot_bgcolor="#131415")
                 st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No observations in the current filter selection.")
 
     with st.container(border=True):
         _section_header("Hotspots / Persistent / High-Risk by State", icon="map")
@@ -2261,12 +2450,12 @@ def _render_national_data_page(info: dict):
         _section_header("System Health", icon="monitor_heart")
         h1, h2 = st.columns(2)
         firms_ok = info.get("hotspot_source") in ("firms_live", "local_cache")
-        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#0ca30c" if firms_ok else "#fab219",
+        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#10b981" if firms_ok else "#f59e0b",
                            icon="check_circle" if firms_ok else "cached"),
                     unsafe_allow_html=True)
         boundary_ok = config.INDIA_STATES_PATH.exists()
         h2.markdown(_pill("India Boundary Data: " + ("LOADED" if boundary_ok else "NOT FOUND"),
-                           "#0ca30c" if boundary_ok else "#e66767",
+                           "#10b981" if boundary_ok else "#ef4444",
                            icon="check_circle" if boundary_ok else "cancel"), unsafe_allow_html=True)
 
     with st.container(border=True):
@@ -2455,7 +2644,10 @@ def _route_national_page(page: str, demo_mode: bool):
         _render_national_top_states_chart(state_summary, state_filter)
         _render_methodology_expander()
     elif page == "Live Map":
-        _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_livemap")
+        _render_national_map_panel(
+            filtered_detail, filtered_events, map_mode, show_heatmap,
+            key="map_national_livemap", state_summary=state_summary, state_filter=state_filter,
+        )
     elif page == "3D Holo Globe":
         _render_3d_globe_page(filtered_detail, filtered_events, is_regional=False)
     elif page == "Events":
