@@ -26,7 +26,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
           cache-dependency-path: holo-view-maker/package-lock.json
 
@@ -37,6 +37,12 @@ jobs:
       - name: Build
         working-directory: holo-view-maker
         run: npm run build
+
+      - name: Prepare SPA for GitHub Pages
+        working-directory: holo-view-maker/.output/public
+        run: |
+          touch .nojekyll
+          cp index.html 404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
