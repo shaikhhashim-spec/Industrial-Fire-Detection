@@ -26,12 +26,13 @@ const lightsFragment = /* glsl */ `
   uniform float uOpacity;
   void main() {
     float ndotl = dot(vNormalW, uSunDir);
-    // 1 on the night side, 0 in daylight, soft-edged across the terminator.
-    // smoothstep requires edge0 < edge1 (reversed edges are undefined behavior
-    // per the GLSL spec and can bleed lights onto the day side on some GPUs).
-    float night = 1.0 - smoothstep(-0.15, 0.12, ndotl);
+    // Only glow when the sun is below the horizon (night side)
+    // ndotl < -0.02 ensures zero bleed onto daylight continents
+    float night = clamp((-ndotl - 0.02) * 7.5, 0.0, 1.0);
     vec4 tex = texture2D(map, vUv);
-    gl_FragColor = vec4(tex.rgb, tex.r * night * uOpacity);
+    // Warm luminous city glow
+    vec3 cityColor = tex.rgb * vec3(1.2, 0.95, 0.65);
+    gl_FragColor = vec4(cityColor, tex.r * night * uOpacity);
   }
 `;
 
@@ -151,9 +152,9 @@ export function Atmosphere() {
         vertexShader: atmosVertex,
         fragmentShader: atmosFragment,
         uniforms: {
-          uColor: { value: new THREE.Color("#5aa9e6") },
-          uPower: { value: 3.0 },
-          uStrength: { value: 1.15 },
+          uColor: { value: new THREE.Color("#3b9eff") },
+          uPower: { value: 4.2 },
+          uStrength: { value: 1.35 },
         },
         transparent: true,
         blending: THREE.AdditiveBlending,
@@ -164,8 +165,8 @@ export function Atmosphere() {
   );
 
   return (
-    <mesh scale={1.09} material={material}>
-      <sphereGeometry args={[R, 64, 64]} />
+    <mesh scale={1.025} material={material}>
+      <sphereGeometry args={[R, 96, 96]} />
     </mesh>
   );
 }

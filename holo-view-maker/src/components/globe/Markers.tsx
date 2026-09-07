@@ -43,30 +43,26 @@ function Beam({ cluster, selected, colorBy, onSelect }: BeamProps) {
             : lead.riskScore >= 35
               ? "#fab219"
               : "#0ca30c";
-    // count===1 -> 1x (identical to a single un-clustered marker), grows with
-    // log(count) so a 200-detection corridor reads as a bigger point, not 200
-    // stacked copies of the same-size marker.
-    const s = 1 + Math.min(1.2, Math.log2(cluster.events.length) * 0.22);
+    // Scale markers conservatively with distance so they stay razor-sharp needles rather than ballooning into blobs
+    const s = 0.75 + Math.min(0.5, Math.log2(cluster.events.length) * 0.08);
     return { position: p, quaternion: q, height: h, color: c, size: s, primary: lead };
   }, [cluster, colorBy]);
 
   useFrame((state) => {
-    // Keep markers a consistent, legible size on screen regardless of zoom —
-    // without this, zooming into a tight cluster of events (all at roughly
-    // the same real-world size) makes their halos balloon into one solid blob.
     if (group.current) {
       group.current.getWorldPosition(worldPos);
       const dist = state.camera.position.distanceTo(worldPos);
+      // Keep pins ultra-fine and crisp; clamp tightly so they never swell into giant blobs
       const scale = THREE.MathUtils.clamp(
         dist / REFERENCE_CAMERA_DIST,
-        MIN_MARKER_SCALE,
-        MAX_MARKER_SCALE,
+        0.35,
+        0.85,
       );
       group.current.scale.setScalar(scale);
     }
     if (!halo.current) return;
-    const t = state.clock.elapsedTime * 1.4 + primary.riskScore;
-    const pulse = selected ? 1.4 + Math.sin(t * 2) * 0.35 : 1 + Math.sin(t) * 0.15;
+    const t = state.clock.elapsedTime * 2.2 + (primary.riskScore * 0.1);
+    const pulse = selected ? 1.5 + Math.sin(t * 2) * 0.4 : 1 + Math.sin(t) * 0.22;
     halo.current.scale.setScalar(pulse);
   });
 
@@ -82,26 +78,66 @@ function Beam({ cluster, selected, colorBy, onSelect }: BeamProps) {
       onPointerOver={() => (document.body.style.cursor = "pointer")}
       onPointerOut={() => (document.body.style.cursor = "auto")}
     >
+      {/* 1. Outer translucent thermal energy beam */}
       <mesh position={[0, height / 2, 0]}>
-        <cylinderGeometry args={[0.008 * size, 0.016 * size, height, 12]} />
-        <meshBasicMaterial color={color} transparent opacity={selected ? 1 : 0.88} />
-      </mesh>
-      <mesh position={[0, height, 0]}>
-        <sphereGeometry args={[(selected ? 0.035 : 0.028) * size, 16, 16]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      <mesh position={[0, height * 0.5, 0]}>
-        <sphereGeometry args={[0.018 * size, 12, 12]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      {/* Small, tight-to-the-base glow ring — kept close to the beam so dense
-          clusters of nearby events read as distinct points, not a merged blob. */}
-      <mesh ref={halo} rotation-x={-Math.PI / 2} position={[0, 0.004, 0]}>
-        <ringGeometry args={[0.02 * size, 0.032 * size, 32]} />
+        <cylinderGeometry args={[0.0022 * size, 0.0055 * size, height, 8]} />
         <meshBasicMaterial
           color={color}
           transparent
-          opacity={selected ? 0.55 : 0.35}
+          opacity={selected ? 0.95 : 0.7}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* 2. Intense white-hot inner laser core */}
+      <mesh position={[0, height / 2, 0]}>
+        <cylinderGeometry args={[0.0008 * size, 0.0018 * size, height * 1.02, 6]} />
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={selected ? 0.95 : 0.8}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* 3. Luminous apex diamond beacon (replaces giant ball) */}
+      <mesh position={[0, height, 0]}>
+        <octahedronGeometry args={[(selected ? 0.012 : 0.0085) * size, 0]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+
+      {/* 4. Apex glow halo */}
+      <mesh position={[0, height, 0]}>
+        <sphereGeometry args={[(selected ? 0.018 : 0.013) * size, 8, 8]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={selected ? 0.6 : 0.35}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* 5. Precise ground contact thermal point on Earth terrain */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.001, 0]}>
+        <circleGeometry args={[0.006 * size, 16]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.85}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* 6. Pulsing ground radar / thermal radiation footprint ring */}
+      <mesh ref={halo} rotation-x={-Math.PI / 2} position={[0, 0.002, 0]}>
+        <ringGeometry args={[0.01 * size, 0.018 * size, 24]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={selected ? 0.75 : 0.45}
           side={THREE.DoubleSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
