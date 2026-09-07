@@ -37,12 +37,13 @@ const lightsFragment = /* glsl */ `
 
 /** Photoreal day/night Earth with normal + specular relief and a drifting cloud shell. */
 export function Earth() {
+  const baseUrl = import.meta.env.BASE_URL;
   const maps = useTexture([
-    "/textures/earth_atmos_2048.jpg",
-    "/textures/earth_normal_2048.jpg",
-    "/textures/earth_specular_2048.jpg",
-    "/textures/earth_lights_2048.png",
-    "/textures/earth_clouds_1024.png",
+    `${baseUrl}textures/earth_atmos_2048.jpg`,
+    `${baseUrl}textures/earth_normal_2048.jpg`,
+    `${baseUrl}textures/earth_specular_2048.jpg`,
+    `${baseUrl}textures/earth_lights_2048.png`,
+    `${baseUrl}textures/earth_clouds_1024.png`,
   ]) as THREE.Texture[];
   const [day, normal, spec, lights, clouds] = maps as [
     THREE.Texture,

@@ -15,7 +15,8 @@ export function Coastlines({ radius = 2.01 }: { radius?: number }) {
 
   useEffect(() => {
     let alive = true;
-    fetch("/geo/land-110m.geojson")
+    const baseUrl = import.meta.env.BASE_URL;
+    fetch(`${baseUrl}geo/land-110m.geojson`)
       .then((r) => r.json())
       .then((data: { features: { geometry: { type: string; coordinates: unknown } }[] }) => {
         if (!alive) return;
