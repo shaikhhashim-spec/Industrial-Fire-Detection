@@ -44,7 +44,7 @@ export default defineConfig({
     },
   },
   vite: {
-    base: "/SIH26162/",
+    base: process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/` : "/SIH26162/",
     plugins: [stripSourceTagsFromThreeFiles()],
   },
 });
