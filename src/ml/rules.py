@@ -1,10 +1,10 @@
-"""Rule-based classifier (v1) — explainable by construction. Every label
+"""Rule-based classifier (v1), explainable by construction. Every label
 comes with a reason string and a short evidence list, and is the "weak
 label" the ML layer (src/ml/train.py) is trained against and validated
 with, NOT a ground-truth determination of what actually caused a detection.
 
 Thresholds are PROTOTYPE/OPERATIONAL PARAMETERS calibrated against real
-FIRMS data pulled for this region+window (see config.py) — not a
+FIRMS data pulled for this region and window (see config.py), not a
 scientifically established fire-detection standard.
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ def normalize_confidence(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _classify_row(row) -> tuple[str, str, str]:
-    """Return (label, reason, evidence) — evidence is a '|'-joined list of
+    """Return (label, reason, evidence), where evidence is a '|'-joined list of
     short factual statements shown in the investigation panel."""
     persistent, industrial = bool(row["is_persistent"]), row.get("zone_type") == "industrial"
     conf, frp, days = row["confidence_numeric"], row["frp"], row["persistence_days"]
@@ -44,7 +44,7 @@ def _classify_row(row) -> tuple[str, str, str]:
     # Real OSM-polygon-backed landcover context (src/geospatial/landcover.py)
     # when available; all default to "no signal" (not "confirmed absent")
     # when the columns are missing entirely, e.g. Overpass was unavailable
-    # or a test fixture doesn't provide them — the classification below then
+    # or a test fixture doesn't provide them. The classification below then
     # falls back to exactly its old burn-season-month-only behavior.
     in_agri_zone = bool(row.get("in_agricultural_zone", False))
     forest_dist = row.get("forest_distance_km")
@@ -62,7 +62,7 @@ def _classify_row(row) -> tuple[str, str, str]:
     if persistent:
         evidence.append(f"Active on {days} of the last {config.PERSISTENCE_DEFAULT_WINDOW_DAYS} days")
     else:
-        evidence.append(f"Active on {days} day(s) so far — below the persistence bar")
+        evidence.append(f"Active on {days} day(s) so far, below the persistence bar")
     evidence.append(f"FRP {frp:.1f} MW ({'above' if frp >= config.FRP_INDUSTRIAL_MIN else 'below'} the notable-heat baseline)")
     if industrial:
         loc = f" ({ind_dist:.2f} km from center)" if pd.notna(ind_dist) else ""
@@ -74,7 +74,7 @@ def _classify_row(row) -> tuple[str, str, str]:
     if near_forest:
         evidence.append(f"Within {forest_dist:.2f} km of mapped forest")
     if near_water:
-        evidence.append(f"Within {water_dist:.2f} km of a mapped water body — a known sun-glint false-positive source")
+        evidence.append(f"Within {water_dist:.2f} km of a mapped water body, a known sun-glint false-positive source")
 
     def _r(label, reason):
         return label, reason, "|".join(evidence)
@@ -98,7 +98,7 @@ def _classify_row(row) -> tuple[str, str, str]:
         if near_forest:
             return _r("Likely Wildfire", f"conf ({conf:.0f}) + single-day + near/within mapped forest ({forest_dist:.2f}km)")
         return _r("Likely Wildfire", f"conf ({conf:.0f}) + single-day + non-industrial + outside burn season")
-    return _r("Requires Verification", "borderline — no rule matched cleanly, review manually")
+    return _r("Requires Verification", "borderline: no rule matched cleanly, review manually")
 
 
 def classify(df: pd.DataFrame) -> pd.DataFrame:

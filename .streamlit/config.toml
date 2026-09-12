@@ -1,10 +1,28 @@
+# One token set, shared with holo-view-maker/src/styles.css and with the CSS
+# block in app.py. One accent (cyan), used only for actions, selection and
+# focus; risk keeps its own status palette.
 [theme]
 base = "dark"
-primaryColor = "#4d8fc4"
-backgroundColor = "#0c0d0e"
-secondaryBackgroundColor = "#131415"
-textColor = "#e8e9ea"
-font = "sans serif"
+primaryColor = "#5cb8dc"
+backgroundColor = "#0a0e13"
+secondaryBackgroundColor = "#10161d"
+textColor = "#e4eaf0"
+linkColor = "#5cb8dc"
+borderColor = "#1d2733"
+baseRadius = "6px"
+buttonRadius = "6px"
+showWidgetBorder = true
+showSidebarBorder = true
+font = "IBM Plex Sans:https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+headingFont = "IBM Plex Sans:https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+codeFont = "IBM Plex Mono:https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+# Validated categorical order (see the dataviz palette check): assigned in this
+# fixed order, never cycled.
+chartCategoricalColors = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
+dataframeHeaderBackgroundColor = "#151d26"
+
+[theme.sidebar]
+backgroundColor = "#0c1117"
 
 [server]
 headless = true

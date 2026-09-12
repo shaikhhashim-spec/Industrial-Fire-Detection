@@ -41,6 +41,25 @@ def test_upsert_dedupes_on_natural_key():
     assert history.iloc[0]["frp"] == 999.0
 
 
+def test_upsert_refuses_demo_rows():
+    national_store.upsert(pd.DataFrame([_row(source="DEMO_DATA"), _row(acq_date="2026-08-02")]))
+    history = national_store.load_history()
+    assert len(history) == 1
+    assert (history["source"] != "DEMO_DATA").all()
+
+
+def test_purge_demo_rows_removes_existing_synthetic_history():
+    # simulate a store contaminated before the upsert guard existed
+    with national_store._connect() as conn:
+        conn.execute(
+            "INSERT INTO national_hotspots (latitude, longitude, acq_date, acq_time, satellite, source) "
+            "VALUES (20.0, 80.0, '2026-08-01', 130, 'N20', 'DEMO_DATA')"
+        )
+    national_store.upsert(pd.DataFrame([_row()]))
+    assert national_store.purge_demo_rows() == 1
+    assert national_store.count() == 1
+
+
 def test_upsert_across_two_calls_accumulates():
     national_store.upsert(pd.DataFrame([_row(acq_date="2026-08-01")]))
     national_store.upsert(pd.DataFrame([_row(acq_date="2026-08-02")]))

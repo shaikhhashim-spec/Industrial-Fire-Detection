@@ -31,17 +31,17 @@ def _sample_alert(**overrides):
 
 
 def test_normalize_phone_number():
-    formatted, clean = normalize_phone_number("9967541336")
-    assert formatted == "+919967541336"
-    assert clean == "919967541336"
+    formatted, clean = normalize_phone_number("9812345678")
+    assert formatted == "+919812345678"
+    assert clean == "919812345678"
 
-    formatted2, clean2 = normalize_phone_number("+919967541336")
-    assert formatted2 == "+919967541336"
-    assert clean2 == "919967541336"
+    formatted2, clean2 = normalize_phone_number("+919812345678")
+    assert formatted2 == "+919812345678"
+    assert clean2 == "919812345678"
 
-    formatted3, clean3 = normalize_phone_number("09967541336")
-    assert formatted3 == "+919967541336"
-    assert clean3 == "919967541336"
+    formatted3, clean3 = normalize_phone_number("09812345678")
+    assert formatted3 == "+919812345678"
+    assert clean3 == "919812345678"
 
 
 def test_format_critical_alert_message_contains_all_details():
@@ -67,16 +67,16 @@ def test_is_critical_alert():
 
 def test_send_critical_alert_non_critical_skipped():
     low_alert = _sample_alert(risk_score=60.0, severity="HIGH", risk_level="HIGH")
-    res = send_critical_alert(low_alert, phone="9967541336", force=False)
+    res = send_critical_alert(low_alert, phone="9812345678", force=False)
     assert res["status"] == "skipped"
     assert "not CRITICAL" in res["reason"]
 
 
 def test_send_critical_alert_critical_delivered_or_simulated():
     critical_alert = _sample_alert(risk_score=85.0, severity="CRITICAL")
-    res = send_critical_alert(critical_alert, phone="9967541336")
+    res = send_critical_alert(critical_alert, phone="9812345678")
     assert res["status"] in ("simulated", "delivered")
-    assert res["recipient"] == "+919967541336"
+    assert res["recipient"] == "+919812345678"
     assert res["risk_score"] == 85.0
     assert res["severity"] == "CRITICAL"
     assert "message" in res
@@ -84,7 +84,7 @@ def test_send_critical_alert_critical_delivered_or_simulated():
 
 def test_send_critical_alert_force_bypass():
     low_alert = _sample_alert(risk_score=40.0, severity="LOW", risk_level="LOW")
-    res = send_critical_alert(low_alert, phone="9967541336", force=True)
+    res = send_critical_alert(low_alert, phone="9812345678", force=True)
     assert res["status"] in ("simulated", "delivered")
 
 
@@ -95,7 +95,7 @@ def test_send_batch_critical_alerts_only_sends_critical():
         _sample_alert(event_id="TH-CRIT-2", risk_score=91.5, severity="CRITICAL", risk_level="CRITICAL"),
         _sample_alert(event_id="TH-HIGH", risk_score=65.0, severity="HIGH", risk_level="HIGH"),
     ]
-    results = send_batch_critical_alerts(alerts, phone="9967541336", max_alerts=5)
+    results = send_batch_critical_alerts(alerts, phone="9812345678", max_alerts=5)
     assert len(results) == 2
     dispatched_ids = [r["event_id"] for r in results]
     assert "TH-CRIT-1" in dispatched_ids

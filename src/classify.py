@@ -25,7 +25,7 @@ from src.utils.event_id import add_event_ids
 REQUIRED_INPUT_COLUMNS = {"latitude", "longitude", "acq_date", "acq_time", "satellite", "frp", "confidence", "zone_type"}
 
 
-def classify_hotspots(df: pd.DataFrame, demo_mode: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+def classify_hotspots(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """Returns (detail_df, cluster_df, info).
 
     detail_df  — one row per detection, fully classified and risk-scored.
@@ -34,11 +34,8 @@ def classify_hotspots(df: pd.DataFrame, demo_mode: bool = False) -> tuple[pd.Dat
                  with a dominant classification, risk, and lifecycle status.
     info       — ML metrics (see src/ml/evaluation.py) plus row/cluster counts.
 
-    demo_mode=True keeps this call fully self-contained: it neither reads
-    nor writes the shared SQLite store, so synthetic demo detections can
-    never leak into (or be diluted by) the real accumulated history, and
-    vice versa. The fixed demo dataset already spans its own window on its
-    own, so there's nothing to extend it with anyway.
+    The persistence window is extended with previously stored live history,
+    and this batch is written back to the store.
     """
     missing = REQUIRED_INPUT_COLUMNS - set(df.columns)
     if missing:
@@ -52,18 +49,17 @@ def classify_hotspots(df: pd.DataFrame, demo_mode: bool = False) -> tuple[pd.Dat
     df = df.copy()
     df["acq_date"] = pd.to_datetime(df["acq_date"])
 
-    if not demo_mode:
-        # Extend the persistence window with previously stored history
-        # (records the live fetch no longer serves), capped back to the
-        # same span a single fetch would cover so "N days in the window"
-        # doesn't drift as the store grows across repeated calls.
-        history = store.load_input_history()
-        if not history.empty:
-            combined = pd.concat(
-                [history, df[[c for c in store.INPUT_COLUMNS if c in df.columns]]], ignore_index=True
-            ).drop_duplicates(subset=store.NATURAL_KEY, keep="last")
-            cutoff = combined["acq_date"].max() - pd.Timedelta(days=config.FIRMS_TOTAL_DAYS)
-            df = combined[combined["acq_date"] > cutoff].reset_index(drop=True)
+    # Extend the persistence window with previously stored history
+    # (records the live fetch no longer serves), capped back to the
+    # same span a single fetch would cover so "N days in the window"
+    # doesn't drift as the store grows across repeated calls.
+    history = store.load_input_history()
+    if not history.empty:
+        combined = pd.concat(
+            [history, df[[c for c in store.INPUT_COLUMNS if c in df.columns]]], ignore_index=True
+        ).drop_duplicates(subset=store.NATURAL_KEY, keep="last")
+        cutoff = combined["acq_date"].max() - pd.Timedelta(days=config.FIRMS_TOTAL_DAYS)
+        df = combined[combined["acq_date"] > cutoff].reset_index(drop=True)
 
     df = persistence.compute_persistence(df)
     cluster_summary = persistence.build_cluster_summary(df)
@@ -82,10 +78,9 @@ def classify_hotspots(df: pd.DataFrame, demo_mode: bool = False) -> tuple[pd.Dat
     df = risk_scoring.compute_risk(df)
     cluster_df = _build_cluster_view(df, cluster_summary)
 
-    if not demo_mode:
-        store.upsert(df)
+    store.upsert(df)
 
-    info = {"ml_metrics": ml_metrics, "n_detections": len(df), "n_clusters": len(cluster_df), "demo_mode": demo_mode}
+    info = {"ml_metrics": ml_metrics, "n_detections": len(df), "n_clusters": len(cluster_df)}
     return df, cluster_df, info
 
 

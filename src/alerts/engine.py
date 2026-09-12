@@ -1,5 +1,5 @@
 """Alert generation from the classified, cluster-level dataset. Alerts are
-recomputed fresh from the current data on every run — not a stateful diff
+recomputed fresh from the current data on every run, not a stateful diff
 against a previous run's alert log (there's no "alert history" store yet;
 see README "Future Improvements")."""
 from __future__ import annotations

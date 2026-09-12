@@ -63,78 +63,58 @@
   --font-mono: var(--font-mono);
 }
 
+/*
+ * One token set, shared with the Streamlit dashboard (app.py CSS block and
+ * .streamlit/config.toml). Hex equivalents are noted so both apps can be kept
+ * in step by eye; oklch is the source of truth here.
+ */
 :root {
-  --radius: 0.35rem;
+  --radius: 6px;
   --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
 
-  --background: oklch(0.16 0.008 240);
-  --foreground: oklch(0.93 0.005 240);
-  --card: oklch(0.2 0.011 240);
-  --card-foreground: oklch(0.93 0.005 240);
-  --popover: oklch(0.2 0.011 240);
-  --popover-foreground: oklch(0.93 0.005 240);
-  --primary: oklch(0.68 0.11 240);
-  --primary-foreground: oklch(0.16 0.008 240);
-  --secondary: oklch(0.26 0.012 240);
-  --secondary-foreground: oklch(0.93 0.005 240);
-  --muted: oklch(0.24 0.01 240);
-  --muted-foreground: oklch(0.68 0.012 240);
-  --accent: oklch(0.7 0.15 45);
-  --accent-foreground: oklch(0.16 0.008 240);
-  --destructive: oklch(0.63 0.19 25);
-  --destructive-foreground: oklch(0.97 0.003 240);
-  --border: oklch(0.3 0.012 240);
-  --input: oklch(0.3 0.012 240);
-  --ring: oklch(0.68 0.11 240);
-  --chart-1: oklch(0.68 0.11 240);
-  --chart-2: oklch(0.72 0.15 60);
-  --chart-3: oklch(0.65 0.18 25);
-  --chart-4: oklch(0.7 0.13 150);
-  --chart-5: oklch(0.68 0.12 300);
-  --sidebar: oklch(0.18 0.009 240);
-  --sidebar-foreground: oklch(0.93 0.005 240);
-  --sidebar-primary: oklch(0.68 0.11 240);
-  --sidebar-primary-foreground: oklch(0.16 0.008 240);
-  --sidebar-accent: oklch(0.26 0.012 240);
-  --sidebar-accent-foreground: oklch(0.93 0.005 240);
-  --sidebar-border: oklch(0.3 0.012 240);
-  --sidebar-ring: oklch(0.68 0.11 240);
-}
+  --background: oklch(0.158 0.017 245); /* #0a0e13 */
+  --foreground: oklch(0.921 0.013 240); /* #e4eaf0 */
+  --card: oklch(0.203 0.019 245); /* #10161d */
+  --card-foreground: oklch(0.921 0.013 240);
+  --popover: oklch(0.203 0.019 245);
+  --popover-foreground: oklch(0.921 0.013 240);
+  --primary: oklch(0.751 0.079 227); /* #5cb8dc */
+  --primary-foreground: oklch(0.146 0.02 245); /* #061018 */
+  --secondary: oklch(0.243 0.02 245); /* #151d26 */
+  --secondary-foreground: oklch(0.921 0.013 240);
+  --muted: oklch(0.243 0.02 245);
+  --muted-foreground: oklch(0.6 0.021 243); /* #71808f */
+  --accent: oklch(0.751 0.079 227);
+  --accent-foreground: oklch(0.146 0.02 245);
+  --destructive: oklch(0.559 0.176 25.5); /* #d03b3b */
+  --destructive-foreground: oklch(0.921 0.013 240);
+  --border: oklch(0.256 0.021 246); /* #1d2733 */
+  --input: oklch(0.256 0.021 246);
+  --ring: oklch(0.751 0.079 227);
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Reserved status palette, matching the dashboard's risk colours. */
+  --ok: #0ca30c;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+
+  /* Validated categorical order (see the dataviz palette check). */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+
+  --sidebar: oklch(0.183 0.018 246); /* #0c1117 */
+  --sidebar-foreground: oklch(0.921 0.013 240);
+  --sidebar-primary: oklch(0.751 0.079 227);
+  --sidebar-primary-foreground: oklch(0.146 0.02 245);
+  --sidebar-accent: oklch(0.243 0.02 245);
+  --sidebar-accent-foreground: oklch(0.921 0.013 240);
+  --sidebar-border: oklch(0.256 0.021 246);
+  --sidebar-ring: oklch(0.751 0.079 227);
 }
 
 @layer base {
@@ -151,22 +131,164 @@
 @layer base {
   body {
     font-family: var(--font-sans);
-    background-image:
-      radial-gradient(ellipse at 50% 0%, oklch(0.24 0.03 240 / 0.7), transparent 60%);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 28%, transparent);
+    color: var(--foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  button {
+    transition: background-color 160ms var(--ease), color 160ms var(--ease),
+      border-color 160ms var(--ease), transform 160ms var(--ease);
+  }
+  button:active {
+    transform: scale(0.98);
   }
 }
 
-@utility mono-label {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+/* Field label. Sentence case, sans: monospace is reserved for numbers, IDs
+   and coordinates, where it earns its place. */
+@utility field-label {
+  font-size: 0.72rem;
+  font-weight: 500;
   color: var(--muted-foreground);
 }
 
 @utility panel {
-  background: color-mix(in oklab, var(--card) 82%, transparent);
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  backdrop-filter: blur(10px);
+}
+
+/* keyboard-shortcut badge */
+@utility kbd {
+  display: inline-block;
+  min-width: 1.15rem;
+  padding: 0.16rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  line-height: 1;
+  text-align: center;
+  color: var(--muted-foreground);
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+/* deep-space backdrop behind the MapLibre globe: a faint star field over a
+   blue-black vignette */
+.globe-map {
+  background:
+    radial-gradient(1px 1px at 8% 14%, rgb(255 255 255 / 0.55), transparent 60%),
+    radial-gradient(1px 1px at 23% 78%, rgb(255 255 255 / 0.35), transparent 60%),
+    radial-gradient(1.2px 1.2px at 37% 9%, rgb(190 225 255 / 0.5), transparent 60%),
+    radial-gradient(1px 1px at 52% 92%, rgb(255 255 255 / 0.3), transparent 60%),
+    radial-gradient(1px 1px at 66% 6%, rgb(255 255 255 / 0.45), transparent 60%),
+    radial-gradient(1.3px 1.3px at 81% 22%, rgb(210 235 255 / 0.55), transparent 60%),
+    radial-gradient(1px 1px at 93% 64%, rgb(255 255 255 / 0.4), transparent 60%),
+    radial-gradient(1px 1px at 4% 58%, rgb(255 255 255 / 0.3), transparent 60%),
+    radial-gradient(1px 1px at 88% 88%, rgb(255 255 255 / 0.35), transparent 60%),
+    radial-gradient(1px 1px at 15% 93%, rgb(200 230 255 / 0.4), transparent 60%),
+    radial-gradient(ellipse at 50% 50%, #0a1a2c 0%, #04080f 55%, #010204 100%);
+}
+.globe-map .maplibregl-canvas:focus {
+  outline: none;
+}
+
+/* hover tooltip on the globe */
+.globe-tip .maplibregl-popup-tip {
+  display: none;
+}
+.globe-tip .maplibregl-popup-content {
+  padding: 6px 9px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  line-height: 1.45;
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--card) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.globe-tip .maplibregl-popup-content span {
+  color: var(--muted-foreground);
+}
+
+/* attribution: keep it legible but out of the way on the dark map (compound
+   selectors to outrank MapLibre's own white compact-attribution rules) */
+.globe-map .maplibregl-ctrl-attrib,
+.globe-map .maplibregl-ctrl-attrib.maplibregl-compact,
+.globe-map .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  background-color: color-mix(in oklab, var(--background) 80%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.6rem;
+}
+.globe-map .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button {
+  background-color: transparent;
+}
+.globe-map .maplibregl-ctrl-attrib a {
+  color: var(--muted-foreground);
+}
+.globe-map .maplibregl-ctrl-attrib-button {
+  filter: invert(1) opacity(0.6);
+}
+
+/* floating name tag that follows each fire satellite on the globe */
+.sat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1px 6px 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--sat);
+  background: color-mix(in oklab, var(--background) 75%, transparent);
+  border: 1px solid color-mix(in oklab, var(--sat) 45%, transparent);
+  border-radius: 3px;
+  transition: opacity 0.25s;
+}
+.sat-label-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--sat);
+}
+.sat-label-inst {
+  color: var(--muted-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -27,14 +27,29 @@ class FirmsAPIError(RuntimeError):
     """Transient failure, or no cache available to fall back to."""
 
 
+def _redact(text: str, api_key: str | None) -> str:
+    """FIRMS puts the key in the request URL itself, so any exception raised
+    by `requests` (timeouts, HTTP errors, connection failures) echoes it back
+    in the message. Strip it before the text can reach a log, console, or —
+    worse — an uncaught exception rendered straight into the Streamlit UI."""
+    if not api_key:
+        return text
+    return text.replace(api_key, "***REDACTED***")
+
+
 def check_map_key(api_key: str | None = None) -> dict:
     """Validate a key against FIRMS's own status endpoint before spending
-    fetch quota on it. Raises FirmsAuthError if invalid/missing."""
+    fetch quota on it. Raises FirmsAuthError if invalid/missing/unreachable —
+    always redacted, and always this type, so a caller that only catches
+    FirmsAuthError never sees a raw, key-bearing traceback."""
     api_key = api_key or config.FIRMS_API_KEY
     if not api_key:
         raise FirmsAuthError("No FIRMS_API_KEY configured. Set it in .env — see .env.example.")
-    resp = requests.get(config.FIRMS_STATUS_URL, params={"MAP_KEY": api_key}, timeout=30)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(config.FIRMS_STATUS_URL, params={"MAP_KEY": api_key}, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.RequestException as exc:
+        raise FirmsAuthError(f"Could not reach FIRMS to validate the key: {_redact(str(exc), api_key)}") from None
     text = resp.text.strip()
     if "invalid" in text.lower():
         raise FirmsAuthError(f"FIRMS rejected this key: {text}")
@@ -94,7 +109,7 @@ def _fetch_chunk(
         except FirmsAuthError:
             raise
         except (requests.exceptions.RequestException, FirmsAPIError, pd.errors.ParserError) as exc:
-            last_error = exc
+            last_error = _redact(str(exc), api_key)
             if attempt < config.FIRMS_MAX_RETRIES:
                 time.sleep(config.FIRMS_BACKOFF_FACTOR ** attempt)
 
@@ -137,7 +152,7 @@ def fetch_hotspots(
             except FirmsAuthError:
                 raise
             except Exception as exc:
-                print(f"[firms.fetch] {source} {end_date}: {exc}")
+                print(f"[firms.fetch] {source} {end_date}: {_redact(str(exc), api_key)}")
         end_date -= dt.timedelta(days=day_range)
         remaining -= day_range
 
@@ -171,65 +186,73 @@ def _tile_bbox(bbox: dict, tile_deg: float = 8.0) -> list[str]:
     return tiles
 
 
+def _fetch_bbox(source: str, day_range: int, end_date: str, api_key: str, bbox: dict) -> list[pd.DataFrame]:
+    """One area/csv request for the whole bbox; only if that fails, the same
+    window as <=8x8-degree tiles. A whole-India bbox in a single request was
+    verified to work (2026-09-11), so tiling is now the fallback, not the
+    default — it was 16x the requests per source."""
+    area = f"{bbox['min_lon']},{bbox['min_lat']},{bbox['max_lon']},{bbox['max_lat']}"
+    try:
+        return [_fetch_chunk(source, day_range, end_date, api_key, area=area)]
+    except FirmsAuthError:
+        raise
+    except Exception as exc:
+        print(f"[firms.fetch] national {source} whole-bbox: {_redact(str(exc), api_key)} — tiling")
+    frames = []
+    for tile in _tile_bbox(bbox):
+        try:
+            frames.append(_fetch_chunk(source, day_range, end_date, api_key, area=tile))
+        except FirmsAuthError:
+            raise
+        except Exception as exc:
+            print(f"[firms.fetch] national {source} tile {tile}: {_redact(str(exc), api_key)}")
+    return frames
+
+
 def fetch_country_hotspots(
     country: str = "IND",
     sources: list[str] | None = None,
     day_range: int | None = None,
     api_key: str | None = None,
     fallback_bbox: dict | None = None,
+    total_days: int | None = None,
 ) -> pd.DataFrame:
-    """National-scale fetch: latest `day_range` days across the country.
+    """National-scale fetch across the country's bounding box.
 
-    FIRMS's dedicated country/csv endpoint is attempted first, but was found
-    at build time to return "Invalid API call" for every source/country
-    tried — including NASA's own documented tutorial example — suggesting
-    the service is genuinely unavailable server-side right now, not a bug
-    here. Falls back to tiling `fallback_bbox` into <=8x8-degree area/csv
-    requests (the endpoint this project has already verified works
-    reliably), which is why this is the primary path in practice.
+    FIRMS's country/csv endpoint is no longer attempted: it answers HTTP 400
+    "Invalid API call" for every source (re-verified 2026-09-11), and each
+    attempt burned FIRMS_MAX_RETRIES backoff sleeps before falling through.
+    Country clipping happens downstream instead, against real state
+    boundaries (src/national/states.py), which also drops offshore and
+    cross-border detections the bbox necessarily includes.
 
-    Deliberately shallow (default 2 days) — this is the "latest
-    observations" layer, not a 60-day history pull; see
-    src/national/pipeline.py for why repeatedly pulling a long window
-    country-wide would be both slow and against FIRMS's fair-use spirit.
+    By default pulls the latest `day_range` days (the per-run refresh).
+    `total_days` backfills a longer window in FIRMS_CHUNK_DAYS requests —
+    used once to seed persistence history when the national store is cold.
     """
     sources = sources or config.NATIONAL_FIRMS_SOURCES
     day_range = day_range or config.NATIONAL_DAY_RANGE
+    total_days = total_days or day_range
+    bbox = fallback_bbox or config.INDIA_BBOX
     api_key = api_key or config.FIRMS_API_KEY
     if not api_key:
         raise FirmsAuthError("No FIRMS_API_KEY configured. Set it in .env — see .env.example.")
 
     import datetime as dt
 
-    end_date = dt.date.today().isoformat()
     frames = []
-
-    for source in sources:
-        try:
-            chunk = _fetch_chunk(source, day_range, end_date, api_key, country=country)
-            if not chunk.empty:
-                chunk = chunk.copy()
-                chunk["source"] = source
-                frames.append(chunk)
-        except FirmsAuthError:
-            raise
-        except Exception as exc:
-            print(f"[firms.fetch] national {source} (country endpoint): {exc}")
-
-    if not frames and fallback_bbox:
-        tiles = _tile_bbox(fallback_bbox)
+    end = dt.date.today()
+    remaining = total_days
+    while remaining > 0:
+        chunk_days = min(config.FIRMS_CHUNK_DAYS, remaining)
         for source in sources:
-            for tile in tiles:
-                try:
-                    chunk = _fetch_chunk(source, day_range, end_date, api_key, area=tile)
-                    if not chunk.empty:
-                        chunk = chunk.copy()
-                        chunk["source"] = source
-                        frames.append(chunk)
-                except FirmsAuthError:
-                    raise
-                except Exception as exc:
-                    print(f"[firms.fetch] national {source} tile {tile}: {exc}")
+            for chunk in _fetch_bbox(source, chunk_days, end.isoformat(), api_key, bbox):
+                if not chunk.empty:
+                    chunk = chunk.copy()
+                    chunk["source"] = source
+                    frames.append(chunk)
+        end -= dt.timedelta(days=chunk_days)
+        remaining -= chunk_days
 
     if not frames:
         return pd.DataFrame()

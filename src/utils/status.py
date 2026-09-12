@@ -2,7 +2,7 @@
 CRITICAL / RESOLVED-INACTIVE.
 
 "now" is taken as the most recent acq_date present in the batch being
-scored, not the wall-clock date — so status assignment stays stable on a
+scored, not the wall-clock date, so status assignment stays stable on a
 frozen demo dataset no matter when the demo is actually run, matching the
 platform's own Demo Mode guarantee (never depend on external freshness).
 """

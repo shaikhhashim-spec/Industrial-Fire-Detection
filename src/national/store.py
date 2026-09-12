@@ -23,6 +23,7 @@ INPUT_COLUMNS = [
     "confidence", "confidence_numeric", "frp", "daynight", "source", "state",
 ]
 NATURAL_KEY = ["latitude", "longitude", "acq_date", "acq_time", "satellite", "source"]
+DEMO_SOURCE = "DEMO_DATA"
 _TEXT_COLUMNS = {"acq_date", "satellite", "instrument", "confidence", "daynight", "source", "state"}
 
 
@@ -34,7 +35,12 @@ def _connect() -> sqlite3.Connection:
 
 
 def upsert(df: pd.DataFrame) -> None:
-    """Insert new observations / overwrite matching ones (same natural key)."""
+    """Insert new observations / overwrite matching ones (same natural key).
+    Synthetic rows are refused outright: a live run that silently fell back to
+    demo data once wrote 10,752 DEMO_DATA rows here, and every later run then
+    served them back as "real" history."""
+    if "source" in df.columns:
+        df = df[df["source"].astype(str) != DEMO_SOURCE]
     if df.empty:
         return
     cols = [c for c in INPUT_COLUMNS if c in df.columns]
@@ -61,6 +67,15 @@ def load_history(days: int | None = None) -> pd.DataFrame:
         cutoff = df["acq_date"].max() - pd.Timedelta(days=days)
         df = df[df["acq_date"] > cutoff].reset_index(drop=True)
     return df
+
+
+def purge_demo_rows() -> int:
+    """Delete any synthetic rows already in the store; returns how many."""
+    if not DB_PATH.exists():
+        return 0
+    with _connect() as conn:
+        cur = conn.execute("DELETE FROM national_hotspots WHERE source = ?", (DEMO_SOURCE,))
+        return cur.rowcount
 
 
 def count() -> int:

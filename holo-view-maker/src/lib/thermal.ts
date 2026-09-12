@@ -21,12 +21,66 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   "Requires Verification": "#e66767",
 };
 
+/** Risk is a state, so it wears the reserved status palette (good / warning /
+ *  serious / critical) and is always shown with its label. */
 export const RISK_COLORS: Record<RiskLevel, string> = {
   LOW: "#0ca30c",
   MODERATE: "#fab219",
   HIGH: "#ec835a",
-  CRITICAL: "#e66767",
+  CRITICAL: "#d03b3b",
 };
+
+/** Nearest known heat-producing facility credited for a detection (open data). */
+export interface Facility {
+  name: string;
+  kind: string;
+  detail: string;
+  operator: string;
+  capacityMw: number | null;
+  distanceKm: number;
+  source: string;
+  ref: string;
+  url: string;
+}
+
+/** Satellite evidence behind an event, over the pipeline's history window. */
+export interface Evidence {
+  detections: number;
+  days: number;
+  firstSeen: string | null;
+  lastSeen: string | null;
+  maxFrp: number;
+  meanFrp: number;
+  nightPasses: number;
+  lowConfidenceShare: number;
+  meanConfidence: number | null;
+  satellites: string[];
+}
+
+/** One weighted component of the risk score. The three components add up to
+ *  the score exactly, so this is arithmetic rather than attribution. */
+export interface RiskFactor {
+  label: string;
+  points: number;
+  share: number;
+  value: string;
+  detail: string;
+}
+
+/** The random forest's second opinion on the rule label. */
+export interface ModelCheck {
+  label: string;
+  confidence: number;
+  agrees: boolean;
+  holdoutAgreement?: number | null;
+  caveat: string;
+}
+
+export interface RecommendedAction {
+  step: string;
+  detail: string;
+  urgency: "Now" | "Today" | "This week" | "Monitor";
+}
 
 export interface ThermalEvent {
   id: string;
@@ -41,168 +95,71 @@ export interface ThermalEvent {
   confidence: number;
   persistenceDays: number;
   detectionCount: number;
-  satellite: "VIIRS S-NPP" | "VIIRS NOAA-20" | "MODIS Aqua" | "MODIS Terra";
+  satellite: "VIIRS S-NPP" | "VIIRS NOAA-20" | "VIIRS NOAA-21" | "MODIS Aqua" | "MODIS Terra";
   daynight: "D" | "N";
   status: "NEW" | "RECURRING" | "PERSISTENT" | "HIGH RISK" | "CRITICAL";
   acqDate: string;
   history: { date: string; frp: number; confidence: number }[];
+  // open-source context (national pipeline) — absent on older exports
+  state?: string;
+  district?: string | null;
+  place?: { name: string; distanceKm: number; direction: string } | null;
+  satellites?: string[];
+  facility?: Facility | null;
+  /** Backed by more than one pixel on one pass (repeat, 2+ days, or a mapped facility). */
+  corroborated?: boolean;
+  reasons?: string[];
+  evidence?: Evidence | null;
+  /** Rank by risk across the whole run, 1 being the highest. */
+  priority?: number | null;
+  riskSummary?: string | null;
+  riskFactors?: RiskFactor[];
+  actions?: RecommendedAction[];
+  model?: ModelCheck | null;
 }
+
+/** Provenance written by the Python exporter alongside the events. */
+export interface DataMeta {
+  source: "firms_live" | "local_cache" | "mixed" | "none";
+  generatedAt: string;
+  events: number;
+  windowDays: number;
+  attribution: string[];
+}
+
+/** "none" means the pipeline has not exported anything the globe can draw. */
+export type DataSource = "live" | "none";
 
 export const CATEGORIES = Object.keys(CATEGORY_COLORS) as Category[];
-export const SATS: ThermalEvent["satellite"][] = [
-
-  "VIIRS S-NPP",
-  "VIIRS NOAA-20",
-  "MODIS Aqua",
-  "MODIS Terra",
-];
-
-/** Industrial / thermal corridors used as cluster seeds. */
-const SEEDS: { name: string; lat: number; lon: number; n: number }[] = [
-  { name: "Jamshedpur–Bokaro Belt", lat: 22.8, lon: 86.2, n: 9 },
-  { name: "Angul–Talcher Corridor", lat: 20.95, lon: 85.1, n: 7 },
-  { name: "Raigarh–Korba Basin", lat: 22.0, lon: 82.8, n: 7 },
-  { name: "Jamnagar Refinery Zone", lat: 22.35, lon: 69.9, n: 6 },
-  { name: "Vishakhapatnam Coast", lat: 17.7, lon: 83.2, n: 5 },
-  { name: "Punjab Stubble Belt", lat: 30.6, lon: 75.5, n: 10 },
-  { name: "Bhilai–Durg Works", lat: 21.2, lon: 81.4, n: 5 },
-  { name: "Mumbai–Thane Industrial", lat: 19.2, lon: 73.0, n: 6 },
-  { name: "Kutch Salt & Power", lat: 23.4, lon: 70.5, n: 4 },
-  { name: "Uttarakhand Forest Line", lat: 30.1, lon: 79.0, n: 5 },
-  { name: "Barauni–Begusarai", lat: 25.5, lon: 86.0, n: 4 },
-  { name: "Chennai Manali Cluster", lat: 13.16, lon: 80.26, n: 5 },
-];
-
-function mulberry32(seed: number) {
-  let a = seed;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function riskLevel(score: number): RiskLevel {
-  if (score >= 80) return "CRITICAL";
-  if (score >= 60) return "HIGH";
-  if (score >= 35) return "MODERATE";
-  return "LOW";
-}
-
-function buildEvents(): ThermalEvent[] {
-  const rnd = mulberry32(26162);
-  const events: ThermalEvent[] = [];
-  const base = Date.UTC(2026, 7, 30);
-
-  SEEDS.forEach((seed, si) => {
-    for (let i = 0; i < seed.n; i++) {
-      const lat = seed.lat + (rnd() - 0.5) * 1.6;
-      const lon = seed.lon + (rnd() - 0.5) * 1.8;
-      const agri = seed.name.includes("Stubble");
-      const forest = seed.name.includes("Forest");
-      const category: Category = agri
-        ? rnd() > 0.25
-          ? "Likely Agricultural Burning"
-          : "Requires Verification"
-        : forest
-          ? rnd() > 0.35
-            ? "Likely Wildfire"
-            : "Persistent Non-Industrial Thermal Source"
-          : (CATEGORIES[Math.floor(rnd() * 5)] as Category);
-
-      const persistenceDays = Math.round(1 + rnd() * 26);
-      const frp = Math.round((3 + rnd() * 180) * 10) / 10;
-      const confidence = Math.round(35 + rnd() * 64);
-      const detectionCount = Math.round(persistenceDays * (0.8 + rnd() * 2.4));
-      const riskScore = Math.min(
-        99,
-        Math.round(
-          0.34 * Math.min(100, persistenceDays * 4) +
-            0.28 * Math.min(100, frp / 1.8) +
-            0.22 * confidence +
-            0.16 * Math.min(100, detectionCount * 2.5),
-        ),
-      );
-      const level = riskLevel(riskScore);
-      const days = Math.min(12, persistenceDays);
-      const history = Array.from({ length: days }, (_, d) => ({
-        date: new Date(base - (days - 1 - d) * 86400000).toISOString().slice(0, 10),
-        frp: Math.round(frp * (0.45 + rnd() * 1.1) * 10) / 10,
-        confidence: Math.max(20, Math.min(100, Math.round(confidence + (rnd() - 0.5) * 30))),
-      }));
-
-      events.push({
-        id: `TI-${String(si + 1).padStart(2, "0")}${String(i + 1).padStart(2, "0")}`,
-        region: seed.name,
-        latitude: Math.round(lat * 10000) / 10000,
-        longitude: Math.round(lon * 10000) / 10000,
-        category,
-        riskScore,
-        riskLevel: level,
-        frp,
-        brightness: Math.round(298 + rnd() * 90),
-        confidence,
-        persistenceDays,
-        detectionCount,
-        satellite: SATS[Math.floor(rnd() * SATS.length)] as ThermalEvent["satellite"],
-        daynight: rnd() > 0.45 ? "N" : "D",
-        status:
-          level === "CRITICAL"
-            ? "CRITICAL"
-            : level === "HIGH"
-              ? "HIGH RISK"
-              : persistenceDays > 14
-                ? "PERSISTENT"
-                : persistenceDays > 5
-                  ? "RECURRING"
-                  : "NEW",
-        acqDate: new Date(base - Math.floor(rnd() * 3) * 86400000).toISOString().slice(0, 10),
-        history,
-      });
-    }
-  });
-
-  return events.sort((a, b) => b.riskScore - a.riskScore);
-}
-
-export const THERMAL_EVENTS: ThermalEvent[] = buildEvents();
 
 /**
- * Loads thermal detections generated by the Python backend pipeline from `/data/events.json`.
- * Falls back to simulation seed dataset if missing or offline.
+ * Loads the thermal detections the Python pipeline exported to
+ * `/data/events.json`. Live data only: when the file is missing, empty, or not
+ * marked as a real FIRMS run, the globe shows an empty state rather than
+ * standing in something made up.
  */
 export async function fetchThermalEvents(): Promise<{
   events: ThermalEvent[];
-  source: "live" | "simulation";
+  source: DataSource;
+  meta: DataMeta | null;
 }> {
   try {
     const res = await fetch("/data/events.json", { cache: "no-cache" });
     if (res.ok) {
       const data = await res.json();
-      const list: ThermalEvent[] = Array.isArray(data) ? data : data?.events ?? [];
-      if (list && list.length > 0) {
+      const list: ThermalEvent[] = Array.isArray(data) ? data : (data?.events ?? []);
+      const meta: DataMeta | null = Array.isArray(data) ? null : (data?.meta ?? null);
+      const live = meta ? meta.source === "firms_live" || meta.source === "local_cache" : false;
+      if (live && list.length > 0) {
         return {
-          events: list.sort((a, b) => b.riskScore - a.riskScore),
+          events: [...list].sort((a, b) => b.riskScore - a.riskScore),
           source: "live",
+          meta,
         };
       }
     }
   } catch (err) {
-    console.warn("Could not fetch live thermal events from /data/events.json, using simulation seed:", err);
+    console.warn("Could not read /data/events.json:", err);
   }
-  return { events: THERMAL_EVENTS, source: "simulation" };
+  return { events: [], source: "none", meta: null };
 }
-
-/** Convert lat/lon to a point on a sphere of given radius (three.js Y-up). */
-export function latLonToVec3(lat: number, lon: number, radius: number): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
-

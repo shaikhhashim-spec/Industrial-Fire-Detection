@@ -17,11 +17,10 @@ DATA_DIR = BASE_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 CACHE_DIR = DATA_DIR / "cache"
-DEMO_DIR = DATA_DIR / "demo"
 OUTPUT_DIR = BASE_DIR / "output"
 MODELS_DIR = BASE_DIR / "models"
 
-for d in (DATA_DIR, RAW_DIR, PROCESSED_DIR, CACHE_DIR, DEMO_DIR, OUTPUT_DIR, MODELS_DIR):
+for d in (DATA_DIR, RAW_DIR, PROCESSED_DIR, CACHE_DIR, OUTPUT_DIR, MODELS_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 # --- Target region: Jharkhand-Odisha Iron Ore & Steel Belt -----------------
@@ -29,7 +28,7 @@ for d in (DATA_DIR, RAW_DIR, PROCESSED_DIR, CACHE_DIR, DEMO_DIR, OUTPUT_DIR, MOD
 # bounding box also covers the Jharia coalfield (~23.75N, 86.41E), which is
 # the headline "persistent thermal source" story for the pitch narrative.
 BBOX = {"min_lat": 21.0, "max_lat": 23.9, "min_lon": 83.5, "max_lon": 87.0}
-REGION_NAME = "Jharkhand–Odisha Iron Ore & Steel Belt"
+REGION_NAME = "Jharkhand and Odisha iron ore and steel belt"
 REGION_PLACES = ["Jamshedpur", "Rourkela", "Keonjhar", "Sundargarh", "West Singhbhum",
                   "Noamundi", "Barbil", "Joda", "Jharia"]
 
@@ -65,8 +64,7 @@ NATIONAL_DAY_RANGE = 2  # latest 24-48 hours pulled live on each run
 NATIONAL_PERSISTENCE_MIN_DAYS = 2  # fallback threshold when no accumulated history exists yet (single fresh batch)
 NATIONAL_DB_PATH = DATA_DIR / "national_hotspots.db"
 # Each live run's fresh 2-day pull is merged into this persistent store
-# (never touched in Demo Mode — same demo/live isolation guarantee as the
-# regional store), so persistence is judged against real accumulated
+# so persistence is judged against real accumulated
 # history rather than only ever the latest 48h snapshot.
 NATIONAL_HISTORY_DAYS = 30
 NATIONAL_PERSISTENCE_MIN_DAYS_HISTORY = 5  # >= this many distinct days in NATIONAL_HISTORY_DAYS => persistent, once real history exists
@@ -84,12 +82,9 @@ NATIONAL_RISK_WEIGHTS = {"persistence": 0.40, "frp": 0.35, "confidence": 0.25}
 # Keeps the architecture region-independent — new regions can be added here
 # without touching pipeline/app code, per the platform's national-scalability
 # requirement.
-SINGRAULI_REGION_NAME = "Singrauli Coal & Power Corridor"
-SINGRAULI_BBOX = {"min_lat": 23.9, "max_lat": 24.6, "min_lon": 82.4, "max_lon": 83.3}
-
 REGIONS = {
     "jharkhand_odisha": {
-        "name": "Jharkhand–Odisha Iron Ore & Steel Belt",
+        "name": "Jharkhand and Odisha iron ore and steel belt",
         "detailed": True,   # full geospatial + AI pipeline
         "bbox": BBOX,
     },
@@ -97,11 +92,6 @@ REGIONS = {
         "name": "India",
         "detailed": False,  # detection + spatial distribution only
         "bbox": INDIA_BBOX,
-    },
-    "singrauli": {
-        "name": SINGRAULI_REGION_NAME,
-        "bbox": SINGRAULI_BBOX,
-        "detailed": False,
     },
 }
 DEFAULT_REGION = "india"
@@ -184,7 +174,9 @@ WIND_FALLBACK_SPEED_KMH = 12.0
 WIND_FALLBACK_DIRECTION_DEG = 180.0  # meteorological "wind from" direction
 
 # --- Alert & Messaging Dispatch Parameters ------------------------------------
-ALERT_RECIPIENT_PHONE = os.getenv("ALERT_RECIPIENT_PHONE", "9967541336")
+# No default recipient: a real number belongs in .env, never in a file that
+# ships. With nothing configured, dispatch reports that rather than guessing.
+ALERT_RECIPIENT_PHONE = (os.getenv("ALERT_RECIPIENT_PHONE") or "").strip()
 ALERT_AUTO_DISPATCH_CRITICAL = os.getenv("ALERT_AUTO_DISPATCH_CRITICAL", "true").lower() in ("1", "true", "yes")
 TWILIO_ACCOUNT_SID = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
 TWILIO_AUTH_TOKEN = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
@@ -194,14 +186,26 @@ ALERT_WEBHOOK_URL = (os.getenv("ALERT_WEBHOOK_URL") or "").strip()
 TELEGRAM_BOT_TOKEN = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
 TELEGRAM_CHAT_ID = (os.getenv("TELEGRAM_CHAT_ID") or "").strip()
 
+# Escalation: a dispatched critical alert that nobody acknowledges within this
+# many minutes becomes eligible for a voice call. A call is never placed on a
+# timer alone; the dashboard offers it, and only an explicit opt-in toggle lets
+# it go out without a click.
+ALERT_ESCALATE_AFTER_MIN = int(os.getenv("ALERT_ESCALATE_AFTER_MIN", "15"))
+ALERT_AUTO_ESCALATE_CALL = os.getenv("ALERT_AUTO_ESCALATE_CALL", "false").lower() in ("1", "true", "yes")
+# Twilio voice needs a voice-capable sender; falls back to the SMS sender.
+TWILIO_VOICE_FROM_NUMBER = (os.getenv("TWILIO_VOICE_FROM_NUMBER") or TWILIO_FROM_NUMBER).strip()
+
 # --- Output / model paths -----------------------------------------------------
 CLASSIFIED_GEOJSON = OUTPUT_DIR / "classified_hotspots.geojson"
 CLASSIFIED_CSV = OUTPUT_DIR / "classified_hotspots.csv"
 MODEL_PATH = MODELS_DIR / "classifier.pkl"
 OSM_CACHE_PATH = CACHE_DIR / "osm_industrial.geojson"
 LANDCOVER_CACHE_PATH = CACHE_DIR / "osm_landcover.geojson"
-DEMO_DATASET_PATH = DEMO_DIR / "demo_hotspots.csv"
 DB_PATH = DATA_DIR / "hotspots.db"
 ALERT_LOG_PATH = PROCESSED_DIR / "critical_alerts_log.json"
+ALERT_ESCALATION_PATH = PROCESSED_DIR / "alert_escalations.json"
+# Camera streams are entered by whoever holds the access, not fetched from
+# anywhere: there is no public live feed covering Indian industrial sites.
+CAMERA_REGISTRY_PATH = DATA_DIR / "cameras.json"
 
 

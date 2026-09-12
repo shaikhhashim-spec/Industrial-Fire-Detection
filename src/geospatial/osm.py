@@ -75,10 +75,9 @@ def load_cached_industrial_zones() -> gpd.GeoDataFrame | None:
 
 def get_industrial_zones(use_cache_first: bool = False) -> tuple[gpd.GeoDataFrame, str]:
     """Return (gdf, source_label). Tries a fresh cache, then live Overpass,
-    then a stale cache, then synthetic sample zones — so the pipeline always
-    has something to join against (see README "API Failure / Fallback")."""
-    from src import sample_data  # local import avoids a hard circular dep
-
+    then a stale cache of a previous real pull. Never synthetic: with nothing
+    real available it returns an empty frame labelled "unavailable", and every
+    detection simply joins as outside any mapped zone."""
     if use_cache_first or _cache_is_fresh():
         cached = load_cached_industrial_zones()
         if cached is not None and not cached.empty:
@@ -95,8 +94,8 @@ def get_industrial_zones(use_cache_first: bool = False) -> tuple[gpd.GeoDataFram
     if cached is not None and not cached.empty:
         return cached, "cache_stale"
 
-    print("[geospatial.osm] falling back to synthetic sample industrial zones")
-    return sample_data.generate_sample_industrial_zones(), "demo"
+    print("[geospatial.osm] no real industrial-zone data available")
+    return gpd.GeoDataFrame({"zone_type": [], "name": []}, geometry=[], crs="EPSG:4326"), "unavailable"
 
 
 if __name__ == "__main__":

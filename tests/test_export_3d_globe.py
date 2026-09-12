@@ -4,9 +4,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import geopandas as gpd
 import pandas as pd
+import json
+
 from src.utils.export_3d_globe import (
     export_pipeline_events_for_holo_view,
-    generate_embedded_3d_globe_html,
     transform_regional_to_holo_events,
     transform_national_to_holo_events,
 )
@@ -87,16 +88,15 @@ class TestExport3DGlobe(unittest.TestCase):
         self.assertEqual(e["riskLevel"], "HIGH")
         self.assertEqual(e["persistenceDays"], 6)
 
-    def test_export_and_html_generation(self):
+    def test_export_writes_meta_and_events(self):
         with TemporaryDirectory() as td:
             dest = Path(td) / "events.json"
             events = export_pipeline_events_for_holo_view(destinations=[dest])
             self.assertGreater(len(events), 0)
-            self.assertTrue(dest.exists())
-
-            html = generate_embedded_3d_globe_html(events=events, color_by="risk", auto_rotate=True)
-            self.assertIn("THREE.PerspectiveCamera", html)
-            self.assertIn("RAW_EVENTS", html)
+            payload = json.loads(dest.read_text(encoding="utf-8"))
+            self.assertEqual(len(payload["events"]), len(events))
+            # meta.source says honestly where the globe's points came from
+            self.assertIn(payload["meta"]["source"], {"firms_live", "mixed", "none"})
 
 
 if __name__ == "__main__":

@@ -19,15 +19,20 @@ from src.alerts import dispatch
 logger = logging.getLogger(__name__)
 
 
+#: Stands in when no recipient is configured. Obviously synthetic, so it can
+#: never be mistaken for a real number and no provider will accept it.
+PLACEHOLDER_PHONE = "9000000000"
+
+
 def normalize_phone_number(phone: str | None) -> tuple[str, str]:
     """Normalize phone number to (+CountryCode and raw digits).
 
     Returns:
         tuple[str, str]: (formatted_with_plus, clean_digits_only)
-        e.g. ("+919967541336", "919967541336")
+        e.g. ("+919000000000", "919000000000")
     """
     if not phone:
-        phone = config.ALERT_RECIPIENT_PHONE or "9967541336"
+        phone = config.ALERT_RECIPIENT_PHONE or PLACEHOLDER_PHONE
 
     digits = re.sub(r"\D", "", str(phone))
     if len(digits) == 10:
@@ -151,6 +156,15 @@ def send_critical_alert(
         }
 
     formatted_phone, clean_digits = normalize_phone_number(phone)
+    if clean_digits.endswith(PLACEHOLDER_PHONE):
+        return {
+            "status": "unconfigured",
+            "reason": "No recipient phone number is set. Add ALERT_RECIPIENT_PHONE to .env, or enter "
+                      "one on the Settings page, before dispatching.",
+            "risk_score": risk_score,
+            "severity": severity,
+            "event_id": event_id,
+        }
     message_text = format_critical_alert_message(event_or_alert)
     now_iso = dt.datetime.now(dt.timezone.utc).isoformat()
 
