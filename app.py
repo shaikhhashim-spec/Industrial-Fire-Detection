@@ -120,14 +120,20 @@ h1,h2,h3,h4,h5{ letter-spacing:-.01em; }
 .topbar-meta .v{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; color:var(--ink); }
 .topbar-rule{ border:none; border-top:1px solid var(--line); margin:.9rem 0 1.2rem; }
 
-/* Metric strip: one row, no icons, no colored borders. */
+/* Metric strip: one row. A tile's colour (when it has one) is a thin top
+   edge plus a small marker beside its label, from the shared status
+   palette — never a full-colour number, so nothing needs decoding. */
 .statrow{ display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line);
   border-radius:var(--radius); overflow:hidden; margin-bottom:.9rem; background:var(--surface); }
-.stat{ padding:.8rem 1rem; border-right:1px solid var(--line); }
+.stat{ padding:.8rem 1rem; border-right:1px solid var(--line);
+  border-top:2px solid var(--stat-accent, transparent); }
 .stat:last-child{ border-right:none; }
-.stat .lbl{ font-size:.78rem; color:var(--ink2); margin-bottom:.3rem; }
+.stat .lbl{ display:flex; align-items:center; gap:6px; font-size:.78rem; color:var(--ink2); margin-bottom:.3rem; }
+.stat .lbl .mark{ width:6px; height:6px; border-radius:2px; flex:none; }
 .stat .val{ font-family:'IBM Plex Mono',monospace; font-size:1.3rem; font-weight:500;
-  color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:-.01em;
+  display:inline-block; animation:ti-pop 220ms var(--ease) both; }
+@keyframes ti-pop{ from{ opacity:0; transform:scale(.94); } to{ opacity:1; transform:scale(1); } }
 
 /* Section headers: sentence case, sans, no icon. */
 .sec-hdr{ font-size:.95rem; font-weight:600; color:var(--ink);
@@ -140,8 +146,8 @@ h1,h2,h3,h4,h5{ letter-spacing:-.01em; }
 .alertbar .txt b{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; }
 .alertcard{ border:1px solid var(--line); background:var(--surface);
   border-radius:var(--radius); padding:.75rem 1rem; margin-bottom:.5rem;
-  transition:border-color var(--dur) var(--ease); }
-.alertcard:hover{ border-color:var(--line-strong); }
+  transition:border-color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.alertcard:hover{ border-color:var(--line-strong); transform:translateY(-1px); }
 .alertcard .title{ font-weight:600; font-size:.88rem; color:var(--ink); display:flex; align-items:center; gap:.5rem; }
 .alertcard .title .sev{ width:8px; height:8px; border-radius:2px; background:var(--sev,var(--muted)); flex:none; }
 .alertcard .meta{ font-size:.78rem; color:var(--ink2); margin-top:.4rem; line-height:1.6; }
@@ -269,14 +275,76 @@ def _pill(text: str, color: str, icon: str | None = None) -> str:
     return f'<span class="pill"><i class="mark" style="background:{color}"></i>{text}</span>'
 
 
+def _style_severity(df: pd.DataFrame, columns: tuple[str, ...] = ("Risk", "risk_level", "Tier")):
+    """Tint whichever severity column a table has with the same status
+    palette used everywhere else, so a CRITICAL row doesn't require reading
+    every cell to spot. Returns the dataframe unstyled if it has none of the
+    given columns, so this is safe to wrap around any table.
+
+    Wrapping in .style also switches float columns off Streamlit's own
+    numeric renderer and onto pandas', which pads to 6 decimals by default
+    (51.3 -> "51.300000") — so every float column is reformatted to its
+    natural, trailing-zero-free representation to match how it looked
+    unstyled, without hardcoding a precision that would clip coordinate
+    columns needing more than one or two decimal places."""
+    present = [c for c in columns if c in df.columns]
+    if not present:
+        return df
+
+    def _tint(v):
+        color = RISK_COLORS.get(str(v).upper())
+        return f"background-color:{color}22;color:{color};font-weight:600;border-radius:4px;" if color else ""
+
+    styled = df.style.map(_tint, subset=present)
+    float_cols = df.select_dtypes(include="float").columns
+    if len(float_cols):
+        styled = styled.format("{:g}", subset=float_cols)
+    return styled
+
+
+def _tint_magnitude(column: pd.Series, color: str) -> list[str]:
+    """Single-hue sequential tint scaled to this column's own range: magnitude
+    reads as depth of the same colour, never a change of hue, per the
+    dataviz skill's sequential rule."""
+    lo, hi = float(column.min()), float(column.max())
+    span = (hi - lo) or 1.0
+    styles = []
+    for v in column:
+        t = (float(v) - lo) / span
+        alpha = round(12 + t * 58)
+        styles.append(f"background-color:{color}{alpha:02x};")
+    return styles
+
+
+def _style_magnitude(df: pd.DataFrame, columns: dict[str, str]):
+    """Shade each named column with its own single hue, scaled to that
+    column's own min/max — e.g. {"Critical": RISK_COLORS["CRITICAL"]}."""
+    present = {c: color for c, color in columns.items() if c in df.columns}
+    if not present:
+        return df
+    styled = df.style
+    for column, color in present.items():
+        styled = styled.apply(_tint_magnitude, color=color, subset=[column])
+    return styled
+
+
 def _stat_row(cells: list[tuple]):
-    """Each cell is (label, value, ...). Trailing flag/icon/accent members from
-    the earlier design are accepted and ignored: the metric strip carries no
-    icons and no colour, so a number never has to be decoded."""
+    """Each cell is (label, value) or (label, value, color). The colour, when
+    given, is a small marker beside the label plus a thin top edge on the
+    tile, from the same status/category palette used everywhere else in the
+    app (RISK_COLORS, STATUS_COLORS, ACCENT) — never an arbitrary hex. The
+    label and value alone still say everything; colour is a glance-able
+    accent on top, not something a number needs decoding to understand."""
     parts = []
     for cell in cells:
         label, value = cell[0], cell[1]
-        parts.append(f'<div class="stat"><div class="lbl">{label}</div><div class="val">{value}</div></div>')
+        color = cell[2] if len(cell) > 2 and cell[2] else None
+        mark = f'<i class="mark" style="background:{color}"></i>' if color else ""
+        style_attr = f' style="--stat-accent:{color}"' if color else ""
+        parts.append(
+            f'<div class="stat"{style_attr}><div class="lbl">{mark}{label}</div>'
+            f'<div class="val">{value}</div></div>'
+        )
     st.markdown('<div class="statrow">' + "".join(parts) + "</div>", unsafe_allow_html=True)
 
 
@@ -1272,7 +1340,7 @@ def _render_events_table(df: pd.DataFrame, region_key: str):
         if search:
             m = table.astype(str).apply(lambda col: col.str.contains(search, case=False, na=False)).any(axis=1)
             table = table[m]
-        st.dataframe(table, hide_index=True, width="stretch")
+        st.dataframe(_style_severity(table), hide_index=True, width="stretch")
         st.download_button("Export CSV", table.to_csv(index=False), f"events_{region_key}.csv", "text/csv",
                             key=f"events_export_{region_key}")
 
@@ -1473,8 +1541,8 @@ def _render_kpis(gdf, cluster_df, alerts):
     _stat_row([
         ("Satellite observations", f"{n_total:,}"),
         ("Thermal events", f"{n_events:,}"),
-        ("Persistent sources", f"{n_persistent:,}"),
-        ("Critical alerts", f"{n_critical:,}"),
+        ("Persistent sources", f"{n_persistent:,}", STATUS_COLORS["PERSISTENT"] if n_persistent else None),
+        ("Critical alerts", f"{n_critical:,}", RISK_COLORS["CRITICAL"] if n_critical else None),
     ])
 
 
@@ -1507,10 +1575,12 @@ def _render_overview(filtered, filtered_clusters, label_field, color_by):
                 window_col = f"persistence_{config.PERSISTENCE_DEFAULT_WINDOW_DAYS}d"
                 top = filtered_clusters.sort_values(window_col, ascending=False).head(8)
                 st.dataframe(
-                    top[["grid_cell", window_col, "detection_count", "avg_frp", "risk_score", "risk_level"]]
-                    .rename(columns={"grid_cell": "Grid cell", window_col: "Days active",
-                                     "detection_count": "Detections", "avg_frp": "Mean FRP (MW)",
-                                     "risk_score": "Risk score", "risk_level": "Risk"}),
+                    _style_severity(
+                        top[["grid_cell", window_col, "detection_count", "avg_frp", "risk_score", "risk_level"]]
+                        .rename(columns={"grid_cell": "Grid cell", window_col: "Days active",
+                                         "detection_count": "Detections", "avg_frp": "Mean FRP (MW)",
+                                         "risk_score": "Risk score", "risk_level": "Risk"})
+                    ),
                     hide_index=True, width="stretch",
                 )
             else:
@@ -1870,13 +1940,14 @@ def _render_investigations(filtered_clusters, filtered_detail, analyst_mode: boo
     display_cols = ["rank", "event_id", "grid_cell", window_col, "detection_count", "avg_frp", "max_frp",
                      "dominant_label", "risk_score", "risk_level", "status", "latitude", "longitude"]
     display_cols = [c for c in display_cols if c in table.columns]
+    display_df = table[display_cols].rename(columns={
+        "rank": "#", "event_id": "Event", "grid_cell": "Grid cell", window_col: "Days active",
+        "detection_count": "Detections", "avg_frp": "Mean FRP (MW)", "max_frp": "Peak FRP (MW)",
+        "dominant_label": "Classification", "risk_score": "Risk score", "risk_level": "Risk",
+        "status": "Status", "latitude": "Latitude", "longitude": "Longitude",
+    })
     event = st.dataframe(
-        table[display_cols].rename(columns={
-            "rank": "#", "event_id": "Event", "grid_cell": "Grid cell", window_col: "Days active",
-            "detection_count": "Detections", "avg_frp": "Mean FRP (MW)", "max_frp": "Peak FRP (MW)",
-            "dominant_label": "Classification", "risk_score": "Risk score", "risk_level": "Risk",
-            "status": "Status", "latitude": "Latitude", "longitude": "Longitude",
-        }),
+        _style_severity(display_df),
         hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
     )
 
@@ -2056,9 +2127,9 @@ def _render_cameras_page(events_df: pd.DataFrame):
 
     _stat_row([
         ("Cameras registered", f"{len(cameras):,}"),
-        ("High and critical sites", f"{report['n_flagged']:,}"),
-        ("Covered by a camera", f"{report['n_covered']:,}"),
-        ("Nobody watching", f"{report['n_uncovered']:,}"),
+        ("High and critical sites", f"{report['n_flagged']:,}", RISK_COLORS["HIGH"] if report["n_flagged"] else None),
+        ("Covered by a camera", f"{report['n_covered']:,}", RISK_COLORS["LOW"] if report["n_covered"] else None),
+        ("Nobody watching", f"{report['n_uncovered']:,}", RISK_COLORS["CRITICAL"] if report["n_uncovered"] else None),
     ])
     if report["n_flagged"]:
         critical = report["n_critical_uncovered"]
@@ -2109,10 +2180,12 @@ def _render_cameras_page(events_df: pd.DataFrame):
                     )
                     if len(seen):
                         st.dataframe(
-                            seen[[c for c in ("event_id", "risk_score", "risk_level", "distance_km")
-                                  if c in seen.columns]]
-                            .rename(columns={"event_id": "Event", "risk_score": "Risk",
-                                             "risk_level": "Tier", "distance_km": "km"}),
+                            _style_severity(
+                                seen[[c for c in ("event_id", "risk_score", "risk_level", "distance_km")
+                                      if c in seen.columns]]
+                                .rename(columns={"event_id": "Event", "risk_score": "Risk",
+                                                 "risk_level": "Tier", "distance_km": "km"})
+                            ),
                             hide_index=True, width="stretch", height=150,
                         )
                     else:
@@ -2364,8 +2437,8 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
 
     _stat_row([
         (f"Corroborated of {len(events):,}", f"{len(shown):,}"),
-        ("Critical risk", f"{n_critical:,}"),
-        ("High risk", f"{n_high:,}"),
+        ("Critical risk", f"{n_critical:,}", RISK_COLORS["CRITICAL"] if n_critical else None),
+        ("High risk", f"{n_high:,}", RISK_COLORS["HIGH"] if n_high else None),
         ("Total radiative power", f"{total_frp:,.0f} MW"),
     ])
 
@@ -2411,8 +2484,8 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
     _stat_row([
         ("Satellite hotspots", f"{len(filtered_detail):,}"),
         ("Detected events", f"{len(filtered_events):,}"),
-        ("Persistent sources", f"{n_persistent:,}"),
-        ("At known industrial sites", f"{at_sites:,}"),
+        ("Persistent sources", f"{n_persistent:,}", STATUS_COLORS["PERSISTENT"] if n_persistent else None),
+        ("At known industrial sites", f"{at_sites:,}", ACCENT if at_sites else None),
     ])
     # FIRMS VIIRS codes to names ("N" alone reads like a typo, but it is Suomi NPP);
     # MODIS already reports "Aqua"/"Terra" directly, so those pass through as-is.
@@ -2421,8 +2494,13 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
         sat_names.get(s, s) for s in filtered_detail["satellite"].dropna().astype(str).unique()
     ) if not filtered_detail.empty else []
     n_states = int(filtered_detail["state"].nunique()) if not filtered_detail.empty else 0
-    st.caption(f"{n_critical} critical events · {n_states} states with activity · "
-               f"Satellites: {', '.join(satellites) or 'none'}")
+    critical_html = _pill(f"{n_critical} critical", RISK_COLORS["CRITICAL"] if n_critical else MUTED)
+    st.markdown(
+        f'<p style="font-size:.83rem;color:var(--ink2);margin:0 0 .5rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+        f'{critical_html}<span>{n_states} states with activity</span>'
+        f'<span>Satellites: {", ".join(satellites) or "none"}</span></p>',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
@@ -2466,6 +2544,37 @@ def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter:
         st.plotly_chart(fig, width="stretch", key="chart_top_states")
 
 
+def _render_risk_donut(events_df: pd.DataFrame, key: str):
+    """The one chart on Overview that answers "how worried should I be" at a
+    glance — a donut over the reserved status palette, always labelled (a
+    legend plus the total in the centre), never colour alone."""
+    with st.container(border=True):
+        _section_header("Events by risk tier")
+        if events_df is None or events_df.empty:
+            st.caption("No events in the current filter selection.")
+            return
+        order = ["LOW", "MODERATE", "HIGH", "CRITICAL"]
+        counts = events_df["risk_level"].value_counts().reindex(order).fillna(0)
+        total = int(counts.sum())
+        fig = go.Figure(go.Pie(
+            labels=[l.title() for l in order], values=counts.values, hole=0.68,
+            marker=dict(colors=[RISK_COLORS[l] for l in order], line=dict(color=SURFACE, width=2)),
+            sort=False, direction="clockwise", textinfo="none",
+            hovertemplate="%{label}: %{value:,} (%{percent})<extra></extra>",
+        ))
+        fig.update_layout(
+            height=280, margin=dict(l=8, r=8, t=8, b=8), showlegend=True,
+            paper_bgcolor=SURFACE, plot_bgcolor=SURFACE,
+            font=dict(family="IBM Plex Sans, system-ui, sans-serif", size=12, color=INK2),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.12, x=0.5, xanchor="center"),
+            annotations=[
+                dict(text=f"{total:,}", x=0.5, y=0.56, showarrow=False, font=dict(size=22, color=INK)),
+                dict(text="events", x=0.5, y=0.42, showarrow=False, font=dict(size=11, color=MUTED)),
+            ],
+        )
+        st.plotly_chart(fig, width="stretch", key=f"chart_risk_donut_{key}")
+
+
 def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
                                 state_summary: pd.DataFrame, state_filter: list[str]):
     c1, c2 = st.columns(2)
@@ -2485,11 +2594,15 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
     with st.container(border=True):
         _section_header("Activity by state")
         if not state_summary.empty:
+            state_table = state_summary[state_summary["state"].isin(state_filter)].rename(
+                columns={"state": "State", "hotspots": "Hotspots", "persistent_sources": "Persistent",
+                        "high_risk": "High risk", "critical": "Critical"}
+            )
             st.dataframe(
-                state_summary[state_summary["state"].isin(state_filter)]
-                .rename(columns={"state": "State", "hotspots": "Hotspots",
-                                  "persistent_sources": "Persistent", "high_risk": "High risk",
-                                  "critical": "Critical"}),
+                _style_magnitude(state_table, {
+                    "Hotspots": SERIES, "Persistent": STATUS_COLORS["PERSISTENT"],
+                    "High risk": RISK_COLORS["HIGH"], "Critical": RISK_COLORS["CRITICAL"],
+                }),
                 hide_index=True, width="stretch",
             )
 
@@ -2544,7 +2657,11 @@ def _route_national_page(page: str):
     if page == "Overview":
         _render_national_kpis(filtered_detail, filtered_events)
         _render_national_alert_banner(alerts)
-        _render_national_top_states_chart(state_summary, state_filter)
+        oc1, oc2 = st.columns([2, 1])
+        with oc1:
+            _render_national_top_states_chart(state_summary, state_filter)
+        with oc2:
+            _render_risk_donut(filtered_events, key="national")
     elif page == "Live Map":
         _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_livemap")
     elif page == "3D Globe":
