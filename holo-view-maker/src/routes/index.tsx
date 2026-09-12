@@ -81,7 +81,7 @@ function Segmented<T extends string | boolean>({
           className={`flex-1 rounded-sm px-2 py-1 text-[0.72rem] ${
             value === v
               ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground transition-colors duration-150 hover:text-foreground"
           }`}
         >
           {label}
@@ -246,7 +246,7 @@ function Index() {
             <button
               onClick={loadData}
               disabled={loading}
-              className="rounded-sm border border-border px-1.5 py-0.5 text-[0.7rem] hover:bg-muted"
+              className="rounded-sm border border-border px-1.5 py-0.5 text-[0.7rem] transition-colors duration-150 hover:bg-muted"
             >
               {loading ? "Reloading" : "Reload"}
             </button>
@@ -352,7 +352,7 @@ function Index() {
                   key={c}
                   onClick={() => toggle(c)}
                   aria-pressed={active.has(c)}
-                  className={`flex items-center gap-2 rounded-sm px-2 py-1 text-left text-[0.72rem] hover:bg-muted ${
+                  className={`flex items-center gap-2 rounded-sm px-2 py-1 text-left text-[0.72rem] transition-colors duration-150 hover:bg-muted ${
                     active.has(c) ? "text-foreground" : "text-muted-foreground opacity-45"
                   }`}
                 >
@@ -432,7 +432,7 @@ function Index() {
               <button
                 key={e.id}
                 onClick={() => setSelectedId(e.id)}
-                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted ${
+                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors duration-150 hover:bg-muted ${
                   e.id === selectedId ? "bg-muted" : ""
                 }`}
               >

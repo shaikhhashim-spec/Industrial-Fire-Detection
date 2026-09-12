@@ -103,6 +103,16 @@ body{ -webkit-font-smoothing:antialiased; }
 
 h1,h2,h3,h4,h5{ letter-spacing:-.01em; }
 
+/* Motion: one entrance and one growth keyframe, both on the shared --dur/--ease
+   tokens. Fast and non-repeating — this settles content in on a rerun rather
+   than performing an "orchestrated" reveal, and stays well under 300ms so it
+   reads as responsive even when Streamlit's rerun model replays it often. */
+@keyframes ti-fade-up{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
+@keyframes ti-grow-x{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+.statrow, .panel, .alertcard, .alertbar, [data-testid="stVerticalBlock"]{
+  animation:ti-fade-up 140ms var(--ease) both;
+}
+
 /* Top bar */
 .topbar-brand h1{ margin:0 0 .25rem; font-size:1.25rem; font-weight:600; color:var(--ink); }
 .topbar-brand .sub{ margin:0; color:var(--ink2); font-size:.8rem; }
@@ -129,7 +139,9 @@ h1,h2,h3,h4,h5{ letter-spacing:-.01em; }
 .alertbar .txt{ font-size:.88rem; color:var(--ink); }
 .alertbar .txt b{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; }
 .alertcard{ border:1px solid var(--line); background:var(--surface);
-  border-radius:var(--radius); padding:.75rem 1rem; margin-bottom:.5rem; }
+  border-radius:var(--radius); padding:.75rem 1rem; margin-bottom:.5rem;
+  transition:border-color var(--dur) var(--ease); }
+.alertcard:hover{ border-color:var(--line-strong); }
 .alertcard .title{ font-weight:600; font-size:.88rem; color:var(--ink); display:flex; align-items:center; gap:.5rem; }
 .alertcard .title .sev{ width:8px; height:8px; border-radius:2px; background:var(--sev,var(--muted)); flex:none; }
 .alertcard .meta{ font-size:.78rem; color:var(--ink2); margin-top:.4rem; line-height:1.6; }
@@ -145,7 +157,9 @@ h1,h2,h3,h4,h5{ letter-spacing:-.01em; }
   background:var(--surface-2); }
 .pill .mark{ width:8px; height:8px; border-radius:2px; background:var(--pill,var(--muted)); flex:none; }
 
-.panel{ border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); padding:1rem 1.15rem; }
+.panel{ border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); padding:1rem 1.15rem;
+  transition:border-color var(--dur) var(--ease); }
+.panel:hover{ border-color:var(--line-strong); }
 .panel .row{ display:flex; justify-content:space-between; gap:1rem; padding:.38rem 0;
   border-bottom:1px solid var(--line); font-size:.84rem; }
 .panel .row:last-child{ border-bottom:none; }
@@ -161,7 +175,10 @@ section[data-testid="stSidebar"]{ border-right:1px solid var(--line); }
 [data-testid="stButton"] button, [data-testid="stDownloadButton"] button, [data-testid="stLinkButton"] a{
   border-radius:var(--radius) !important; font-weight:500 !important; font-size:.83rem !important;
   letter-spacing:0 !important; text-transform:none !important;
-  transition:background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease) !important; }
+  transition:background-color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease), filter var(--dur) var(--ease) !important; }
+[data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover, [data-testid="stLinkButton"] a:hover{
+  filter:brightness(1.14); border-color:var(--accent) !important; }
 [data-testid="stButton"] button:active, [data-testid="stDownloadButton"] button:active{ transform:scale(.98); }
 section[data-testid="stSidebar"] [data-testid="stButton"] button{ justify-content:flex-start; text-align:left; }
 
@@ -182,7 +199,8 @@ section[data-testid="stSidebar"] [data-testid="stButton"] button{ justify-conten
 .factor-head .pts{ margin-left:auto; font-family:'IBM Plex Mono',monospace;
   font-variant-numeric:tabular-nums; color:var(--muted); }
 .factor .bar{ display:block; height:6px; margin:.35rem 0 .3rem; background:var(--surface-3); border-radius:3px; overflow:hidden; }
-.factor .bar span{ display:block; height:100%; background:var(--accent); border-radius:3px; }
+.factor .bar span{ display:block; height:100%; background:var(--accent); border-radius:3px;
+  transform-origin:left; animation:ti-grow-x 420ms var(--ease) both; }
 .factor .why{ font-size:.78rem; color:var(--ink2); line-height:1.6; }
 
 .model-note{ font-size:.82rem; color:var(--ink2); line-height:1.6; margin-top:1rem;
@@ -203,7 +221,9 @@ section[data-testid="stSidebar"] [data-testid="stButton"] button{ justify-conten
 .actions .detail{ font-size:.78rem; color:var(--ink2); line-height:1.6; }
 
 /* Escalation queue */
-.queue-row{ display:flex; align-items:center; gap:.6rem; padding:.55rem 0; font-size:.84rem; }
+.queue-row{ display:flex; align-items:center; gap:.6rem; padding:.55rem .5rem; margin:0 -.5rem;
+  border-radius:var(--radius); font-size:.84rem; transition:background-color var(--dur) var(--ease); }
+.queue-row:hover{ background:var(--surface-2); }
 .queue-row .mark{ width:8px; height:8px; border-radius:2px; flex:none; }
 .queue-row .t{ color:var(--ink); }
 .queue-row .id{ color:var(--ink2); font-size:.78rem; }
@@ -272,6 +292,11 @@ def _style_fig(fig: go.Figure, height: int = 320) -> go.Figure:
                         font=dict(family="IBM Plex Sans, system-ui, sans-serif", size=12, color=INK)),
         xaxis=dict(gridcolor=LINE, zerolinecolor=LINE, linecolor=LINE, tickcolor=LINE, tickfont=dict(color=MUTED)),
         yaxis=dict(gridcolor=LINE, zerolinecolor=LINE, linecolor=LINE, tickcolor=LINE, tickfont=dict(color=MUTED)),
+        # Bars/lines tween to their new values on a filter change instead of a
+        # hard cut. Only takes effect when st.plotly_chart keeps the same
+        # `key` across the rerun, since Plotly's transition compares against
+        # the chart already on screen, not a description of "how to arrive."
+        transition=dict(duration=250, easing="cubic-in-out"),
     )
     return fig
 
@@ -736,7 +761,7 @@ def render_investigation_panel(cluster_row: pd.Series, detail_rows: pd.DataFrame
                                   line=dict(color=color, width=2), marker=dict(size=6), name="FRP (MW)"))
         _style_fig(fig, height=220)
         fig.update_layout(yaxis=dict(title="FRP (MW)", gridcolor=LINE))
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, width="stretch", key=f"chart_frp_history_{cluster_row['grid_cell']}")
 
         st.markdown("**Recent Observations**")
         st.dataframe(
@@ -1753,7 +1778,7 @@ def _render_analytics(filtered, filtered_clusters, run_info):
                                         marker_color=[CATEGORY_COLORS.get(l, MUTED) for l in counts.index], marker_line_width=0))
                 _style_fig(fig, height=320)
                 fig.update_layout(yaxis=dict(autorange="reversed"))
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, width="stretch", key="chart_class_dist_belt")
     with c2:
         with st.container(border=True):
             _section_header("Risk distribution")
@@ -1762,7 +1787,7 @@ def _render_analytics(filtered, filtered_clusters, run_info):
                 fig = go.Figure(go.Bar(x=counts.index, y=counts.values,
                                         marker_color=[RISK_COLORS[l] for l in counts.index], marker_line_width=0))
                 _style_fig(fig, height=320)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, width="stretch", key="chart_risk_dist_belt")
 
     c3, c4 = st.columns(2)
     with c3:
@@ -1776,7 +1801,7 @@ def _render_analytics(filtered, filtered_clusters, run_info):
             if not filtered.empty:
                 fig = go.Figure(go.Histogram(x=filtered["frp"], marker_color=SERIES, marker_line_width=0, nbinsx=30))
                 _style_fig(fig, height=280)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, width="stretch", key="chart_frp_dist")
 
     if run_info:
         ml = run_info.get("ml_metrics", {})
@@ -2389,8 +2414,9 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
         ("Persistent sources", f"{n_persistent:,}"),
         ("At known industrial sites", f"{at_sites:,}"),
     ])
-    # FIRMS VIIRS codes to names ("N" alone reads like a typo, but it is Suomi NPP)
-    sat_names = {"N": "S-NPP", "N20": "NOAA-20", "N21": "NOAA-21"}
+    # FIRMS VIIRS codes to names ("N" alone reads like a typo, but it is Suomi NPP);
+    # MODIS already reports "Aqua"/"Terra" directly, so those pass through as-is.
+    sat_names = {"N": "S-NPP", "N20": "NOAA-20", "N21": "NOAA-21", "Aqua": "Aqua (MODIS)", "Terra": "Terra (MODIS)"}
     satellites = sorted(
         sat_names.get(s, s) for s in filtered_detail["satellite"].dropna().astype(str).unique()
     ) if not filtered_detail.empty else []
@@ -2437,7 +2463,7 @@ def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter:
                                 hovertemplate="%{y}: %{x:,} hotspots<extra></extra>"))
         _style_fig(fig, height=340)
         fig.update_layout(yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, width="stretch", key="chart_top_states")
 
 
 def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
@@ -2454,7 +2480,7 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
                 counts = filtered_events["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
                 fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index], marker_line_width=0))
                 _style_fig(fig, height=340)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, width="stretch", key="chart_risk_dist_national")
 
     with st.container(border=True):
         _section_header("Activity by state")

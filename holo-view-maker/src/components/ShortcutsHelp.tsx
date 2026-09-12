@@ -21,7 +21,7 @@ export function ShortcutsHelp({ onClose }: { onClose: () => void }) {
       >
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">Keyboard shortcuts</span>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} className="text-muted-foreground transition-colors duration-150 hover:text-foreground">
             <X className="size-4" />
           </button>
         </div>

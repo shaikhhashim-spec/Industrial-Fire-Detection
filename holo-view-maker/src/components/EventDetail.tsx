@@ -159,7 +159,7 @@ function WhyRisky({ event }: { event: ThermalEvent }) {
             </div>
             <div className="mt-1 h-1.5 w-full rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-primary"
+                className="h-full origin-left rounded-full bg-primary animate-[ti-grow-x_420ms_var(--ease)_both]"
                 style={{ width: `${Math.max(2, f.share * 100)}%` }}
               />
             </div>
@@ -270,7 +270,10 @@ export function EventDetail({
 
   const risk = RISK_COLORS[event.riskLevel];
   return (
-    <div className="panel flex h-full flex-col gap-4 overflow-y-auto p-4">
+    <div
+      key={event.id}
+      className="panel flex h-full flex-col gap-4 overflow-y-auto p-4 animate-[ti-fade-up_160ms_var(--ease)_both]"
+    >
       <div>
         <div className="flex items-center justify-between">
           <span className="flex items-baseline gap-2">

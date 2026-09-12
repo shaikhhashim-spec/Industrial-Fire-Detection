@@ -34,7 +34,7 @@ export function HazardCard({ hazard, onClose }: { hazard: Hazard; onClose: () =>
         <button
           onClick={onClose}
           aria-label="Close"
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground transition-colors duration-150 hover:text-foreground"
         >
           <X className="size-3.5" />
         </button>
@@ -73,7 +73,7 @@ export function HazardCard({ hazard, onClose }: { hazard: Hazard; onClose: () =>
           href={hazard.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-block text-[0.72rem] text-primary hover:underline"
+          className="mt-2 inline-block text-[0.72rem] text-primary transition-colors duration-150 hover:underline"
         >
           Open the source record
         </a>

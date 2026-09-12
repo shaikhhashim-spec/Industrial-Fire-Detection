@@ -69,14 +69,22 @@ def _normalize_risk_level(score: float, level_str: Any = None) -> str:
 
 
 def _normalize_satellite(sat: Any) -> str:
+    """Accepts either a raw FIRMS source tag ("MODIS_NRT", "VIIRS_NOAA20_NRT")
+    or the already-humanized short name national/context.py's `_sat_name`
+    produces ("Aqua", "N20", ...) — evidence.satellites carries the latter,
+    and both forms have to map to the same globe-facing label or MODIS
+    detections silently fall through to the VIIRS S-NPP default."""
     s = str(sat).upper() if sat and pd.notna(sat) else ""
     if "NOAA21" in s or "NOAA-21" in s or "N21" in s:
         return "VIIRS NOAA-21"
     if "NOAA20" in s or "NOAA-20" in s or "N20" in s:
         return "VIIRS NOAA-20"
-    if "MODIS" in s:
-        if "AQUA" in s or "MYD" in s:
-            return "MODIS Aqua"
+    if "AQUA" in s or "MYD" in s:
+        return "MODIS Aqua"
+    if "TERRA" in s or "MODIS" in s:
+        # "MODIS_NRT" alone (the combined source tag) can't distinguish the
+        # two satellites, so it defaults to Terra rather than dropping the
+        # detection's instrument entirely.
         return "MODIS Terra"
     return "VIIRS S-NPP"
 
@@ -377,7 +385,7 @@ def export_pipeline_events_for_holo_view(
             "events": len(events),
             "windowDays": config.NATIONAL_HISTORY_DAYS,
             "attribution": [
-                "NASA FIRMS VIIRS active fires",
+                "NASA FIRMS VIIRS and MODIS active fires",
                 "© OpenStreetMap contributors (ODbL)",
                 "WRI Global Power Plant Database (CC BY 4.0)",
                 "GeoNames (CC BY 4.0)",

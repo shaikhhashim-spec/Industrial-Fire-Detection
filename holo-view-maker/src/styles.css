@@ -284,6 +284,29 @@
   color: var(--muted-foreground);
 }
 
+/* Shared with the Streamlit dashboard's app.py CSS: same names, same timing,
+   so a state change reads the same way on both surfaces. Fast and
+   non-repeating — this settles new content in on a real change (a click, a
+   selection), not a choreographed reveal. */
+@keyframes ti-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ti-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

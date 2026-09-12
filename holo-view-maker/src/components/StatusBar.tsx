@@ -147,7 +147,7 @@ export function StatusBar({ pipeline, usgs, eonet, tle, sats, onShowHelp }: Stat
       <span className="ml-auto" />
       <CursorReadout />
       <Clocks />
-      <button onClick={onShowHelp} title="Keyboard shortcuts" className="kbd hover:text-foreground">
+      <button onClick={onShowHelp} title="Keyboard shortcuts" className="kbd transition-colors duration-150 hover:text-foreground">
         ?
       </button>
     </footer>

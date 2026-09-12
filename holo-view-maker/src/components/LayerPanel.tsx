@@ -124,7 +124,7 @@ export function LayerPanel({
           <button
             onClick={onShowHelp}
             title="Keyboard shortcuts"
-            className="kbd hover:text-foreground"
+            className="kbd transition-colors duration-150 hover:text-foreground"
           >
             ?
           </button>
@@ -152,7 +152,7 @@ export function LayerPanel({
                     <button
                       onClick={() => onToggle(l.key)}
                       aria-pressed={isOn}
-                      className={`relative flex w-full items-center gap-2.5 rounded-sm py-1.5 pr-1 text-left hover:bg-muted ${
+                      className={`relative flex w-full items-center gap-2.5 rounded-sm py-1.5 pr-1 text-left transition-colors duration-150 hover:bg-muted ${
                         l.parent ? "pl-6" : "pl-1"
                       } ${dormant ? "opacity-40" : ""}`}
                     >

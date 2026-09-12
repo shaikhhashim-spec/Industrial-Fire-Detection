@@ -7,10 +7,37 @@ import pandas as pd
 import json
 
 from src.utils.export_3d_globe import (
+    _normalize_satellite,
     export_pipeline_events_for_holo_view,
     transform_regional_to_holo_events,
     transform_national_to_holo_events,
 )
+
+
+class TestNormalizeSatellite(unittest.TestCase):
+    """evidence.satellites carries the humanized short names
+    national/context.py's `_sat_name` produces ("Aqua", "N20", ...), not raw
+    FIRMS source tags — both forms have to resolve to the same label, or a
+    real regression silently relabels every MODIS detection as VIIRS S-NPP."""
+
+    def test_humanized_modis_names_are_recognized(self):
+        self.assertEqual(_normalize_satellite("Aqua"), "MODIS Aqua")
+        self.assertEqual(_normalize_satellite("Terra"), "MODIS Terra")
+
+    def test_raw_firms_source_tags_are_recognized(self):
+        self.assertEqual(_normalize_satellite("MODIS_NRT"), "MODIS Terra")
+        self.assertEqual(_normalize_satellite("VIIRS_NOAA20_NRT"), "VIIRS NOAA-20")
+        self.assertEqual(_normalize_satellite("VIIRS_NOAA21_NRT"), "VIIRS NOAA-21")
+
+    def test_viirs_short_codes(self):
+        self.assertEqual(_normalize_satellite("N20"), "VIIRS NOAA-20")
+        self.assertEqual(_normalize_satellite("N21"), "VIIRS NOAA-21")
+        self.assertEqual(_normalize_satellite("N"), "VIIRS S-NPP")
+
+    def test_empty_or_missing_defaults_to_snpp(self):
+        self.assertEqual(_normalize_satellite(""), "VIIRS S-NPP")
+        self.assertEqual(_normalize_satellite(None), "VIIRS S-NPP")
+        self.assertEqual(_normalize_satellite(float("nan")), "VIIRS S-NPP")
 
 
 class TestExport3DGlobe(unittest.TestCase):

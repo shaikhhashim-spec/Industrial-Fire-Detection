@@ -59,7 +59,12 @@ NATIONAL_COUNTRY_CODE = "IND"
 # Mainland + island territories extent; used to tile area/csv requests when
 # FIRMS's country/csv endpoint is unavailable (see src/firms/fetch.py).
 INDIA_BBOX = {"min_lat": 6.0, "max_lat": 37.5, "min_lon": 68.0, "max_lon": 97.5}
-NATIONAL_FIRMS_SOURCES = ["VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT"]
+NATIONAL_FIRMS_SOURCES = ["VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT", "MODIS_NRT"]
+# MODIS (Aqua/Terra) is coarser (~1km vs VIIRS' 375m) but catches some large,
+# diffuse or older heat sources VIIRS's stricter algorithm misses — real NASA
+# FIRMS live data, not a synthetic addition. src/national/context.py already
+# names Aqua/Terra, and src/ml/rules.normalize_confidence already handles
+# MODIS's 0-100 confidence alongside VIIRS's l/n/h.
 NATIONAL_DAY_RANGE = 2  # latest 24-48 hours pulled live on each run
 NATIONAL_PERSISTENCE_MIN_DAYS = 2  # fallback threshold when no accumulated history exists yet (single fresh batch)
 NATIONAL_DB_PATH = DATA_DIR / "national_hotspots.db"
