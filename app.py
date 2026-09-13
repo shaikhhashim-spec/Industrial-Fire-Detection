@@ -25,7 +25,6 @@ import config
 from src import pipeline, store
 from src.firms.fetch import FirmsAuthError, check_map_key
 from src.processing.spatial_clusters import find_spatial_clusters
-from src.utils.event_id import event_id_for_cell
 from src.utils.export_3d_globe import (
     export_pipeline_events_for_holo_view,
     load_or_export_holo_events,
@@ -2401,11 +2400,6 @@ def _map_points_for_mode(filtered_detail: pd.DataFrame, filtered_events: pd.Data
 def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
                           filtered_clusters_or_events: pd.DataFrame | None,
                           is_regional: bool = True):
-    from src.utils.export_3d_globe import (
-        export_pipeline_events_for_holo_view,
-        load_or_export_holo_events,
-    )
-
     # Counted the way the globe shows them by default (corroborated only), so
     # the numbers here and inside the globe agree.
     events = load_or_export_holo_events()

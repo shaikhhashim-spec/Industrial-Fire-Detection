@@ -15,7 +15,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import config
 from src.national.pipeline import run_national_pipeline
 from src.national.states import load_states
 from src.utils.export_3d_globe import export_pipeline_events_for_holo_view
