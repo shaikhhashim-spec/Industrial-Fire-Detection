@@ -61,6 +61,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+<<<<<<< HEAD
 /** Segmented control. One accent, used only to mark the selection. */
 function Segmented<T extends string | boolean>({
   options,
@@ -91,6 +92,8 @@ function Segmented<T extends string | boolean>({
   );
 }
 
+=======
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
 function Index() {
   // route is ssr:false, so window is always available here
   const [embedded] = useState(

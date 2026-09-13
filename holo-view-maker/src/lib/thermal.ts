@@ -144,7 +144,8 @@ export async function fetchThermalEvents(): Promise<{
   meta: DataMeta | null;
 }> {
   try {
-    const res = await fetch("/data/events.json", { cache: "no-cache" });
+    const baseUrl = import.meta.env.BASE_URL;
+    const res = await fetch(`${baseUrl}data/events.json`, { cache: "no-cache" });
     if (res.ok) {
       const data = await res.json();
       const list: ThermalEvent[] = Array.isArray(data) ? data : (data?.events ?? []);

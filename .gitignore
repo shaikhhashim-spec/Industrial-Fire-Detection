@@ -6,8 +6,10 @@ __pycache__/
 .env
 data/*
 !data/reference/
+!data/demo/
 output/
 models/*.pkl
+!models/classifier.pkl
 .pytest_cache/
 streamlit_boot.log
 streamlit.log

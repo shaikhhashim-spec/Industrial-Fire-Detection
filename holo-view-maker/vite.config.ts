@@ -8,8 +8,22 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
+    server: {
+      entry: "server",
+    },
+    prerender: {
+      enabled: true,
+      autoSubfolderIndex: true,
+      autoStaticPathsDiscovery: true,
+      crawlLinks: true,
+    },
+  },
+<<<<<<< HEAD
+});
+=======
+  vite: {
+    base: process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/` : "/SIH26162/",
+    plugins: [stripSourceTagsFromThreeFiles()],
   },
 });
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1

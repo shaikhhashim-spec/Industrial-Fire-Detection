@@ -73,6 +73,7 @@ ACCENT = "#5cb8dc"
 
 CSS = """
 <style>
+<<<<<<< HEAD
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* One token set, shared with the globe app (holo-view-maker/src/styles.css).
@@ -238,6 +239,244 @@ section[data-testid="stSidebar"] [data-testid="stButton"] button{ justify-conten
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.01ms !important; transition-duration:.01ms !important; }
 }
+=======
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --ink: #f1f3f7;
+  --ink2: #9da4b0;
+  --muted: #64748b;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --line-glow: rgba(59, 130, 246, 0.3);
+  --page: #090a0d;
+  --surface: #111317;
+  --surface-glass: rgba(17, 19, 24, 0.82);
+  --surface-card: #15181f;
+  --surface-card-glass: rgba(21, 24, 31, 0.88);
+  --surface-elevated: #1b1f28;
+  --accent: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-low: #10b981;
+  --accent-moderate: #f59e0b;
+  --accent-high: #f97316;
+  --accent-critical: #ef4444;
+  --accent-violet: #8b5cf6;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+}
+
+html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], p, label {
+  font-family: 'Inter', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  color: var(--ink);
+}
+
+.mono {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace !important;
+}
+
+/* Custom Sleek Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--page); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.5); }
+
+/* Glassmorphic Streamlit Containers */
+[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: var(--surface-glass) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Header & Top Branding */
+.header{
+  display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;
+  padding-bottom: 1.1rem; margin-bottom: 1.3rem; border-bottom: 1px solid var(--line-strong);
+}
+.header .eyebrow{
+  font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: .35rem;
+}
+.header h1{
+  margin: 0 0 .35rem; font-size: 1.55rem; font-weight: 700; letter-spacing: -.015em; color: var(--ink);
+  background: linear-gradient(135deg, #ffffff 40%, var(--ink2) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header .sub{ margin: 0; color: var(--ink2); font-size: .84rem; max-width: 54ch; line-height: 1.5; }
+.header .meta{ text-align: right; font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--ink2); line-height: 1.7; }
+
+/* Status Dot Indicator with Radar Glow */
+.dot{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0px; }
+.dot.live{ background: var(--accent-low); box-shadow: 0 0 10px rgba(16, 185, 129, 0.7); animation: pulse-dot 2s infinite; }
+.dot.demo{ background: var(--accent-moderate); box-shadow: 0 0 10px rgba(245, 158, 11, 0.7); animation: pulse-dot 2.5s infinite; }
+.dot.stale{ background: var(--muted); }
+
+/* High-Tech Telemetry KPI Stat Row */
+.statrow{
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: .75rem;
+}
+.stat{
+  padding: .85rem 1.1rem; background: var(--surface-card-glass); backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-top: 2px solid var(--stat-accent, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm); position: relative; overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+}
+.stat:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.stat.flag{
+  border-top-color: var(--stat-accent, var(--accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.stat .lbl{
+  font-family: 'JetBrains Mono', monospace; font-size: .65rem; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: .4rem;
+  display: flex; align-items: center; gap: 5px;
+}
+.stat .val{
+  font-family: 'JetBrains Mono', monospace; font-size: 1.35rem; font-weight: 700;
+  color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.stat-icon{ font-size: .95rem; color: var(--stat-accent, var(--muted)); }
+
+/* Section Header */
+.sec-hdr{
+  font-family: 'JetBrains Mono', monospace; font-size: .72rem; font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--ink);
+  padding-bottom: .55rem; margin-bottom: .85rem; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 6px;
+}
+.sec-hdr-icon{ font-size: 1rem; vertical-align: -2px; color: var(--accent); }
+
+/* Emergency Alert Bar */
+.alertbar{
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  border: 1px solid rgba(239, 68, 68, 0.45); border-left: 4px solid var(--accent-critical);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(17, 19, 24, 0.8) 100%);
+  border-radius: var(--radius-md); padding: .85rem 1.2rem; margin-bottom: 1.1rem;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); animation: critical-glow 3s infinite alternate;
+}
+.alertbar .txt{ font-size: .88rem; color: var(--ink); font-weight: 500; }
+.alertbar .txt b{ font-variant-numeric: tabular-nums; color: #ff8585; font-weight: 700; }
+
+.alertcard{
+  border: 1px solid var(--line); border-left: 3px solid var(--sev, var(--accent));
+  background: var(--surface-card); border-radius: var(--radius-sm); padding: .8rem 1rem; margin-bottom: .6rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.alertcard:hover{
+  transform: translateX(2px);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.alertcard .title{ font-weight: 600; font-size: .88rem; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+.alertcard .meta{ font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--ink2); margin-top: .35rem; line-height: 1.7; }
+
+/* Status Pills & Badges */
+.pill{
+  display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace;
+  font-size: .68rem; font-weight: 600; letter-spacing: .04em; padding: .22rem .65rem;
+  border-radius: 9999px; text-transform: uppercase;
+}
+.pill::before{ content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.pill.has-icon::before{ content: none; }
+.pill-icon{ font-size: .9em; }
+
+.badge-demo{
+  font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 600; letter-spacing: .06em;
+  color: var(--accent-moderate); border: 1px solid rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12);
+  border-radius: var(--radius-xs); padding: .22rem .65rem; box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+.panel{ border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-card); padding: 1rem 1.15rem; }
+.panel .row{ display: flex; justify-content: space-between; padding: .35rem 0; border-bottom: 1px solid var(--line); font-size: .83rem; }
+.panel .row:last-child{ border-bottom: none; }
+.panel .row .k{ color: var(--ink2); } .panel .row .v{ color: var(--ink); font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; text-align: right; }
+.evidence{ font-size: .82rem; color: var(--ink2); padding: .25rem 0; border-bottom: 1px dashed var(--line); }
+.evidence:last-child{ border-bottom: none; }
+.evidence::before{ content: "\\2713  "; color: var(--accent-low); }
+
+.side-label{ font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 600;
+  letter-spacing: .10em; text-transform: uppercase; color: var(--muted); margin: .4rem 0 .6rem; }
+section[data-testid="stSidebar"]{
+  background: #0d0e12 !important;
+  border-right: 1px solid var(--line) !important;
+}
+
+[data-testid="stButton"] button, [data-testid="stDownloadButton"] button{
+  border-radius: var(--radius-sm) !important; font-weight: 600 !important; letter-spacing: .03em !important;
+  font-size: .78rem !important; text-transform: uppercase; font-family: 'JetBrains Mono', monospace !important;
+  border: 1px solid var(--line) !important; background: var(--surface-card) !important;
+  color: var(--ink) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+[data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover{
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.25) !important;
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.legend-chip{ display: inline-flex; align-items: center; gap: 6px; font-size: .76rem; margin: 2px 10px 2px 0; color: var(--ink2); }
+.legend-dot{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+
+.caveat{ font-size: .76rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: .5rem; margin-top: .6rem; line-height: 1.6; }
+
+.brand{ font-family: 'JetBrains Mono', monospace; font-size: .92rem; font-weight: 700; letter-spacing: .06em; color: var(--ink); }
+.brand-sub{ font-family: 'JetBrains Mono', monospace; font-size: .62rem; letter-spacing: .10em; text-transform: uppercase; color: var(--accent); margin-top: .15rem; margin-bottom: .2rem; }
+
+.topbar-brand h1{ margin: 0 0 .2rem; font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.topbar-brand .eyebrow{ font-family: 'JetBrains Mono', monospace; font-size: .64rem; font-weight: 600; letter-spacing: .10em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: .3rem; }
+.topbar-brand .sub{ margin: 0; color: var(--ink2); font-size: .76rem; }
+.topbar-meta{ font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--ink2); line-height: 1.6; padding-top: .15rem; }
+.topbar-rule{ border: none; border-top: 1px solid var(--line-strong); margin: .9rem 0 1.2rem; }
+
+section[data-testid="stSidebar"] [data-testid="stButton"] button{
+  justify-content: flex-start; text-align: left; text-transform: none; font-weight: 500 !important;
+  background: transparent !important; border: 1px solid transparent !important;
+  border-radius: var(--radius-sm) !important; padding: .45rem .75rem !important;
+  color: var(--ink2) !important; transition: all 0.15s ease !important;
+}
+section[data-testid="stSidebar"] [data-testid="stButton"] button:hover{
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+
+.funnel{ display: flex; align-items: stretch; gap: .5rem; margin-bottom: 1.1rem; }
+.funnel-step{
+  flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-glass); backdrop-filter: blur(10px);
+  padding: .75rem .9rem; border-top: 2px solid var(--line);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.funnel-step:hover{ transform: translateY(-1px); }
+.funnel-step.on{
+  border-top-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+}
+.funnel-step.off{ opacity: .5; }
+.funnel-step .fnum{ font-family: 'JetBrains Mono', monospace; font-size: .64rem; font-weight: 600; letter-spacing: .10em; color: var(--muted); }
+.funnel-step .ftitle{ font-weight: 600; font-size: .82rem; color: var(--ink); margin: .2rem 0 .35rem; }
+.funnel-step .fmetric{ font-family: 'JetBrains Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.funnel-step .fsub{ font-size: .7rem; color: var(--ink2); margin-top: .15rem; }
+.funnel-arrow{ display: flex; align-items: center; color: var(--muted); font-size: 1.1rem; flex: 0 0 auto; padding: 0 .15rem; }
+
+@keyframes pulse-dot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.6; } }
+@keyframes critical-glow { 0% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.15); } 100% { box-shadow: 0 0 24px rgba(239, 68, 68, 0.35); } }
+@keyframes pulse-glow { 0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.96); } }
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
 </style>
 """
 
@@ -268,6 +507,7 @@ def _format_satellites(value) -> str:
 
 
 def _pill(text: str, color: str, icon: str | None = None) -> str:
+<<<<<<< HEAD
     """Label in normal text colour with a small colour marker. Colour carries
     the state; the words stay readable, and the marker is never the only cue
     because the text always names the state."""
@@ -325,6 +565,11 @@ def _style_magnitude(df: pd.DataFrame, columns: dict[str, str]):
     for column, color in present.items():
         styled = styled.apply(_tint_magnitude, color=color, subset=[column])
     return styled
+=======
+    cls = "pill has-icon" if icon else "pill"
+    icon_html = f'<span class="pill-icon">:material/{icon}:</span>' if icon else ""
+    return f'<span class="{cls}" style="color:{color};background:{color}1c;border:1px solid {color}44;box-shadow:0 0 8px {color}1a;">{icon_html}{text}</span>'
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
 
 
 def _stat_row(cells: list[tuple]):
@@ -384,10 +629,17 @@ def _holo_app_reachable(url: str) -> bool:
 def _load_cached_detail() -> gpd.GeoDataFrame | None:
     if not config.CLASSIFIED_GEOJSON.exists():
         return None
-    gdf = gpd.read_file(config.CLASSIFIED_GEOJSON)
-    gdf["acq_date"] = pd.to_datetime(gdf["acq_date"])
-    return gdf
+    with open(config.CLASSIFIED_GEOJSON, "r", encoding="utf-8") as f:
+        geojson_data = json.load(f)
 
+    gdf = gpd.GeoDataFrame.from_features(
+        geojson_data.get("features", []),
+        crs=geojson_data.get("crs", {}).get("properties", {}).get("name", "EPSG:4326")
+    )
+
+    if "acq_date" in gdf.columns:
+        gdf["acq_date"] = pd.to_datetime(gdf["acq_date"])
+    return gdf
 
 @st.cache_data(show_spinner=False)
 def _load_cached_clusters() -> pd.DataFrame:
@@ -482,7 +734,8 @@ def recompute_risk_and_cache(weights: dict):
 
     export = gdf.copy()
     export["acq_date"] = export["acq_date"].astype(str)
-    export.to_file(config.CLASSIFIED_GEOJSON, driver="GeoJSON")
+    from src.utils.geo_io import write_geojson
+    write_geojson(export, config.CLASSIFIED_GEOJSON)
     export.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
     cluster_export: pd.DataFrame = cluster_df.copy()
     cluster_export["first_detected"] = cluster_export["first_detected"].astype(str)
@@ -658,7 +911,7 @@ def _legend_html(title: str, items: dict[str, str]) -> str:
     </div>"""
 
 
-def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.Map:
+def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str, show_heatmap: bool = False) -> folium.Map:
     center_lat = (config.BBOX["min_lat"] + config.BBOX["max_lat"]) / 2
     center_lon = (config.BBOX["min_lon"] + config.BBOX["max_lon"]) / 2
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8, tiles=None, control_scale=True)
@@ -668,6 +921,38 @@ def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.
         bounds=[[config.BBOX["min_lat"], config.BBOX["min_lon"]], [config.BBOX["max_lat"], config.BBOX["max_lon"]]],
         color="#5cb8dc", weight=1, fill=False, dash_array="4", tooltip="Target region bounding box",
     ).add_to(m)
+
+    if show_heatmap and not gdf.empty:
+        from folium.plugins import HeatMap
+        if color_by == "risk":
+            # Risk-weighted heatmap gradient matching Risk Distribution
+            risk_gradient = {
+                0.2: RISK_COLORS["LOW"],
+                0.5: RISK_COLORS["MODERATE"],
+                0.75: RISK_COLORS["HIGH"],
+                1.0: RISK_COLORS["CRITICAL"],
+            }
+            heat_data = []
+            for _, row in gdf.iterrows():
+                risk_val = float(row.get("risk_score", 0) or 0)
+                w = max(0.15, min(1.0, risk_val / 100.0))
+                heat_data.append([row.geometry.y, row.geometry.x, w])
+            HeatMap(heat_data, radius=18, blur=22, max_zoom=11, gradient=risk_gradient,
+                    name="Risk Heatmap").add_to(m)
+        else:
+            # Classification-colored heatmaps matching Classification Distribution
+            for cat, group_df in gdf.groupby(label_field):
+                cat_color = CATEGORY_COLORS.get(cat, "#888888")
+                heat_data = [
+                    [r.geometry.y, r.geometry.x, max(0.2, min(1.0, float(r.get("frp", 10) or 10) / 50.0))]
+                    for _, r in group_df.iterrows()
+                ]
+                HeatMap(
+                    heat_data,
+                    radius=18, blur=22, max_zoom=11,
+                    gradient={0.2: cat_color + "44", 0.6: cat_color + "bb", 1.0: cat_color},
+                    name=f"Heatmap: {cat}",
+                ).add_to(m)
 
     cluster = MarkerCluster(disableClusteringAtZoom=12, maxClusterRadius=45,
                              icon_create_function=CLUSTER_ICON_JS).add_to(m)
@@ -709,35 +994,46 @@ def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.
     return m
 
 
-def build_timelapse_map(gdf: gpd.GeoDataFrame, label_field: str) -> folium.Map:
+def build_timelapse_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str = "classification") -> folium.Map:
     if len(gdf) > TIMELAPSE_MAX_POINTS:
         gdf = gdf.sort_values("acq_date").tail(TIMELAPSE_MAX_POINTS)
     center_lat = (config.BBOX["min_lat"] + config.BBOX["max_lat"]) / 2
     center_lon = (config.BBOX["min_lon"] + config.BBOX["max_lon"]) / 2
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8, tiles=None, control_scale=True)
     _add_base_layers(m)
-    features = [
-        {
+    
+    features = []
+    for _, row in gdf.iterrows():
+        if color_by == "risk":
+            color = RISK_COLORS.get(row.get("risk_level", ""), "#888888")
+        else:
+            color = CATEGORY_COLORS.get(row[label_field], "#888888")
+        features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [row.geometry.x, row.geometry.y]},
             "properties": {
                 "time": row["acq_date"].strftime("%Y-%m-%d"), "icon": "circle",
                 "iconstyle": {
+<<<<<<< HEAD
                     "fillColor": CATEGORY_COLORS.get(row[label_field], "#71808f"),
                     "color": CATEGORY_COLORS.get(row[label_field], "#71808f"),
+=======
+                    "fillColor": color,
+                    "color": color,
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
                     "fillOpacity": 0.85, "radius": 5 + min(row["frp"], 40) / 8,
                 },
-                "popup": f"<b>{row[label_field]}</b><br>{row['acq_date'].date()} · FRP {row['frp']:.1f} MW",
+                "popup": f"<b>{row[label_field]}</b><br>Risk: {row.get('risk_level', '?')}<br>{row['acq_date'].date()} · FRP {row['frp']:.1f} MW",
             },
-        }
-        for _, row in gdf.iterrows()
-    ]
+        })
     TimestampedGeoJson(
         {"type": "FeatureCollection", "features": features}, period="P1D", duration="P1D",
         add_last_point=False, auto_play=False, loop=False, max_speed=4, loop_button=True,
         date_options="YYYY-MM-DD", time_slider_drag_update=True,
     ).add_to(m)
-    _add_map_chrome(m, _legend_html("Classification", CATEGORY_COLORS))
+    legend_source = CATEGORY_COLORS if color_by != "risk" else RISK_COLORS
+    legend_title = "Classification" if color_by != "risk" else "Risk Level"
+    _add_map_chrome(m, _legend_html(legend_title, legend_source))
     return m
 
 
@@ -1588,18 +1884,60 @@ def _render_overview(filtered, filtered_clusters, label_field, color_by):
 
 def _render_live_map(filtered, label_field, color_by):
     with st.container(border=True):
+<<<<<<< HEAD
         hdr, toggle = st.columns([4.0, 1.0])
         with hdr:
             _section_header(f"{config.REGION_NAME}: {len(filtered):,} hotspots")
         timelapse_on = toggle.toggle("Time lapse")
+=======
+        hdr, back_btn, globe_btn, t_heat, t_tl = st.columns([2.0, 1.2, 1.2, 0.9, 0.9])
+        with hdr:
+            _section_header(f"Live Map — {len(filtered)} hotspots (Jharkhand–Odisha Belt)", icon="map")
+        with back_btn:
+            st.button("Return to India", key="back_india_livemap", width="stretch", icon=":material/arrow_back:",
+                      on_click=_navigate(page="Live Map", region="india"))
+        with globe_btn:
+            st.button("3D Holo Globe", key="livemap_open_3d_globe", width="stretch", icon=":material/public:",
+                      help="Open interactive 3D orbital globe view",
+                      on_click=_navigate(page="3D Holo Globe"))
+        heatmap_on = t_heat.toggle("Heatmap", key="livemap_toggle_heatmap")
+        timelapse_on = t_tl.toggle("Time-lapse", key="livemap_toggle_timelapse")
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
         if filtered.empty:
             st.info("No hotspots match the current filters.", icon=":material/search_off:")
         elif timelapse_on:
             if len(filtered) > TIMELAPSE_MAX_POINTS:
                 st.caption(f"Showing the {TIMELAPSE_MAX_POINTS} most recent of {len(filtered)} points for smooth playback.")
-            st_folium(build_timelapse_map(filtered, label_field), width=None, height=660, returned_objects=[], key="map_live_timelapse")
+            st_folium(build_timelapse_map(filtered, label_field, color_by), width=None, height=660, returned_objects=[], key="map_live_timelapse")
         else:
-            st_folium(build_map(filtered, label_field, color_by), width=None, height=660, returned_objects=[], key="map_live")
+            st_folium(build_map(filtered, label_field, color_by, show_heatmap=heatmap_on), width=None, height=660, returned_objects=[], key="map_live")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        with st.container(border=True):
+            _section_header("Classification Distribution", icon="pie_chart")
+            if not filtered.empty:
+                field = label_field if label_field in filtered.columns else "rule_label"
+                counts = filtered[field].value_counts()
+                fig = go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h",
+                                        marker_color=[CATEGORY_COLORS.get(l, "#888") for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415", yaxis=dict(autorange="reversed"))
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No hotspots match the current filters.")
+    with c2:
+        with st.container(border=True):
+            _section_header("Risk Distribution", icon="warning", icon_color="var(--accent-high)")
+            if not filtered.empty:
+                counts = filtered["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values,
+                                        marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No hotspots match the current filters.")
 
 
 
@@ -1795,6 +2133,7 @@ def _render_alerts_tab(alerts):
         st.info("No alerts in the current live data.", icon=":material/info:")
         return
 
+<<<<<<< HEAD
     _section_header(f"{len(alerts):,} open alerts")
     for i, a in enumerate(alerts[:50]):
         severity = str(a.get("severity", "MODERATE"))
@@ -1820,6 +2159,35 @@ def _render_alerts_tab(alerts):
             f'{event_id}</span></div>'
             f'<div class="facts">{facts_html}</div>'
             f'<div class="meta">{severity.capitalize()} severity. {a["classification"]}.</div></div>',
+=======
+    sev_color = {"CRITICAL": "var(--accent-critical)", "HIGH": "var(--accent-high)", "MODERATE": "var(--accent-moderate)"}
+    for i, a in enumerate(alerts[:50]):
+        color = sev_color.get(a["severity"], "var(--muted)")
+        event_id = a.get("event_id", a.get("grid_cell", "?"))
+        risk_val = float(a.get("risk_score", 0))
+        ai_conf = float(a.get("ai_confidence", 85.0))
+        is_crit = a.get("severity") == "CRITICAL" or risk_val >= config.ALERT_CRITICAL_RISK_MIN
+
+        crit_badge_html = ""
+        if is_crit:
+            crit_badge_html = (
+                f'<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;'
+                f'padding:3px 8px;border-radius:var(--radius-xs);background:rgba(239,68,68,0.12);'
+                f'border:1px solid rgba(239,68,68,0.35);font-size:0.73rem;color:var(--accent-critical);font-family:\'JetBrains Mono\',monospace;">'
+                f':material/warning: <b>AUTO-NOTIFIED (CRITICAL)</b> &middot; Recipient: {phone} &middot; Risk: {risk_val:.1f}/100 &middot; AI Conf: {ai_conf:.1f}%</div>'
+            )
+
+        card_class = "alertcard"
+        st.markdown(
+            f'<div class="{card_class}" style="--sev:{color}"><div class="title">:material/warning: {a["title"]} '
+            f'<span class="mono" style="color:var(--ink2);font-size:.75em;">&middot; {event_id}</span></div>'
+            f'<div class="meta">Location: {a["latitude"]:.3f}, {a["longitude"]:.3f} &middot; '
+            f'Classification: {a["classification"]} &middot; Risk: {risk_val:.1f}/100 &middot; '
+            f'AI Confidence: {ai_conf:.1f}% &middot; '
+            f'Persistence: {a["persistence_days"]}d &middot; FRP: {a["frp"]:.1f} MW &middot; '
+            f'Status: {a["status"]}</div>'
+            f'{crit_badge_html}</div>',
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
             unsafe_allow_html=True,
         )
         if st.button("Dispatch this alert", key=f"alert_crit_send_{i}", icon=":material/sms:",
@@ -1840,6 +2208,7 @@ def _render_analytics(filtered, filtered_clusters, run_info):
     c1, c2 = st.columns(2)
     with c1:
         with st.container(border=True):
+<<<<<<< HEAD
             _section_header("Classification distribution")
             if not filtered.empty:
                 counts = filtered["rule_label"].value_counts()
@@ -1862,15 +2231,29 @@ def _render_analytics(filtered, filtered_clusters, run_info):
     with c3:
         with st.container(border=True):
             _section_header("Persistence distribution (days active)")
+=======
+            _section_header("Persistence Distribution (days active)", icon="schedule")
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
             if not filtered.empty:
                 st.bar_chart(filtered["persistence_days"].value_counts().sort_index())
-    with c4:
+            else:
+                st.caption("No events in the current filter selection.")
+    with c2:
         with st.container(border=True):
             _section_header("FRP distribution (MW)")
             if not filtered.empty:
+<<<<<<< HEAD
                 fig = go.Figure(go.Histogram(x=filtered["frp"], marker_color=SERIES, marker_line_width=0, nbinsx=30))
                 _style_fig(fig, height=280)
                 st.plotly_chart(fig, width="stretch", key="chart_frp_dist")
+=======
+                fig = go.Figure(go.Histogram(x=filtered["frp"], marker_color="#4d8fc4", nbinsx=30))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No events in the current filter selection.")
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
 
     if run_info:
         ml = run_info.get("ml_metrics", {})
@@ -1966,6 +2349,7 @@ def _render_investigations(filtered_clusters, filtered_detail, analyst_mode: boo
             st.caption("Selected cluster is outside the current filter selection.")
 
 
+<<<<<<< HEAD
 
 
 # ------------------------------------------------------------- cameras --
@@ -2077,6 +2461,24 @@ def build_camera_map(cameras: list[dict], uncovered: pd.DataFrame, candidates: l
 
 def _render_camera_registry_form():
     from src.cameras import registry as camera_registry
+=======
+def _render_data_tab(filtered, run_info):
+    with st.container(border=True):
+        _section_header("System Health", icon="monitor_heart")
+        h1, h2, h3, h4, h5 = st.columns(5)
+        firms_ok = (run_info or {}).get("hotspot_source") in ("firms_live", "local_cache")
+        osm_ok = (run_info or {}).get("zone_source") in ("overpass_live", "cache")
+        landcover_ok = (run_info or {}).get("landcover_source") in ("overpass_live", "cache", "cache_stale")
+        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#10b981" if firms_ok else "#f59e0b", icon="check_circle" if firms_ok else "cached"), unsafe_allow_html=True)
+        h2.markdown(_pill("OSM Industrial: " + ("AVAILABLE" if osm_ok else "CACHED/DEMO"), "#10b981" if osm_ok else "#f59e0b", icon="check_circle" if osm_ok else "cached"), unsafe_allow_html=True)
+        h3.markdown(_pill("OSM Landcover: " + ("AVAILABLE" if landcover_ok else "UNAVAILABLE"), "#10b981" if landcover_ok else "#6b7280", icon="check_circle" if landcover_ok else "cancel"), unsafe_allow_html=True)
+        h4.markdown(_pill("Database: HEALTHY" if config.DB_PATH.exists() else "DATABASE: NOT YET CREATED", "#10b981" if config.DB_PATH.exists() else "#6b7280", icon="check_circle" if config.DB_PATH.exists() else "cancel"), unsafe_allow_html=True)
+        h5.markdown(_pill("ML Model: LOADED" if config.MODEL_PATH.exists() else "ML MODEL: NOT YET TRAINED", "#10b981" if config.MODEL_PATH.exists() else "#6b7280", icon="check_circle" if config.MODEL_PATH.exists() else "cancel"), unsafe_allow_html=True)
+        if run_info:
+            st.caption(f"Records processed this run: {(run_info or {}).get('n_stored_total', 'n/a')} accumulated in store. "
+                       f"Landcover zones loaded: {(run_info or {}).get('n_landcover_zones', 'n/a')} "
+                       f"(forest/water/farmland — feeds wildfire/agri-burn evidence; not used when unavailable).")
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
 
     with st.container(border=True):
         _section_header("Register a camera")
@@ -2312,8 +2714,19 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
 
     if show_heatmap and not points.empty:
         from folium.plugins import HeatMap
-        HeatMap(points[["latitude", "longitude", "frp"]].values.tolist(), radius=12, blur=16, max_zoom=6,
-                name="Heat Intensity").add_to(m)
+        risk_gradient = {
+            0.2: RISK_COLORS["LOW"],
+            0.5: RISK_COLORS["MODERATE"],
+            0.75: RISK_COLORS["HIGH"],
+            1.0: RISK_COLORS["CRITICAL"],
+        }
+        heat_data = []
+        for _, row in points.iterrows():
+            risk_score_val = float(row.get("risk_score", 0) or 0)
+            weight = max(0.15, min(1.0, risk_score_val / 100.0)) if risk_score_val > 0 else max(0.15, min(1.0, float(row.get("frp", 10) or 10) / 50.0))
+            heat_data.append([row["latitude"], row["longitude"], weight])
+        HeatMap(heat_data, radius=14, blur=18, max_zoom=7, gradient=risk_gradient,
+                name="Risk Heat Intensity").add_to(m)
 
     if not points.empty and not show_heatmap:
         cluster = MarkerCluster(disableClusteringAtZoom=8, maxClusterRadius=40,
@@ -2400,8 +2813,54 @@ def _map_points_for_mode(filtered_detail: pd.DataFrame, filtered_events: pd.Data
 def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
                           filtered_clusters_or_events: pd.DataFrame | None,
                           is_regional: bool = True):
+<<<<<<< HEAD
     # Counted the way the globe shows them by default (corroborated only), so
     # the numbers here and inside the globe agree.
+=======
+    import importlib
+    import src.utils.export_3d_globe as _export_3d_mod
+    importlib.reload(_export_3d_mod)
+    from src.utils.export_3d_globe import (
+        export_pipeline_events_for_holo_view,
+        generate_embedded_3d_globe_html,
+        load_or_export_holo_events,
+    )
+
+    # 1. Page Header with Breadcrumbs & Sync Status
+    h1, h2 = st.columns([3.2, 1.8])
+    with h1:
+        _section_header("3D Holo Globe — Orbital Thermal Risk Radar", icon="public")
+        st.caption(":material/public: Real-time 3D planetary digital twin visualizing satellite thermal energy beams, AI risk tiers, and persistence.")
+    with h2:
+        sync_cols = st.columns([1.2, 1.0])
+        with sync_cols[0]:
+            if st.button("Sync Live Pipeline", key="sync_3d_globe_top", width="stretch", icon=":material/sync:",
+                         help="Transform and sync current detection pipeline data to Holo-View 3D Globe"):
+                with st.spinner("Syncing thermal events to 3D Globe..."):
+                    if is_regional:
+                        gdf = _load_cached_detail()
+                        c_df = _load_cached_clusters()
+                        events = export_pipeline_events_for_holo_view(gdf, c_df)
+                    else:
+                        info = st.session_state.get("national_info")
+                        events = export_pipeline_events_for_holo_view(
+                            events_df=info.get("events_df") if info else None,
+                            national_detail_df=info.get("detail_df") if info else None,
+                        )
+                    st.session_state["holo_events_count"] = len(events)
+                    st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.toast(f"{len(events)} events synced to 3D Holo Globe!", icon=":material/public:")
+                    st.rerun()
+        with sync_cols[1]:
+            if is_regional:
+                st.button("2D Live Map", key="back_to_livemap_regional", width="stretch", icon=":material/arrow_back:",
+                          on_click=_navigate(page="Live Map", region="jharkhand_odisha"))
+            else:
+                st.button("2D Live Map", key="back_to_livemap_national", width="stretch", icon=":material/arrow_back:",
+                          on_click=_navigate(page="Live Map", region="india"))
+
+    # Load 3D events
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
     events = load_or_export_holo_events()
     shown = [e for e in events if e.get("corroborated", True)]
     n_critical = sum(1 for e in shown if e.get("riskLevel") == "CRITICAL")
@@ -2498,7 +2957,9 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
 
 
 def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
-                                map_mode: str, show_heatmap: bool, key: str):
+                                map_mode: str, show_heatmap: bool, key: str,
+                                state_summary: pd.DataFrame | None = None,
+                                state_filter: list[str] | None = None):
     map_points = _map_points_for_mode(filtered_detail, filtered_events, map_mode)
     with st.container(border=True):
         _section_header(f"India: {map_mode.lower()}, {len(map_points):,} shown")
@@ -2521,6 +2982,61 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
                 returned_objects=[],
                 key=key,
             )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        with st.container(border=True):
+            _section_header("Classification Distribution", icon="pie_chart")
+            df_to_use = filtered_events if not filtered_events.empty else filtered_detail
+            if not df_to_use.empty:
+                def _nat_label(r):
+                    if "rule_label" in r and pd.notna(r["rule_label"]) and r["rule_label"] in CATEGORY_COLORS:
+                        return r["rule_label"]
+                    if "classification" in r and pd.notna(r["classification"]) and r["classification"] in CATEGORY_COLORS:
+                        return r["classification"]
+                    if "category" in r and pd.notna(r["category"]) and r["category"] in CATEGORY_COLORS:
+                        return r["category"]
+                    st_val = str(r.get("state", ""))
+                    frp_val = float(r.get("max_frp", r.get("avg_frp", r.get("frp", 10.0))) or 0)
+                    is_p = bool(r.get("is_persistent", False))
+                    if st_val in ("Punjab", "Haryana") and frp_val < 18:
+                        return "Likely Agricultural Burning"
+                    elif is_p and frp_val > 15:
+                        return "Persistent Industrial Activity"
+                    elif is_p:
+                        return "Persistent Non-Industrial Thermal Source"
+                    elif frp_val > 30:
+                        return "Likely Industrial Fire"
+                    elif st_val in ("Uttarakhand", "Himachal Pradesh", "Odisha", "Chhattisgarh", "Madhya Pradesh") and frp_val > 15:
+                        return "Likely Wildfire"
+                    return "Requires Verification"
+
+                cats = df_to_use.apply(_nat_label, axis=1)
+                counts = cats.value_counts()
+                fig = go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h",
+                                        marker_color=[CATEGORY_COLORS.get(l, "#888") for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415", yaxis=dict(autorange="reversed"))
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No hotspots match the current filters.")
+    with c2:
+        with st.container(border=True):
+            _section_header("Risk Distribution", icon="warning", icon_color="var(--accent-high)")
+            if not filtered_events.empty and "risk_level" in filtered_events.columns:
+                counts = filtered_events["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            elif not filtered_detail.empty and "risk_level" in filtered_detail.columns:
+                counts = filtered_detail["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No events in the current filter selection.")
 
 
 def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter: list[str]):
@@ -2576,6 +3092,7 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
         _render_national_top_states_chart(state_summary, state_filter)
     with c2:
         with st.container(border=True):
+<<<<<<< HEAD
             _section_header("Risk distribution across events")
             if filtered_events.empty:
                 st.caption("No events in the current filter selection.")
@@ -2584,6 +3101,16 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
                 fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index], marker_line_width=0))
                 _style_fig(fig, height=340)
                 st.plotly_chart(fig, width="stretch", key="chart_risk_dist_national")
+=======
+            _section_header("FRP Distribution (MW)", icon="local_fire_department")
+            if not filtered_detail.empty:
+                fig = go.Figure(go.Histogram(x=filtered_detail["frp"], marker_color="#4d8fc4", nbinsx=30))
+                fig.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No observations in the current filter selection.")
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
 
     with st.container(border=True):
         _section_header("Activity by state")
@@ -2601,6 +3128,65 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
             )
 
 
+<<<<<<< HEAD
+=======
+def _render_national_data_page(info: dict):
+    with st.container(border=True):
+        _section_header("System Health", icon="monitor_heart")
+        h1, h2 = st.columns(2)
+        firms_ok = info.get("hotspot_source") in ("firms_live", "local_cache")
+        h1.markdown(_pill("NASA FIRMS: " + ("ONLINE" if firms_ok else "CACHED/DEMO"), "#10b981" if firms_ok else "#f59e0b",
+                           icon="check_circle" if firms_ok else "cached"),
+                    unsafe_allow_html=True)
+        boundary_ok = config.INDIA_STATES_PATH.exists()
+        h2.markdown(_pill("India Boundary Data: " + ("LOADED" if boundary_ok else "NOT FOUND"),
+                           "#10b981" if boundary_ok else "#ef4444",
+                           icon="check_circle" if boundary_ok else "cancel"), unsafe_allow_html=True)
+
+    with st.container(border=True):
+        _section_header("Historical Accumulation", icon="history")
+        if info.get("used_accumulated_history"):
+            st.caption(
+                f"Persistence is judged against **{info.get('history_days_covered', 0)} days** of real accumulated "
+                f"history in the national store (`data/national_hotspots.db`), up to a "
+                f"{config.NATIONAL_HISTORY_DAYS}-day rolling window — not just this run's latest "
+                f"{config.NATIONAL_DAY_RANGE * 24}h fetch. Every live run merges its fresh pull into this store "
+                "(deduplicated by location/date/satellite); Demo Mode never touches it."
+            )
+        else:
+            st.caption(
+                f"No accumulated history yet for this run — persistence is judged only against the latest "
+                f"{config.NATIONAL_DAY_RANGE * 24}h fetch (or Demo Mode's synthetic dataset). Run the pipeline in "
+                "live mode a few times across different days to build up real history."
+            )
+
+    with st.container(border=True):
+        _section_header("Data Quality & Observation Notes", icon="fact_check")
+        report = info.get("clean_report", {})
+        detail_df = info.get("detail_df")
+        n_untagged = int(detail_df["state"].isna().sum()) if detail_df is not None and "state" in detail_df.columns else 0
+        st.caption(
+            f"Input rows: {report.get('input_rows', '?')} · Output rows after cleaning: {report.get('output_rows', '?')} · "
+            f"Dropped (invalid/duplicate/out-of-window): "
+            f"{report.get('dropped_invalid_coords', 0) + report.get('dropped_duplicates', 0)} · "
+            f"Outside any mapped Indian state polygon (territorial waters/neighboring countries within the "
+            f"India bounding box): {n_untagged}"
+        )
+        st.markdown(
+            '<div class="caveat">Absence of a detection does not mean absence of thermal activity — cloud cover, '
+            'smoke, satellite pass timing, and fire size/intensity all affect whether FIRMS registers a hotspot. '
+            'Terminology on this page ("Satellite Hotspots", "Detected Events") deliberately avoids implying every '
+            'point is a confirmed fire.</div>',
+            unsafe_allow_html=True,
+        )
+
+    with st.container(border=True):
+        _section_header("Observations Table", icon="table_chart")
+        detail_df = info["detail_df"]
+        st.dataframe(detail_df.sort_values("acq_date", ascending=False).head(500), hide_index=True, width="stretch")
+        st.download_button("Export CSV", detail_df.to_csv(index=False), "national_observations.csv", "text/csv",
+                            key="national_export")
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
 
 
 def _render_settings_national():
@@ -2657,8 +3243,16 @@ def _route_national_page(page: str):
         with oc2:
             _render_risk_donut(filtered_events, key="national")
     elif page == "Live Map":
+<<<<<<< HEAD
         _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_livemap")
     elif page == "3D Globe":
+=======
+        _render_national_map_panel(
+            filtered_detail, filtered_events, map_mode, show_heatmap,
+            key="map_national_livemap", state_summary=state_summary, state_filter=state_filter,
+        )
+    elif page == "3D Holo Globe":
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
         _render_3d_globe_page(filtered_detail, filtered_events, is_regional=False)
     elif page == "Events":
         _render_events_table(filtered_events, "india")

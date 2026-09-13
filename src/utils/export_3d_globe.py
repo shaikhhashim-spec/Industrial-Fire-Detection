@@ -351,8 +351,14 @@ def export_pipeline_events_for_holo_view(
         sources.add("firms_live")
     elif config.CLASSIFIED_GEOJSON.exists() and (config.PROCESSED_DIR / "cluster_summary.csv").exists():
         try:
+<<<<<<< HEAD
             g_df = gpd.read_file(config.CLASSIFIED_GEOJSON)
             c_df = pd.read_csv(config.PROCESSED_DIR / "cluster_summary.csv")
+=======
+            from src.utils.geo_io import read_geojson
+            c_df = pd.read_csv(config.PROCESSED_DIR / "cluster_summary.csv")
+            g_df = read_geojson(config.CLASSIFIED_GEOJSON)
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
             events.extend(transform_regional_to_holo_events(g_df, c_df))
             sources.add("firms_live")
         except Exception as e:
@@ -463,3 +469,1257 @@ def load_or_export_holo_events() -> list[dict[str, Any]]:
 
     return export_pipeline_events_for_holo_view()
 
+<<<<<<< HEAD
+=======
+
+def generate_embedded_3d_globe_html(
+    events: list[dict[str, Any]] | None = None,
+    color_by: str = "category",
+    auto_rotate: bool = True,
+    min_risk: int = 0,
+    selected_event_id: str | None = None,
+) -> str:
+    """Generates a complete, self-contained photorealistic 3D WebGL Globe HTML/JS application
+    powered by Three.js that renders directly inside Streamlit without external dev servers.
+    Features deep zoom revealing ultra-clear 2D-like high-resolution satellite imagery and ground GIS details.
+    """
+    if events is None:
+        events = load_or_export_holo_events()
+
+    all_filtered_events = [e for e in events if e.get("riskScore", 0) >= min_risk]
+    total_filtered_count = len(all_filtered_events)
+    hidden_count = 0
+    if total_filtered_count > MAX_RENDERED_GLOBE_EVENTS:
+        # Capping by risk score alone collapses onto whichever single region
+        # scores highest (e.g. the Jharkhand-Odisha belt, which runs the full
+        # AI pipeline and so scores systematically higher than the lighter
+        # national heuristic) — every other region's markers would vanish
+        # even though real detections exist there too. Bucket by a coarse
+        # lat/lon grid first so every populated region keeps a fair share,
+        # then cap to the target count from that geographically-spread pool.
+        buckets: dict[tuple[int, int], list[dict]] = {}
+        for e in all_filtered_events:
+            key = (round(e.get("latitude", 0.0) / 2), round(e.get("longitude", 0.0) / 2))
+            buckets.setdefault(key, []).append(e)
+        per_bucket_cap = max(1, MAX_RENDERED_GLOBE_EVENTS // max(1, len(buckets)) + 2)
+        diversified: list[dict] = []
+        for bucket_events in buckets.values():
+            bucket_events.sort(key=lambda e: e.get("riskScore", 0), reverse=True)
+            diversified.extend(bucket_events[:per_bucket_cap])
+        diversified.sort(key=lambda e: e.get("riskScore", 0), reverse=True)
+        filtered_events = diversified[:MAX_RENDERED_GLOBE_EVENTS]
+        hidden_count = total_filtered_count - len(filtered_events)
+    else:
+        filtered_events = all_filtered_events
+    events_json_str = json.dumps(filtered_events)
+    color_by_mode = "risk" if color_by.lower() == "risk" else "category"
+    auto_rotate_js = "true" if auto_rotate else "false"
+    selected_id_js = f'"{selected_event_id}"' if selected_event_id else "null"
+
+    # Local-first texture set (bundled with holo-view-maker) — each falls
+    # back to the existing live CDN URL below if the local file is missing.
+    local_day_tex = _local_texture_data_uri("earth_atmos_2048.jpg", "image/jpeg")
+    local_normal_tex = _local_texture_data_uri("earth_normal_2048.jpg", "image/jpeg")
+    local_specular_tex = _local_texture_data_uri("earth_specular_2048.jpg", "image/jpeg")
+    local_lights_tex = _local_texture_data_uri("earth_lights_2048.png", "image/png")
+    local_clouds_tex = _local_texture_data_uri("earth_clouds_1024.png", "image/png")
+    coastline_geojson = _local_coastline_geojson()
+
+    local_day_tex_js = json.dumps(local_day_tex)
+    local_normal_tex_js = json.dumps(local_normal_tex)
+    local_specular_tex_js = json.dumps(local_specular_tex)
+    local_lights_tex_js = json.dumps(local_lights_tex)
+    local_clouds_tex_js = json.dumps(local_clouds_tex)
+    coastline_geojson_js = coastline_geojson if coastline_geojson else "null"
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Holo Globe</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body, html {{ width: 100%; height: 100%; overflow: hidden; background: #04060a; font-family: 'IBM Plex Sans', sans-serif; color: #e8e9ea; }}
+    #canvas-container {{ width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }}
+    
+    /* Command Center HUD Overlays */
+    .hud {{ position: absolute; z-index: 10; pointer-events: auto; }}
+    .hud-header {{ top: 16px; left: 16px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }}
+    .hud-title {{ font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; color: #4d8fc4; text-transform: uppercase; text-shadow: 0 0 10px rgba(77,143,196,0.6); display: flex; align-items: center; gap: 8px; }}
+    .pulse-dot {{ width: 7px; height: 7px; border-radius: 50%; background: #0ca30c; box-shadow: 0 0 8px #0ca30c; animation: pulse 2s infinite; }}
+    @keyframes pulse {{ 0%, 100% {{ opacity: 1; transform: scale(1); }} 50% {{ opacity: 0.4; transform: scale(0.85); }} }}
+    .hud-subtitle {{ font-size: 0.72rem; color: #9a9da1; font-family: 'IBM Plex Mono', monospace; }}
+
+    .hud-stats {{ top: 16px; right: 16px; display: flex; gap: 10px; }}
+    .stat-pill {{ background: rgba(10, 14, 20, 0.88); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 6px 12px; text-align: right; box-shadow: 0 4px 14px rgba(0,0,0,0.6); }}
+    .stat-pill .lbl {{ font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; color: #7f8691; text-transform: uppercase; letter-spacing: 0.06em; }}
+    .stat-pill .val {{ font-family: 'IBM Plex Mono', monospace; font-size: 0.95rem; font-weight: 600; color: #e8e9ea; }}
+
+    /* Real-time Altitude & Resolution Indicator */
+    .hud-altitude {{
+      top: 56px; left: 16px;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; font-weight: 600;
+      color: #38bdf8; background: rgba(4, 10, 20, 0.88); backdrop-filter: blur(8px);
+      padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }}
+    .res-badge {{ font-size: 0.62rem; padding: 1px 6px; border-radius: 3px; background: rgba(12, 163, 12, 0.2); border: 1px solid #0ca30c; color: #4ade80; }}
+
+    /* Quick Floating Controls */
+    .hud-controls {{ top: 92px; left: 16px; display: flex; flex-direction: column; gap: 6px; }}
+    .hud-btn {{ background: rgba(10, 15, 24, 0.88); backdrop-filter: blur(6px); border: 1px solid rgba(255, 255, 255, 0.14); color: #e8e9ea; font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; padding: 6px 11px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s ease; }}
+    .hud-btn:hover {{ background: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #ffffff; transform: translateX(2px); }}
+    .hud-btn.active {{ background: #38bdf8; color: #04060a; font-weight: 600; }}
+    .hud-btn.highlight {{ border-color: #fab219; color: #fab219; }}
+    .hud-btn.highlight:hover {{ background: rgba(250, 178, 25, 0.25); color: #ffffff; }}
+
+    /* Bottom Prompt */
+    .hud-prompt {{
+      bottom: 20px; left: 50%; transform: translateX(-50%);
+      pointer-events: none;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: #7dd3fc;
+      text-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+      background: rgba(4, 8, 15, 0.82); backdrop-filter: blur(8px);
+      padding: 6px 18px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.35);
+      white-space: nowrap;
+    }}
+
+    /* Detail Panel Card */
+    #detail-card {{
+      bottom: 16px; right: 16px; width: 320px; max-height: calc(100% - 90px);
+      background: rgba(10, 15, 24, 0.94); backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px;
+      padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.85), 0 0 24px rgba(56,189,248,0.2);
+      display: none; flex-direction: column; gap: 10px; overflow-y: auto;
+      transition: all 0.25s ease;
+    }}
+    #detail-card.active {{ display: flex; }}
+    .card-top {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; }}
+    .card-id {{ font-family: 'IBM Plex Mono', monospace; font-size: 0.92rem; font-weight: 600; color: #e8e9ea; }}
+    .card-close {{ cursor: pointer; color: #7f8691; font-size: 1.2rem; line-height: 1; border: none; background: transparent; padding: 0 4px; }}
+    .card-close:hover {{ color: #e8e9ea; }}
+    .card-region {{ font-size: 0.82rem; font-weight: 500; color: #e8e9ea; }}
+    .card-badge {{ display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; font-weight: 600; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; margin-top: 4px; }}
+    
+    .risk-bar-wrap {{ margin: 4px 0; }}
+    .risk-bar-label {{ display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: #9a9da1; margin-bottom: 3px; }}
+    .risk-bar-track {{ height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }}
+    .risk-bar-fill {{ height: 100%; width: 0%; border-radius: 3px; transition: width 0.4s ease; }}
+
+    .card-rows {{ display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; }}
+    .card-row {{ display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.06); padding: 3px 0; }}
+    .card-row .k {{ color: #9a9da1; }}
+    .card-row .v {{ font-family: 'IBM Plex Mono', monospace; color: #e8e9ea; }}
+
+    .card-btn-row {{ display: flex; gap: 8px; margin-top: 6px; }}
+    .card-action-btn {{ flex: 1; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; padding: 6px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; font-weight: 600; cursor: pointer; text-align: center; text-transform: uppercase; transition: all 0.15s ease; }}
+    .card-action-btn:hover {{ background: #38bdf8; color: #04060a; }}
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {{
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\\/script>');
+    }}
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    if (typeof THREE !== 'undefined' && typeof THREE.OrbitControls === 'undefined') {{
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js"><\\/script>');
+    }}
+  </script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <!-- HUD Header -->
+  <div class="hud hud-header">
+    <div class="hud-title"><span class="pulse-dot"></span> SIH26162 · 3D ORBITAL THERMAL RADAR</div>
+    <div class="hud-subtitle">Interactive Digital Twin &middot; High-Resolution 2D Satellite Inspection</div>
+    {f'<div class="hud-subtitle" style="color:#fab219;">Showing top {len(filtered_events)} of {total_filtered_count} by risk score — raise Min Risk Score or narrow the region to see fewer, less-overlapping markers</div>' if hidden_count else ''}
+  </div>
+
+  <!-- HUD Altitude & Status -->
+  <div class="hud hud-altitude" id="hud-altitude">
+    <span id="alt-txt">ALTITUDE: ORBITAL (1,200 km)</span>
+    <span class="res-badge" id="res-badge">GLOBAL SATELLITE</span>
+  </div>
+
+  <!-- HUD Stats -->
+  <div class="hud hud-stats">
+    <div class="stat-pill">
+      <div class="lbl">{"Shown / Total" if hidden_count else "Total Active"}</div>
+      <div class="val" id="stat-total">{f"{len(filtered_events)} / {total_filtered_count}" if hidden_count else len(filtered_events)}</div>
+    </div>
+    <div class="stat-pill">
+      <div class="lbl">Critical Risk</div>
+      <div class="val" style="color:#e66767;" id="stat-critical">{sum(1 for e in all_filtered_events if e.get("riskLevel") == "CRITICAL")}</div>
+    </div>
+    <div class="stat-pill">
+      <div class="lbl">High Risk</div>
+      <div class="val" style="color:#ec835a;" id="stat-high">{sum(1 for e in all_filtered_events if e.get("riskLevel") == "HIGH")}</div>
+    </div>
+    <div class="stat-pill">
+      <div class="lbl">Total FRP</div>
+      <div class="val" style="color:#fab219;" id="stat-frp">{sum(e.get("frp", 0) for e in all_filtered_events):.0f} MW</div>
+    </div>
+  </div>
+
+  <!-- Quick Floating Controls -->
+  <div class="hud hud-controls">
+    <button class="hud-btn highlight" id="btn-belt-2d" onclick="focusBelt2D()">🎯 Zoom Belt (2D Map)</button>
+    <button class="hud-btn" id="btn-india" onclick="focusIndia()">🇮🇳 Focus India</button>
+    <button class="hud-btn" id="btn-top-risk" onclick="focusTopRisk()">🔥 Highest Risk Hotspot</button>
+    <button class="hud-btn" id="btn-reset" onclick="resetToOrbit()">🌍 Orbital Overview</button>
+    <button class="hud-btn" id="btn-spin" onclick="toggleSpin()">🔄 Auto-Spin: ON</button>
+    <button class="hud-btn" id="btn-mode" onclick="toggleColorMode()">🎨 Mode: {color_by_mode.upper()}</button>
+  </div>
+
+  <!-- Bottom Monospace Prompt -->
+  <div class="hud hud-prompt" id="hud-prompt">
+    SCROLL TO DEEP ZOOM &middot; DOUBLE-CLICK ANYWHERE TO INSPECT 2D SATELLITE MAP &middot; CLICK BEAM
+  </div>
+
+  <!-- Selected Event Detail Card -->
+  <div class="hud" id="detail-card">
+    <div class="card-top">
+      <div>
+        <div class="card-id" id="card-id">TI-0001</div>
+        <div class="card-region" id="card-region">Industrial Cluster</div>
+      </div>
+      <button class="card-close" onclick="closeCard()">&times;</button>
+    </div>
+    <div id="card-badge-container"></div>
+    <div class="risk-bar-wrap">
+      <div class="risk-bar-label">
+        <span>RISK SCORE</span>
+        <span id="card-risk-val" style="font-weight:600;">85/100</span>
+      </div>
+      <div class="risk-bar-track">
+        <div class="risk-bar-fill" id="card-risk-fill"></div>
+      </div>
+    </div>
+    <div class="card-rows">
+      <div class="card-row"><span class="k">Coordinates</span><span class="v" id="card-coords">22.80, 86.18</span></div>
+      <div class="card-row"><span class="k">Fire Radiative Power</span><span class="v" id="card-frp">18.5 MW</span></div>
+      <div class="card-row"><span class="k">Brightness Temp</span><span class="v" id="card-brightness">345 K</span></div>
+      <div class="card-row"><span class="k">AI Confidence</span><span class="v" id="card-conf">88%</span></div>
+      <div class="card-row"><span class="k">Persistence</span><span class="v" id="card-persist">14 days</span></div>
+      <div class="card-row"><span class="k">Satellite Sensor</span><span class="v" id="card-sat">VIIRS S-NPP</span></div>
+      <div class="card-row"><span class="k">Status</span><span class="v" id="card-status">CRITICAL</span></div>
+    </div>
+    <div class="card-btn-row">
+      <button class="card-action-btn" onclick="recenterSelected2D()">🔍 2D Aerial Zoom</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Configuration & Constants ---
+    const RAW_EVENTS = {events_json_str};
+    const COASTLINE_GEOJSON = {coastline_geojson_js};
+    let colorByMode = "{color_by_mode}";
+    let isSpinning = {auto_rotate_js};
+    let initialSelectedId = {selected_id_js};
+
+    const CATEGORY_COLORS = {{
+      "Likely Industrial Fire": "#3987e5",
+      "Persistent Non-Industrial Thermal Source": "#d95926",
+      "Transient Industrial Flare": "#199e70",
+      "Likely Agricultural Burning": "#fab219",
+      "Sun Glint / False Positive": "#d55181",
+      "Likely Wildfire": "#008300",
+      "Persistent Industrial Activity": "#9085e9",
+      "Requires Verification": "#e66767"
+    }};
+
+    const RISK_COLORS = {{
+      "CRITICAL": "#e66767",
+      "HIGH": "#ec835a",
+      "MODERATE": "#fab219",
+      "LOW": "#0ca30c"
+    }};
+
+    const GLOBE_RADIUS = 2.0;
+
+    // --- Three.js Setup ---
+    const container = document.getElementById("canvas-container");
+    const hasThree = typeof THREE !== "undefined";
+    if (!hasThree) {{
+      container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#fab219;font-family:sans-serif;text-align:center;padding:24px;">
+        <h3 style="margin-bottom:8px;">⚠️ 3D Library (Three.js) Could Not Load</h3>
+        <p style="color:#9a9da1;font-size:0.85rem;max-width:440px;line-height:1.5;">Please check your internet connection or network firewall, then refresh the page.</p>
+      </div>`;
+    }}
+
+    const scene = hasThree ? new THREE.Scene() : null;
+    if (scene) scene.background = new THREE.Color(0x030508);
+
+    const camera = hasThree ? new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000) : null;
+    if (camera) camera.position.set(0, 1.4, 4.8);
+
+    let renderer = null;
+    if (hasThree) {{
+      try {{
+        renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: false, powerPreference: "high-performance" }});
+      }} catch(e) {{
+        try {{
+          renderer = new THREE.WebGLRenderer({{ antialias: false }});
+        }} catch(err) {{
+          container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#e66767;font-family:sans-serif;text-align:center;padding:24px;">
+            <h3 style="margin-bottom:8px;">⚠️ WebGL Not Supported</h3>
+            <p style="color:#9a9da1;font-size:0.85rem;max-width:440px;line-height:1.5;">Hardware acceleration or WebGL is disabled in your browser settings.</p>
+          </div>`;
+        }}
+      }}
+      if (renderer) {{
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+      }}
+    }}
+
+    function applyTextureSRGB(t) {{
+      if (!t) return;
+      if (THREE.SRGBColorSpace) {{
+        t.colorSpace = THREE.SRGBColorSpace;
+      }} else if (THREE.sRGBEncoding) {{
+        t.encoding = THREE.sRGBEncoding;
+      }}
+    }}
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    // DEEP ZOOM: Allow getting right down to ground level (0.012 above surface)
+    controls.minDistance = 2.012;
+    controls.maxDistance = 14.0;
+    controls.zoomSpeed = 1.1;
+    controls.autoRotate = isSpinning;
+    controls.autoRotateSpeed = 0.5;
+
+    // Stop auto-rotation whenever the user interacts with the camera
+    controls.addEventListener('start', () => {{
+      if (isSpinning) {{
+        isSpinning = false;
+        controls.autoRotate = false;
+        const btn = document.getElementById("btn-spin");
+        if (btn) btn.innerText = "🔄 Auto-Spin: OFF";
+      }}
+    }});
+
+    // --- Starfield Background ---
+    const starsGeo = new THREE.BufferGeometry();
+    const starCount = 1800;
+    const starPositions = new Float32Array(starCount * 3);
+    for(let i=0; i<starCount*3; i+=3) {{
+      const r = 50 + Math.random() * 80;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos((Math.random() * 2) - 1);
+      starPositions[i] = r * Math.sin(phi) * Math.cos(theta);
+      starPositions[i+1] = r * Math.cos(phi);
+      starPositions[i+2] = r * Math.sin(phi) * Math.sin(theta);
+    }}
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starsMat = new THREE.PointsMaterial({{ color: 0x8bb2d6, size: 0.85, transparent: true, opacity: 0.75 }});
+    const starField = new THREE.Points(starsGeo, starsMat);
+    scene.add(starField);
+
+    // --- Lighting ---
+    const ambientLight = new THREE.AmbientLight(0xdde8f5, 0.55);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff7ed, 2.6);
+    sunLight.position.set(6, 2.8, 4.5);
+    scene.add(sunLight);
+
+    const nightRimLight = new THREE.DirectionalLight(0x38bdf8, 0.4);
+    nightRimLight.position.set(-6, -2, -4);
+    scene.add(nightRimLight);
+
+    // --- Earth Group ---
+    const earthGroup = new THREE.Group();
+    // Rotate to bring India and South Asia to front-and-center
+    earthGroup.rotation.y = ((80 + 180) * Math.PI) / 180 - Math.PI / 2;
+    scene.add(earthGroup);
+
+    const texLoader = new THREE.TextureLoader();
+    texLoader.crossOrigin = "anonymous";
+
+    // 1. Earth Base Mesh (NASA Blue Marble Globe)
+    const earthGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 128, 128);
+    
+    function createProceduralEarthCanvas() {{
+      // Soft placeholder gradient shown only until the real Blue Marble
+      // texture finishes loading (or if the CDN is unreachable) — no fake
+      // landmass shapes, just a neutral ocean tone so it never misleads.
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      const oceanGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      oceanGrad.addColorStop(0, '#123a5e');
+      oceanGrad.addColorStop(0.5, '#0d325c');
+      oceanGrad.addColorStop(1, '#081c36');
+      ctx.fillStyle = oceanGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return new THREE.CanvasTexture(canvas);
+    }}
+
+    const defaultDayTex = createProceduralEarthCanvas();
+    const earthMat = new THREE.MeshPhongMaterial({{
+      map: defaultDayTex,
+      specular: new THREE.Color(0x1b4a68),
+      shininess: 22
+    }});
+    const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+    earthGroup.add(earthMesh);
+
+    // Local-first texture set bundled with the app (instant, zero network
+    // dependency) — falls back to the live CDN copy only if the local file
+    // wasn't available when the page was generated.
+    const LOCAL_DAY_TEX = {local_day_tex_js};
+    const LOCAL_NORMAL_TEX = {local_normal_tex_js};
+    const LOCAL_SPECULAR_TEX = {local_specular_tex_js};
+
+    texLoader.load(
+      LOCAL_DAY_TEX || "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
+      (tex) => {{
+        applyTextureSRGB(tex);
+        tex.anisotropy = 16;
+        tex.generateMipmaps = true;
+        earthMat.map = tex;
+        earthMat.needsUpdate = true;
+      }}
+    );
+
+    // Real terrain relief — mountain ranges, ridges, and coastal shelves
+    // catch the sun light instead of the whole globe looking like a flat
+    // painted ball. Prefer a proper normal map (local asset); fall back to
+    // a plain bump map from the CDN copy if the local texture is missing.
+    if (LOCAL_NORMAL_TEX) {{
+      texLoader.load(LOCAL_NORMAL_TEX, (tex) => {{
+        earthMat.normalMap = tex;
+        earthMat.normalScale = new THREE.Vector2(0.85, 0.85);
+        earthMat.needsUpdate = true;
+      }});
+    }} else {{
+      texLoader.load(
+        "https://unpkg.com/three-globe/example/img/earth-topology.png",
+        (tex) => {{
+          earthMat.bumpMap = tex;
+          earthMat.bumpScale = 0.045;
+          earthMat.needsUpdate = true;
+        }}
+      );
+    }}
+
+    // Ocean specular mask — makes seas glint under the sun while land
+    // stays matte, instead of one uniform specular value everywhere.
+    texLoader.load(
+      LOCAL_SPECULAR_TEX || "https://unpkg.com/three-globe/example/img/earth-water.png",
+      (tex) => {{
+        earthMat.specularMap = tex;
+        earthMat.needsUpdate = true;
+      }}
+    );
+
+    // 2. DEDICATED REGIONAL HIGH-RESOLUTION SATELLITE CURVED PATCH
+    // Covers the entire Jharkhand–Odisha Iron Ore & Steel Mining Belt (Lat 20.0 to 25.5 N, Lon 83.0 to 88.5 E)
+    // Uses a dedicated 2048x2048 canvas with Level 9/10/11 Esri Satellite Tiles for razor-sharp ground details
+    const REG_MIN_LAT = 19.8, REG_MAX_LAT = 25.8;
+    const REG_MIN_LON = 83.0, REG_MAX_LON = 89.0;
+    const regPhiStart = (90 - REG_MAX_LAT) * (Math.PI / 180);
+    const regPhiLength = (REG_MAX_LAT - REG_MIN_LAT) * (Math.PI / 180);
+    const regThetaStart = (REG_MIN_LON + 180) * (Math.PI / 180);
+    const regThetaLength = (REG_MAX_LON - REG_MIN_LON) * (Math.PI / 180);
+
+    const regionalPatchGeo = new THREE.SphereGeometry(
+      GLOBE_RADIUS * 1.0008, 96, 96,
+      regThetaStart, regThetaLength, regPhiStart, regPhiLength
+    );
+
+    const regionalCanvas = document.createElement('canvas');
+    regionalCanvas.width = 2048;
+    regionalCanvas.height = 2048;
+    const regionalCtx = regionalCanvas.getContext('2d');
+
+    // Fill initial high-contrast natural terrain palette
+    regionalCtx.fillStyle = '#223826';
+    regionalCtx.fillRect(0, 0, regionalCanvas.width, regionalCanvas.height);
+
+    const regionalSatTexture = new THREE.CanvasTexture(regionalCanvas);
+    applyTextureSRGB(regionalSatTexture);
+    regionalSatTexture.anisotropy = 16;
+    regionalSatTexture.generateMipmaps = true;
+    regionalSatTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    regionalSatTexture.magFilter = THREE.LinearFilter;
+
+    const regionalPatchMat = new THREE.MeshBasicMaterial({{
+      map: regionalSatTexture,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    }});
+    const regionalPatchMesh = new THREE.Mesh(regionalPatchGeo, regionalPatchMat);
+    earthGroup.add(regionalPatchMesh);
+
+    // Shared tile loader with one retry, then a neutral-tint fallback —
+    // a flaky/blocked tile server previously left a permanent blank gap
+    // with no retry and no visual indication anything had failed.
+    function loadTileImage(url, onload, onfail, retriesLeft) {{
+      if (retriesLeft === undefined) retriesLeft = 1;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => onload(img);
+      img.onerror = () => {{
+        if (retriesLeft > 0) {{
+          setTimeout(() => loadTileImage(url, onload, onfail, retriesLeft - 1), 500);
+        }} else {{
+          onfail();
+        }}
+      }};
+      img.src = url;
+    }}
+
+    // Dynamic Esri Satellite Tile Stitcher for Regional Curved Patch
+    function loadRegionalHighResSatelliteTiles() {{
+      const z = 8; // Zoom level 8 provides high-detail ~600m resolution per tile
+      const n = Math.pow(2, z);
+
+      function lonToX(lon) {{ return ((lon + 180) / 360) * n; }}
+      function latToY(lat) {{
+        const latRad = lat * Math.PI / 180;
+        return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+      }}
+
+      const startX = Math.floor(lonToX(REG_MIN_LON));
+      const endX = Math.floor(lonToX(REG_MAX_LON));
+      const startY = Math.floor(latToY(REG_MAX_LAT));
+      const endY = Math.floor(latToY(REG_MIN_LAT));
+
+      for (let x = startX; x <= endX; x++) {{
+        for (let y = startY; y <= endY; y++) {{
+          const curX = x, curY = y;
+          const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${{z}}/${{curY}}/${{curX}}`;
+
+          const tileLonLeft = (curX / n) * 360 - 180;
+          const tileLonRight = ((curX + 1) / n) * 360 - 180;
+          const tileLatTop = Math.atan(Math.sinh(Math.PI * (1 - (2 * curY) / n))) * 180 / Math.PI;
+          const tileLatBottom = Math.atan(Math.sinh(Math.PI * (1 - (2 * (curY + 1)) / n))) * 180 / Math.PI;
+
+          // Map into the regional patch 2048x2048 canvas
+          const dx = ((tileLonLeft - REG_MIN_LON) / (REG_MAX_LON - REG_MIN_LON)) * regionalCanvas.width;
+          const dw = ((tileLonRight - tileLonLeft) / (REG_MAX_LON - REG_MIN_LON)) * regionalCanvas.width;
+          const dy = ((REG_MAX_LAT - tileLatTop) / (REG_MAX_LAT - REG_MIN_LAT)) * regionalCanvas.height;
+          const dh = ((tileLatTop - tileLatBottom) / (REG_MAX_LAT - REG_MIN_LAT)) * regionalCanvas.height;
+
+          loadTileImage(
+            tileUrl,
+            (img) => {{
+              regionalCtx.drawImage(img, dx, dy, dw + 1, dh + 1);
+              regionalSatTexture.needsUpdate = true;
+            }},
+            () => {{
+              regionalCtx.fillStyle = "#223826";
+              regionalCtx.fillRect(dx, dy, dw + 1, dh + 1);
+              regionalSatTexture.needsUpdate = true;
+            }}
+          );
+        }}
+      }}
+    }}
+    loadRegionalHighResSatelliteTiles();
+
+    // 3. Dynamic Local Patch for any Focused Hotspot / Coordinate
+    let localPatchMesh = null;
+    const localCanvas = document.createElement('canvas');
+    localCanvas.width = 1024;
+    localCanvas.height = 1024;
+    const localCtx = localCanvas.getContext('2d');
+    const localTexture = new THREE.CanvasTexture(localCanvas);
+    applyTextureSRGB(localTexture);
+    localTexture.anisotropy = 16;
+    localTexture.generateMipmaps = true;
+
+    const localMat = new THREE.MeshBasicMaterial({{
+      map: localTexture,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    }});
+
+    function updateLocalSatellitePatch(centerLat, centerLon) {{
+      const span = 2.4;
+      const minLat = centerLat - span, maxLat = centerLat + span;
+      const minLon = centerLon - span, maxLon = centerLon + span;
+
+      if (localPatchMesh) {{
+        earthGroup.remove(localPatchMesh);
+        localPatchMesh.geometry.dispose();
+      }}
+
+      const phiStart = (90 - maxLat) * (Math.PI / 180);
+      const phiLength = (maxLat - minLat) * (Math.PI / 180);
+      const thetaStart = (minLon + 180) * (Math.PI / 180);
+      const thetaLength = (maxLon - minLon) * (Math.PI / 180);
+
+      const localGeo = new THREE.SphereGeometry(
+        GLOBE_RADIUS * 1.0012, 64, 64,
+        thetaStart, thetaLength, phiStart, phiLength
+      );
+      localPatchMesh = new THREE.Mesh(localGeo, localMat);
+      earthGroup.add(localPatchMesh);
+
+      // Load zoom 10 high-resolution satellite tiles (~150m detail per pixel)
+      localCtx.fillStyle = '#223826';
+      localCtx.fillRect(0, 0, localCanvas.width, localCanvas.height);
+      localTexture.needsUpdate = true;
+
+      const z = 10;
+      const n = Math.pow(2, z);
+      function lonToX(lon) {{ return ((lon + 180) / 360) * n; }}
+      function latToY(lat) {{
+        const latRad = lat * Math.PI / 180;
+        return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+      }}
+
+      const startX = Math.floor(lonToX(minLon));
+      const endX = Math.floor(lonToX(maxLon));
+      const startY = Math.floor(latToY(maxLat));
+      const endY = Math.floor(latToY(minLat));
+
+      for (let x = startX; x <= endX; x++) {{
+        for (let y = startY; y <= endY; y++) {{
+          const curX = x, curY = y;
+          const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${{z}}/${{curY}}/${{curX}}`;
+
+          const tileLonLeft = (curX / n) * 360 - 180;
+          const tileLonRight = ((curX + 1) / n) * 360 - 180;
+          const tileLatTop = Math.atan(Math.sinh(Math.PI * (1 - (2 * curY) / n))) * 180 / Math.PI;
+          const tileLatBottom = Math.atan(Math.sinh(Math.PI * (1 - (2 * (curY + 1)) / n))) * 180 / Math.PI;
+
+          const dx = ((tileLonLeft - minLon) / (maxLon - minLon)) * localCanvas.width;
+          const dw = ((tileLonRight - tileLonLeft) / (maxLon - minLon)) * localCanvas.width;
+          const dy = ((maxLat - tileLatTop) / (maxLat - minLat)) * localCanvas.height;
+          const dh = ((tileLatTop - tileLatBottom) / (maxLat - minLat)) * localCanvas.height;
+
+          loadTileImage(
+            tileUrl,
+            (img) => {{
+              localCtx.drawImage(img, dx, dy, dw + 1, dh + 1);
+              localTexture.needsUpdate = true;
+            }},
+            () => {{
+              localCtx.fillStyle = "#223826";
+              localCtx.fillRect(dx, dy, dw + 1, dh + 1);
+              localTexture.needsUpdate = true;
+            }}
+          );
+        }}
+      }}
+    }}
+
+    // 4. City lights on the dark side
+    const LOCAL_LIGHTS_TEX = {local_lights_tex_js};
+    let lightsMesh = null;
+    texLoader.load(
+      LOCAL_LIGHTS_TEX || "https://unpkg.com/three-globe/example/img/earth-night.jpg",
+      (lightsTex) => {{
+        applyTextureSRGB(lightsTex);
+        const lightsMat = new THREE.MeshBasicMaterial({{
+          map: lightsTex,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          opacity: 0.55,
+          depthWrite: false
+        }});
+        lightsMesh = new THREE.Mesh(new THREE.SphereGeometry(GLOBE_RADIUS * 1.001, 96, 96), lightsMat);
+        earthGroup.add(lightsMesh);
+      }}
+    );
+
+    // 5. Drifting cloud shell
+    const LOCAL_CLOUDS_TEX = {local_clouds_tex_js};
+    let cloudsMesh = null;
+    texLoader.load(
+      LOCAL_CLOUDS_TEX || "https://unpkg.com/three-globe/example/img/clouds.png",
+      (cloudsTex) => {{
+        const cloudsMat = new THREE.MeshLambertMaterial({{
+          map: cloudsTex,
+          transparent: true,
+          opacity: 0.42,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        }});
+        cloudsMesh = new THREE.Mesh(new THREE.SphereGeometry(GLOBE_RADIUS * 1.012, 64, 64), cloudsMat);
+        earthGroup.add(cloudsMesh);
+      }}
+    );
+
+    // 6. Vibrant Cyan Atmospheric Glow Halo (Fresnel Shader matching Image 2)
+    const atmosVertexShader = `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main() {{
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }}
+    `;
+
+    const atmosFragmentShader = `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      uniform vec3 uColor;
+      uniform float uPower;
+      uniform float uStrength;
+      uniform float uOpacity;
+      void main() {{
+        float f = pow(1.0 - abs(dot(vNormal, vView)), uPower);
+        gl_FragColor = vec4(uColor, f * uStrength * uOpacity);
+      }}
+    `;
+
+    const atmosphereMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(GLOBE_RADIUS * 1.09, 64, 64),
+      new THREE.ShaderMaterial({{
+        vertexShader: atmosVertexShader,
+        fragmentShader: atmosFragmentShader,
+        uniforms: {{
+          uColor: {{ value: new THREE.Color("#38bdf8") }},
+          uPower: {{ value: 2.2 }},
+          uStrength: {{ value: 1.6 }},
+          uOpacity: {{ value: 1.0 }}
+        }},
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide,
+        depthWrite: false
+      }})
+    );
+    scene.add(atmosphereMesh);
+
+    // Coordinate Graticule (Lat/Lon Lines)
+    const gridMat = new THREE.LineBasicMaterial({{ color: 0x38bdf8, transparent: true, opacity: 0.16 }});
+    for (let lat = -75; lat <= 75; lat += 15) {{
+      const phi = (90 - lat) * (Math.PI / 180);
+      const r = GLOBE_RADIUS * 1.002 * Math.sin(phi);
+      const y = GLOBE_RADIUS * 1.002 * Math.cos(phi);
+      const pts = [];
+      for (let theta = 0; theta <= Math.PI * 2; theta += Math.PI / 36) {{
+        pts.push(new THREE.Vector3(r * Math.cos(theta), y, r * Math.sin(theta)));
+      }}
+      earthGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat));
+    }}
+
+    // Helper Coordinate Math
+    function latLonToVec3(lat, lon, radius) {{
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
+      return new THREE.Vector3(
+        -radius * Math.sin(phi) * Math.cos(theta),
+        radius * Math.cos(phi),
+        radius * Math.sin(phi) * Math.sin(theta)
+      );
+    }}
+
+    function vec3ToLatLon(vec, radius) {{
+      const norm = vec.clone().normalize();
+      const phi = Math.acos(norm.y);
+      const lat = 90 - (phi * 180) / Math.PI;
+      const theta = Math.atan2(norm.z, -norm.x);
+      let lon = (theta * 180) / Math.PI - 180;
+      if (lon < -180) lon += 360;
+      return {{ lat, lon }};
+    }}
+
+    // Real coastline outlines
+    function buildCoastlines() {{
+      if (!COASTLINE_GEOJSON) return;
+      const coastMat = new THREE.LineBasicMaterial({{ color: 0x8fa8c2, transparent: true, opacity: 0.35 }});
+      const coastRadius = GLOBE_RADIUS * 1.002;
+
+      function addRing(ring) {{
+        const pts = ring.map(([lon, lat]) => latLonToVec3(lat, lon, coastRadius));
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        earthGroup.add(new THREE.LineLoop(geo, coastMat));
+      }}
+
+      COASTLINE_GEOJSON.features.forEach((feature) => {{
+        const geom = feature && feature.geometry;
+        if (!geom) return;
+        if (geom.type === "Polygon") {{
+          geom.coordinates.forEach(addRing);
+        }} else if (geom.type === "MultiPolygon") {{
+          geom.coordinates.forEach((rings) => rings.forEach(addRing));
+        }}
+      }});
+    }}
+    buildCoastlines();
+
+    // --- Spatial Clustering & 3D Light Pillar Beams ---
+    const markersGroup = new THREE.Group();
+    earthGroup.add(markersGroup);
+
+    const interactiveObjects = [];
+    const haloMeshes = [];
+    const beamMeshes = [];
+    let selectedMesh = null;
+    let selectedEvent = null;
+
+    function getEventColor(event) {{
+      if (colorByMode === "risk") {{
+        return RISK_COLORS[event.riskLevel] || "#fab219";
+      }}
+      return CATEGORY_COLORS[event.category] || "#fab219";
+    }}
+
+    // Spatial clustering algorithm to group nearby detections into clean, prominent 3D pillars
+    function clusterEvents(events, gridDeg = 0.65) {{
+      const map = new Map();
+      events.forEach(e => {{
+        const latBin = Math.round(e.latitude / gridDeg);
+        const lonBin = Math.round(e.longitude / gridDeg);
+        const key = `${{latBin}}_${{lonBin}}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(e);
+      }});
+
+      const clusters = [];
+      map.forEach((evList, key) => {{
+        const lead = evList.reduce((a, b) => {{
+          if (b.riskScore !== a.riskScore) return b.riskScore > a.riskScore ? b : a;
+          return (b.frp || 0) > (a.frp || 0) ? b : a;
+        }});
+        const avgLat = evList.reduce((s, e) => s + e.latitude, 0) / evList.length;
+        const avgLon = evList.reduce((s, e) => s + e.longitude, 0) / evList.length;
+        const totalFrp = evList.reduce((s, e) => s + (e.frp || 0), 0);
+        const maxRisk = Math.max(...evList.map(e => e.riskScore || 0));
+
+        clusters.push({{
+          key,
+          latitude: avgLat,
+          longitude: avgLon,
+          events: evList,
+          leadEvent: lead,
+          count: evList.length,
+          totalFrp,
+          maxRisk
+        }});
+      }});
+
+      clusters.sort((a, b) => b.maxRisk - a.maxRisk);
+      return clusters.slice(0, 42);
+    }}
+
+    function buildBeams() {{
+      while(markersGroup.children.length > 0) {{
+        markersGroup.remove(markersGroup.children[0]);
+      }}
+      interactiveObjects.length = 0;
+      haloMeshes.length = 0;
+      beamMeshes.length = 0;
+
+      const clusters = clusterEvents(RAW_EVENTS, 1.15);
+
+      clusters.forEach(cluster => {{
+        const lead = cluster.leadEvent;
+        const pos = latLonToVec3(cluster.latitude, cluster.longitude, GLOBE_RADIUS);
+        const normal = pos.clone().normalize();
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+
+        // Marker scale based on count of detections in cluster
+        const countScale = 1.0 + Math.min(0.45, Math.log2(cluster.count) * 0.12);
+        // Slender majestic vertical pillar height matching Image 2
+        const height = (0.13 + (lead.riskScore / 100) * 0.32 + Math.min(0.08, (lead.frp / 40) * 0.08));
+
+        const colorHex = getEventColor(lead);
+        const color = new THREE.Color(colorHex);
+
+        const beamGroup = new THREE.Group();
+        beamGroup.position.copy(pos);
+        beamGroup.quaternion.copy(quat);
+        beamGroup.userData = {{ event: lead, cluster, height, baseHeight: height, size: countScale }};
+
+        // 1. Slender Vertical Pillar Stalk (Shaded with natural depth, NO AdditiveBlending blowout)
+        const cylRadius = 0.007 * countScale;
+        const cylGeo = new THREE.CylinderGeometry(cylRadius, cylRadius * 1.25, height, 16);
+        const cylMat = new THREE.MeshPhongMaterial({{
+          color: color,
+          emissive: color,
+          emissiveIntensity: 0.22,
+          transparent: true,
+          opacity: 0.90,
+          shininess: 20,
+        }});
+        const cylinder = new THREE.Mesh(cylGeo, cylMat);
+        cylinder.position.set(0, height / 2, 0);
+        beamGroup.add(cylinder);
+
+        // 2. Glowing Top Beacon Sphere (Reflects directional sun light like in Image 2)
+        const topRadius = 0.026 * countScale;
+        const sphereGeo = new THREE.SphereGeometry(topRadius, 24, 24);
+        const sphereMat = new THREE.MeshPhongMaterial({{
+          color: color,
+          emissive: color,
+          emissiveIntensity: 0.28,
+          shininess: 30,
+          specular: new THREE.Color(0x444444),
+        }});
+        const beacon = new THREE.Mesh(sphereGeo, sphereMat);
+        beacon.position.set(0, height, 0);
+        beamGroup.add(beacon);
+
+        // 3. Ground Base Ring on Earth Surface
+        const ringInner = 0.016 * countScale;
+        const ringOuter = 0.032 * countScale;
+        const ringGeo = new THREE.RingGeometry(ringInner, ringOuter, 32);
+        const ringMat = new THREE.MeshBasicMaterial({{
+          color: color,
+          transparent: true,
+          opacity: 0.65,
+          side: THREE.DoubleSide,
+        }});
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(0, 0.003, 0);
+        beamGroup.add(ring);
+
+        // 4. Tactical Ground Core Dot
+        const coreGeo = new THREE.CircleGeometry(0.009 * countScale, 16);
+        const coreMat = new THREE.MeshBasicMaterial({{
+          color: color,
+          side: THREE.DoubleSide,
+        }});
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        core.rotation.x = -Math.PI / 2;
+        core.position.set(0, 0.004, 0);
+        beamGroup.add(core);
+
+        markersGroup.add(beamGroup);
+        interactiveObjects.push(cylinder, beacon, ring, core);
+        haloMeshes.push({{ ring, core, event: lead, cluster, baseScale: countScale }});
+        beamMeshes.push({{ beamGroup, cylinder, beacon, baseHeight: height, size: countScale }});
+
+        if (initialSelectedId && (lead.id === initialSelectedId || cluster.events.some(e => e.id === initialSelectedId))) {{
+          selectEvent(lead, beamGroup, cluster);
+        }}
+      }});
+    }}
+
+    // --- Raycasting & Interaction ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function onPointerMove(e) {{
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveObjects, false);
+      document.body.style.cursor = intersects.length > 0 ? "pointer" : "auto";
+    }}
+
+    // STOP AUTO ROTATION IMMEDIATELY ON BEAM CLICK
+    function onClick(e) {{
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveObjects, false);
+      if (intersects.length > 0) {{
+        isSpinning = false;
+        controls.autoRotate = false;
+        const btnSpin = document.getElementById("btn-spin");
+        if (btnSpin) btnSpin.innerText = "🔄 Auto-Spin: OFF";
+
+        const hit = intersects[0].object;
+        const beamGroup = hit.parent;
+        if (beamGroup && beamGroup.userData && beamGroup.userData.event) {{
+          selectEvent(beamGroup.userData.event, beamGroup, beamGroup.userData.cluster);
+        }}
+      }}
+    }}
+
+    function onDoubleClick(e) {{
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const earthHit = raycaster.intersectObject(earthMesh, false);
+      if (earthHit.length > 0) {{
+        isSpinning = false;
+        controls.autoRotate = false;
+        const btnSpin = document.getElementById("btn-spin");
+        if (btnSpin) btnSpin.innerText = "🔄 Auto-Spin: OFF";
+
+        const localPt = earthGroup.worldToLocal(earthHit[0].point.clone());
+        const coords = vec3ToLatLon(localPt, GLOBE_RADIUS);
+        updateLocalSatellitePatch(coords.lat, coords.lon);
+        flyToLatLon(coords.lat, coords.lon, 2.10);
+      }}
+    }}
+
+    function selectEvent(event, groupMesh, cluster) {{
+      isSpinning = false;
+      controls.autoRotate = false;
+      const btnSpin = document.getElementById("btn-spin");
+      if (btnSpin) btnSpin.innerText = "🔄 Auto-Spin: OFF";
+
+      selectedEvent = event;
+      selectedMesh = groupMesh;
+
+      const count = cluster ? cluster.count : (event.detectionCount || 1);
+      const card = document.getElementById("detail-card");
+      card.classList.add("active");
+      document.getElementById("card-id").innerText = event.id;
+      document.getElementById("card-region").innerText = count > 1 ? `${{event.region}} (${{count}} Detections)` : event.region;
+
+      const col = getEventColor(event);
+      const badgeCont = document.getElementById("card-badge-container");
+      badgeCont.innerHTML = `<span class="card-badge" style="background:${{col}}22;color:${{col}};border:1px solid ${{col}}66;">${{event.category}}</span>`;
+
+      document.getElementById("card-risk-val").innerText = `${{event.riskScore}}/100 (${{event.riskLevel}})`;
+      document.getElementById("card-risk-val").style.color = RISK_COLORS[event.riskLevel] || "#fab219";
+
+      const fill = document.getElementById("card-risk-fill");
+      fill.style.width = `${{event.riskScore}}%`;
+      fill.style.background = RISK_COLORS[event.riskLevel] || "#fab219";
+
+      document.getElementById("card-coords").innerText = `${{event.latitude.toFixed(4)}}, ${{event.longitude.toFixed(4)}}`;
+      document.getElementById("card-frp").innerText = `${{event.frp.toFixed(1)}} MW`;
+      document.getElementById("card-brightness").innerText = `${{event.brightness}} K`;
+      document.getElementById("card-conf").innerText = `${{event.confidence}}%`;
+      document.getElementById("card-persist").innerText = `${{event.persistenceDays}} days (${{count}} clustered)`;
+      document.getElementById("card-sat").innerText = event.satellite;
+      document.getElementById("card-status").innerText = event.status;
+
+      if (event.latitude && event.longitude) {{
+        updateLocalSatellitePatch(event.latitude, event.longitude);
+        flyToLatLon(event.latitude, event.longitude, 2.10);
+      }}
+    }}
+
+    function closeCard() {{
+      document.getElementById("detail-card").classList.remove("active");
+      selectedEvent = null;
+      selectedMesh = null;
+    }}
+
+    function recenterSelected2D() {{
+      if (selectedEvent && selectedEvent.latitude && selectedEvent.longitude) {{
+        updateLocalSatellitePatch(selectedEvent.latitude, selectedEvent.longitude);
+        flyToLatLon(selectedEvent.latitude, selectedEvent.longitude, 2.06);
+      }}
+    }}
+
+    // --- Smooth Camera Fly-To Animation ---
+    let isAnimatingFlight = false;
+    function flyToLatLon(lat, lon, targetRadius = 2.10) {{
+      isSpinning = false;
+      controls.autoRotate = false;
+      const btnSpin = document.getElementById("btn-spin");
+      if (btnSpin) btnSpin.innerText = "🔄 Auto-Spin: OFF";
+
+      const localPos = latLonToVec3(lat, lon, targetRadius);
+      const worldTargetPos = earthGroup.localToWorld(localPos.clone());
+      const startPos = camera.position.clone();
+      const startTarget = controls.target.clone();
+      const endTarget = new THREE.Vector3(0, 0, 0);
+
+      isAnimatingFlight = true;
+      let progress = 0;
+
+      function step() {{
+        progress += 0.04;
+        const ease = 0.5 - 0.5 * Math.cos(Math.min(progress, 1) * Math.PI);
+        camera.position.lerpVectors(startPos, worldTargetPos, ease);
+        controls.target.lerpVectors(startTarget, endTarget, ease);
+        controls.update();
+
+        if (progress < 1) {{
+          requestAnimationFrame(step);
+        }} else {{
+          isAnimatingFlight = false;
+        }}
+      }}
+      step();
+    }}
+
+    // --- Preset Navigation Actions ---
+    function focusBelt2D() {{
+      flyToLatLon(22.80, 86.18, 2.09);
+    }}
+
+    function focusIndia() {{
+      flyToLatLon(21.5, 80.0, 3.6);
+    }}
+
+    function focusTopRisk() {{
+      if (RAW_EVENTS.length > 0) {{
+        const topEvent = RAW_EVENTS[0];
+        const matchBeam = markersGroup.children.find(c => c.userData && c.userData.event && c.userData.event.id === topEvent.id);
+        selectEvent(topEvent, matchBeam || markersGroup.children[0]);
+      }} else {{
+        focusBelt2D();
+      }}
+    }}
+
+    function resetToOrbit() {{
+      isSpinning = true;
+      controls.autoRotate = true;
+      const btnSpin = document.getElementById("btn-spin");
+      if (btnSpin) btnSpin.innerText = "🔄 Auto-Spin: ON";
+      const startPos = camera.position.clone();
+      const targetPos = new THREE.Vector3(0, 1.4, 4.8);
+      let progress = 0;
+      function anim() {{
+        progress += 0.04;
+        const ease = 0.5 - 0.5 * Math.cos(Math.min(progress, 1) * Math.PI);
+        camera.position.lerpVectors(startPos, targetPos, ease);
+        controls.target.set(0, 0, 0);
+        controls.update();
+        if (progress < 1) requestAnimationFrame(anim);
+      }}
+      anim();
+    }}
+
+    function toggleSpin() {{
+      isSpinning = !isSpinning;
+      controls.autoRotate = isSpinning;
+      const btnSpin = document.getElementById("btn-spin");
+      if (btnSpin) btnSpin.innerText = `🔄 Auto-Spin: ${{isSpinning ? "ON" : "OFF"}}`;
+    }}
+
+    function toggleColorMode() {{
+      colorByMode = colorByMode === "category" ? "risk" : "category";
+      document.getElementById("btn-mode").innerText = `🎨 Mode: ${{colorByMode.toUpperCase()}}`;
+      buildBeams();
+      if (selectedEvent) selectEvent(selectedEvent, selectedMesh);
+    }}
+
+    // --- Animation & Deep Zoom Render Loop ---
+    const clock = new THREE.Clock();
+    const altTxt = document.getElementById("alt-txt");
+    const resBadge = document.getElementById("res-badge");
+
+    function animate() {{
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+
+      const camDist = camera.position.length();
+      const altKm = Math.round(Math.max(1, (camDist - GLOBE_RADIUS) / GLOBE_RADIUS * 6371));
+
+      // altFactor: 1.0 in outer orbit (>= 3.2), 0.0 at surface (<= 2.12)
+      const altFactor = Math.max(0, Math.min(1, (camDist - 2.12) / (3.2 - 2.12)));
+
+      // 1. Drifting Clouds Fade Out Completely on Zoom
+      if (cloudsMesh) {{
+        cloudsMesh.rotation.y += delta * 0.015;
+        cloudsMesh.material.opacity = 0.42 * Math.pow(altFactor, 2.0);
+      }}
+
+      // 2. Atmospheric Cyan Halo Dissolves on Deep Zoom for 100% clear ground view
+      if (atmosphereMesh && atmosphereMesh.material.uniforms) {{
+        atmosphereMesh.material.uniforms.uOpacity.value = Math.pow(altFactor, 1.6);
+      }}
+
+      // 3. High-Resolution Regional & Local Satellite Patches Blend to 100% Clarity
+      const satBlend = Math.max(0, Math.min(1, (2.85 - camDist) / (2.85 - 2.10)));
+      if (regionalPatchMat) {{
+        regionalPatchMat.opacity = THREE.MathUtils.lerp(0.0, 1.0, satBlend);
+      }}
+      if (localMat) {{
+        localMat.opacity = THREE.MathUtils.lerp(0.0, 1.0, satBlend);
+      }}
+
+      // 4. Adaptive Beam Height on Close Zoom
+      const beamScaleFactor = Math.max(0.15, Math.min(1.0, (camDist - 2.04) / 0.8));
+      beamMeshes.forEach(b => {{
+        const h = b.baseHeight * beamScaleFactor;
+        b.cylinder.scale.set(1, beamScaleFactor, 1);
+        b.cylinder.position.set(0, h / 2, 0);
+        b.beacon.position.set(0, h, 0);
+      }});
+
+      // 5. Pulsating Ground Radar Halos
+      haloMeshes.forEach(h => {{
+        const isSel = selectedEvent && selectedEvent.id === h.event.id;
+        const rate = isSel ? 3.5 : 1.6;
+        const scale = isSel ? 1.4 + Math.sin(elapsed * rate) * 0.35 : 1.0 + Math.sin(elapsed * rate + h.event.riskScore) * 0.18;
+        h.ring.scale.set(scale, scale, scale);
+      }});
+
+      // 6. Update Real-time Altitude & Resolution HUD
+      if (camDist > 3.4) {{
+        altTxt.innerText = `ALTITUDE: ORBITAL (${{altKm.toLocaleString()}} km)`;
+        resBadge.innerText = "GLOBAL SATELLITE";
+        resBadge.style.borderColor = "#38bdf8";
+        resBadge.style.color = "#38bdf8";
+      }} else if (camDist > 2.6) {{
+        altTxt.innerText = `ALTITUDE: STRATOSPHERE (${{altKm.toLocaleString()}} km)`;
+        resBadge.innerText = "REGIONAL SATELLITE";
+        resBadge.style.borderColor = "#fab219";
+        resBadge.style.color = "#fab219";
+      }} else if (camDist > 2.18) {{
+        altTxt.innerText = `ALTITUDE: TACTICAL (${{altKm.toLocaleString()}} km)`;
+        resBadge.innerText = "🛰️ ULTRA-CLEAR SATELLITE ACTIVE";
+        resBadge.style.borderColor = "#0ca30c";
+        resBadge.style.color = "#4ade80";
+      }} else {{
+        altTxt.innerText = `ALTITUDE: SURFACE GIS (${{altKm.toLocaleString()}} km)`;
+        resBadge.innerText = "🛰️ 2D MAP RESOLUTION";
+        resBadge.style.borderColor = "#0ca30c";
+        resBadge.style.color = "#4ade80";
+      }}
+
+      if (controls && renderer) {{
+        controls.update();
+        renderer.render(scene, camera);
+      }}
+    }}
+
+    // --- Window Listeners & Init ---
+    if (hasThree && renderer) {{
+      window.addEventListener("resize", () => {{
+        if (camera && renderer) {{
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        }}
+      }});
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("click", onClick);
+      window.addEventListener("dblclick", onDoubleClick);
+
+      buildBeams();
+      resetToOrbit();
+      animate();
+    }}
+  </script>
+</body>
+</html>
+"""
+    return html_content
+
+
+
+
+if __name__ == "__main__":
+    exported = export_pipeline_events_for_holo_view()
+    print(f"Successfully exported {len(exported)} thermal events for 3D Holo-View.")
+    if exported:
+        print("Sample event:", json.dumps(exported[0], indent=2))
+
+>>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
