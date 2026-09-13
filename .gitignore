@@ -4,6 +4,7 @@ venv/
 __pycache__/
 *.pyc
 .env
+.streamlit/secrets.toml
 data/*
 !data/reference/
 !data/demo/

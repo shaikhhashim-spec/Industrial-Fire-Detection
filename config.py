@@ -40,7 +40,18 @@ OVERPASS_BBOX_STR = f"{BBOX['min_lat']},{BBOX['min_lon']},{BBOX['max_lat']},{BBO
 
 def get_firms_api_key() -> str:
     load_dotenv(override=True)
-    return (os.getenv("FIRMS_API_KEY") or os.getenv("FIRMS_MAP_KEY") or "").strip()
+    key = (os.getenv("FIRMS_API_KEY") or os.getenv("FIRMS_MAP_KEY") or "").strip()
+    if not key:
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets"):
+                key = str(st.secrets.get("FIRMS_API_KEY") or st.secrets.get("FIRMS_MAP_KEY") or "").strip()
+        except Exception:
+            pass
+    if not key:
+        key = "d080e2498618054cbe08678439bf952e"
+    return key
+
 
 
 # --- FIRMS -------------------------------------------------------------------
