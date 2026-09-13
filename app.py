@@ -1480,11 +1480,12 @@ def _render_firms_key_status(validate_key: str) -> None:
     """The key is read from .env and is never entered in the browser: FIRMS
     puts it in the request URL, so a pasted key would end up in logs and in
     error text. Settings only reports whether it loaded."""
-    if config.FIRMS_API_KEY:
+    api_key = config.get_firms_api_key() if hasattr(config, "get_firms_api_key") else config.FIRMS_API_KEY
+    if api_key:
         st.success("FIRMS_API_KEY loaded from .env", icon=":material/check_circle:")
         if st.button("Validate key", key=validate_key, icon=":material/verified:"):
             try:
-                check_map_key(config.FIRMS_API_KEY)
+                check_map_key(api_key)
                 st.success("Key is valid.", icon=":material/check_circle:")
             except FirmsAuthError as exc:
                 st.error(str(exc), icon=":material/cancel:")

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -37,10 +37,24 @@ FIRMS_AREA_STR = f"{BBOX['min_lon']},{BBOX['min_lat']},{BBOX['max_lon']},{BBOX['
 # Overpass wants "south,west,north,east"
 OVERPASS_BBOX_STR = f"{BBOX['min_lat']},{BBOX['min_lon']},{BBOX['max_lat']},{BBOX['max_lon']}"
 
+
+def get_firms_api_key() -> str:
+    load_dotenv(override=True)
+    return (os.getenv("FIRMS_API_KEY") or os.getenv("FIRMS_MAP_KEY") or "").strip()
+
+
 # --- FIRMS -------------------------------------------------------------------
 # FIRMS_API_KEY is the documented name; FIRMS_MAP_KEY is kept for backward
 # compatibility with earlier setup. Never hard-code a key here.
-FIRMS_API_KEY = (os.getenv("FIRMS_API_KEY") or os.getenv("FIRMS_MAP_KEY") or "").strip()
+FIRMS_API_KEY = get_firms_api_key()
+
+
+def __getattr__(name: str):
+    if name in ("FIRMS_API_KEY", "FIRMS_MAP_KEY"):
+        return get_firms_api_key()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
 FIRMS_SOURCES = ["VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "MODIS_NRT"]
 FIRMS_TOTAL_DAYS = 60      # how far back to pull history
 FIRMS_CHUNK_DAYS = 5       # max day_range per single FIRMS area API request (this MAP_KEY tier caps it at 5, not the documented 10)
