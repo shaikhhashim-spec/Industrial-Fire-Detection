@@ -18,12 +18,9 @@ export default defineConfig({
       crawlLinks: true,
     },
   },
-<<<<<<< HEAD
-});
-=======
   vite: {
-    base: process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/` : "/SIH26162/",
-    plugins: [stripSourceTagsFromThreeFiles()],
+    base: process.env["GITHUB_REPOSITORY"]
+      ? `/${process.env["GITHUB_REPOSITORY"].split("/")[1]}/`
+      : "/SIH26162/",
   },
 });
->>>>>>> bd1c9f84d1f4ae99aedbea1a0ab79ac5d8fcecf1
