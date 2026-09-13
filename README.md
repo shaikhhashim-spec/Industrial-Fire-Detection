@@ -3,6 +3,12 @@
 **AI-Based Detection & Classification of Industrial Fires and Persistent Thermal Sources**
 Ministry: NTRO · Category: Software · Target: Jharkhand–Odisha Iron Ore & Steel Belt
 
+**[Live 3D Globe](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/)** —
+the holo-view-maker globe view, deployed on GitHub Pages. The Streamlit
+command-center dashboard (`app.py`) is a Python server, so it isn't on
+GitHub Pages — run it locally (see [Installation](#9-installation)); it
+opens at `http://localhost:8501`.
+
 > This is an **AI-assisted early-warning and prioritization platform**, not an
 > autonomous system that confirms fires. Satellite detection is not ground
 > truth — every classification is labeled with its confidence, every risk
@@ -175,9 +181,11 @@ pip install -r requirements.txt
    10 — `config.FIRMS_CHUNK_DAYS` is already set to 5 to be safe; if your key
    supports 10, you can raise it for fewer, larger requests.
 
-Without a key, or with **Demo Mode** switched on (sidebar bottom, or the
-Settings page), the app runs entirely on a fixed local demo dataset — no
-network, no key, ever required.
+Without a key, live pulls fail and the Settings page reports it — the
+dashboard falls back to whatever history earlier live runs already stored
+locally (SQLite), and never fabricates data to fill the gap. There is no
+demo/synthetic dataset in this build; every number shown comes from a real
+NASA FIRMS pull, live or previously cached.
 
 ## 10. Running the Application
 
@@ -186,47 +194,41 @@ streamlit run app.py
 ```
 
 Opens at `http://localhost:8501`. The left sidebar is pure navigation —
-**Overview, Live Map, Events, Alerts, Analytics, Investigations, Validation,
-AI Model, Data, Settings** — plus Demo Mode at the bottom. The top bar holds
-the **Region** switch (India ↔ Jharkhand–Odisha Belt), live data-source
-status, global search, and the alert count. Pipeline runs, the FIRMS key,
-Analyst Mode, Presentation Mode, and prototype thresholds all live on the
-**Settings** page (per-region). Filters live at the top of whichever page
-uses them (Live Map, Events, Analytics, Investigations) and drive the map,
-KPIs, charts, and tables together from the same filtered dataset.
+**Overview, Live Map, 3D Globe, Events, Alerts, Cameras, Analytics,
+Investigations, Settings** — with a caption at the bottom making explicit
+that data is live NASA FIRMS only. The top bar holds the **Region** switch
+(India ↔ Jharkhand–Odisha Belt), live data-source status, global search, and
+the alert count. Pipeline runs, the FIRMS key, Analyst Mode, Presentation
+Mode, and prototype thresholds all live on the **Settings** page
+(per-region). Filters live at the top of whichever page uses them (Live Map,
+Events, Analytics, Investigations) and drive the map, KPIs, charts, and
+tables together from the same filtered dataset.
 
-## 11. How Demo Mode Works
-
-Demo Mode uses a **fixed, deterministic dataset** written once to
-`data/demo/demo_hotspots.csv` (regenerate by deleting that file). It is
-**fully isolated from the live SQLite store** — running Demo Mode never
-reads from or writes to `data/hotspots.db`, so synthetic and real detections
-can never contaminate each other's persistence calculations. Demo Mode
-covers 7 of the 8 classification categories out of the box; `Likely
-Agricultural Burning` only appears if at least one of the last 60 days
-falls in the Oct–Mar burn season — during monsoon months it correctly does
-not appear, matching what real live data showed too, rather than faking a
-date that would just get filtered out by the pipeline's own window logic.
-
-## 12. Fallback Hierarchy
+## 11. Fallback Hierarchy
 
 ```
-LIVE API  →  LOCAL CACHE  →  DEMO DATASET
+LIVE API  →  LOCAL CACHE (SQLite, from earlier live runs)
 ```
 
 FIRMS auth errors, network timeouts, empty responses, and Overpass downtime
 are all caught explicitly (`src/firms/fetch.py`, `src/geospatial/osm.py`) and
 fall through this chain — the dashboard has never shown a blank page in
 testing, including a live 504 from the public Overpass server during
-development (it fell back to a local cache automatically).
+development (it fell back to a local cache automatically). There is no
+synthetic-data tier: if neither a live pull nor a local cache has anything,
+the dashboard says so rather than inventing hotspots. (An earlier prototype
+build had a Demo Mode with a fixed synthetic dataset for offline/no-key use;
+it has since been removed in favor of live-data-only, per this project's own
+scientific-honesty principle — see the FIRMS-key-status warning in
+`app.py`'s Settings page.)
 
-## 13. Training / Updating the Model
+## 12. Training / Updating the Model
 
 The Random Forest retrains automatically on every pipeline run (`src/ml/train.py`),
 saved to `models/classifier.pkl`. There is no separate manual training step —
 each run's rule labels become that run's training data.
 
-## 14. Architecture
+## 13. Architecture
 
 ```
 project/
@@ -240,7 +242,6 @@ project/
 │   ├── raw/                  # Raw FIRMS pulls (one CSV per fetch day)
 │   ├── processed/            # cluster_summary.csv, alerts.json (latest run)
 │   ├── cache/                # FIRMS + OSM TTL cache
-│   ├── demo/                 # Fixed demo dataset
 │   └── reference/            # India states boundary (real GADM-derived dataset)
 │
 ├── src/
@@ -266,8 +267,7 @@ project/
 │   │   └── pipeline.py           # Lightweight national fetch→clean→grid→state→risk-lite
 │   ├── classify.py               # Orchestrates persistence→features→rules→ML→risk→status
 │   ├── pipeline.py               # Top-level (detailed region): fetch→clean→geo-join→classify→alerts
-│   ├── store.py                  # SQLite persistent store
-│   └── sample_data.py            # Demo dataset generators (regional + national)
+│   └── store.py                  # SQLite persistent store
 │
 ├── models/classifier.pkl
 ├── JUDGE_QA.md                   # 20 honest Q&A on design decisions
@@ -282,7 +282,7 @@ risk-scored, and status-assigned. Nothing about fetching or OSM is baked
 into it, so it's independently testable and reusable if the fetch/geospatial
 layers are ever swapped out.
 
-## 15. Testing
+## 14. Testing
 
 ```bash
 pytest tests/ -v
@@ -294,15 +294,16 @@ edge cases: empty datasets, missing coordinates, missing FRP, invalid API
 keys, network timeouts, duplicate detections, and malformed responses. All
 FIRMS tests are mocked — no real key or network access needed to run them.
 
-## 16. Deployment
+## 15. Deployment
 
 The simplest path is [Streamlit Community Cloud](https://streamlit.io/cloud)
 (free, GitHub login): push this repo, point it at `app.py`, and add
 `FIRMS_API_KEY` as a secret in the app's settings (never commit `.env`).
-Demo Mode means the deployed app is fully functional even before a key is
-configured.
+Without that secret configured, the deployed app still runs — it just shows
+the Settings-page warning and whatever history is already cached, rather
+than failing outright.
 
-## 17. Implemented Features
+## 16. Implemented Features
 
 - FIRMS fetch with retries, TTL caching, and error-payload detection
 - Data cleaning with an auditable drop-report (not a silent shrink)
@@ -313,7 +314,7 @@ configured.
 - 0–100 configurable-weight risk score + 4-level risk classification
 - NEW/RECURRING/PERSISTENT/HIGH RISK/CRITICAL/RESOLVED status lifecycle
 - Alert engine (critical risk, persistent high-risk, FRP spikes, reactivation)
-- SQLite persistent store with demo/live isolation
+- SQLite persistent store for accumulated live history
 - Command-center dashboard, restructured around a fixed page-based
   information architecture rather than in-page tabs: a nav-only left
   sidebar (**Overview, Live Map, Events, Alerts, Analytics, Investigations,
@@ -353,7 +354,6 @@ configured.
 - **HTML incident report** (alongside the existing plain-text export) — a
   styled, self-contained report a browser can print straight to PDF,
   without adding a PDF-generation dependency to the project
-- Demo Mode fully isolated from live data
 - National (India-wide) hotspot detection layer: real state boundary data,
   state-level filtering/aggregation, 6 map modes, top-states chart, staged
   architecture (no expensive national OSM join). Pages that require the full
@@ -381,12 +381,12 @@ configured.
   — never a crash, never fabricated context.
 - 76-test pytest suite with edge-case coverage
 
-## 18. Limitations & Future Improvements
+## 17. Limitations & Future Improvements
 
 Deliberately **not** implemented now, with the architecture left open to add them:
 
 - ~~Forest/water/agricultural-zone booleans via real OSM polygons~~ — **now
-  implemented** (`src/geospatial/landcover.py`), see section 17.
+  implemented** (`src/geospatial/landcover.py`), see section 16.
 - **A true alert-history store / dismiss-state persistence** — alerts are
   recomputed fresh each run rather than diffed against a prior run's state
   (the analyst-review audit trail is persisted; the alert feed itself is not).
@@ -409,13 +409,13 @@ Deliberately **not** implemented now, with the architecture left open to add the
   ("never sacrifice reliability for flashy features"). National-scale OSM
   industrial join, anomaly/baseline detection, audit trail, and model
   versioning metadata — all previously listed here — have since been built
-  (see section 17).
+  (see section 16).
 - Real satellite imagery (currently: a clearly-labeled "Satellite Evidence
   Preview," never presented as live imagery), Sentinel/higher-resolution
   data, weather/wind data, air-quality data, historical industrial-fire
   records, ground-sensor or drone imagery, active learning.
 
-## 19. National (India-wide) Monitoring
+## 18. National (India-wide) Monitoring
 
 Three geographic levels, per the platform's own staged-architecture
 requirement — full AI classification only runs where it's affordable to run:
@@ -450,8 +450,7 @@ detections. This is exactly the scenario the dashboard's data-quality note
 
 **Persistent national history.** Every live national run merges its fresh
 ~48h pull into a small SQLite store (`data/national_hotspots.db`,
-`src/national/store.py`) — never touched in Demo Mode, same isolation
-guarantee as the regional store. Persistence is then judged against up to
+`src/national/store.py`). Persistence is then judged against up to
 `NATIONAL_HISTORY_DAYS` (30) of real accumulated history instead of only
 ever the latest snapshot, once enough has built up; before that, it falls
 back to the single fresh batch. This is detection + persistence only —
@@ -479,7 +478,7 @@ including several of the same findings above.
 This platform does not fabricate NASA data, AI accuracy, ground truth,
 industrial-fire confirmations, satellite imagery, or government
 endorsements. If live data is unavailable, the UI clearly labels the dataset
-as demo/cached. Ambiguous classifications are labeled **Requires
+as cached rather than presenting it as fresh. Ambiguous classifications are labeled **Requires
 Verification** rather than forced into a confident category. Every risk
 score and threshold is labeled as a prototype/operational parameter, not an
 established standard.
