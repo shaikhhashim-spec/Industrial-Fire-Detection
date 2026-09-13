@@ -1081,6 +1081,8 @@ def _render_sidebar_nav() -> str:
                 width="stretch", on_click=_navigate(page=p),
             )
         st.divider()
+        st.link_button("OSIRIS Tactical Suite", "http://localhost:3000", width="stretch", icon=":material/radar:",
+                       help="Open the OSIRIS multi-domain global OSINT situational awareness dashboard")
         st.caption("Pipeline runs and thresholds live on the Settings page. Data is live NASA FIRMS only.")
     return page
 
@@ -2540,6 +2542,12 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
             "python start_all.py, or run npm run dev inside holo-view-maker, then reload this page.",
             icon=":material/warning:",
         )
+
+    with st.expander("OSIRIS Tactical Suite & Multi-Domain Recon"):
+        st.caption("OSIRIS provides 16 multi-domain global OSINT feeds (Aviation / OpenSky, Earthquakes / USGS, "
+                   "Volcanoes / NASA EONET, Conflict Zones, CCTV networks, Port Scans, and CVEs).")
+        st.link_button("Open OSIRIS Command Center (Port 3000)", "http://localhost:3000", width="stretch",
+                       icon=":material/radar:")
 
     with st.expander("Export and server details"):
         st.caption("Written to holo-view-maker/public/data/events.json and output/holo_events.json, in the "

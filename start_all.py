@@ -26,7 +26,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 GLOBE_DIR = ROOT / "holo-view-maker"
-GLOBE_PORT, DASH_PORT = 8080, 8501
+OSIRIS_DIR = ROOT / "osiris"
+GLOBE_PORT, DASH_PORT, OSIRIS_PORT = 8080, 8501, 3000
 SNAPSHOT = ROOT / "data" / "processed" / "national_latest.pkl"
 STALE_AFTER_S = 6 * 3600
 
@@ -64,6 +65,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--no-refresh", action="store_true", help="don't refresh live FIRMS data before starting")
     ap.add_argument("--no-browser", action="store_true", help="don't open the dashboard in a browser")
+    ap.add_argument("--no-osiris", action="store_true", help="don't start the OSIRIS tactical dashboard")
     args = ap.parse_args()
 
     if not args.no_refresh:
@@ -77,15 +79,24 @@ def main() -> int:
             print(f"• Live data is {age / 3600:.1f} h old, no refresh needed")
 
     procs: list[subprocess.Popen] = []
+    npm = shutil.which("npm") or shutil.which("npm.cmd")
+
     if port_open(GLOBE_PORT):
         print(f"• 3D globe already running on http://localhost:{GLOBE_PORT}")
     else:
-        npm = shutil.which("npm") or shutil.which("npm.cmd")
         if not npm:
             print("  ! npm not found. Install Node.js to run the 3D globe.")
         else:
             print(f"• Starting 3D globe on http://localhost:{GLOBE_PORT} …")
             procs.append(subprocess.Popen([npm, "run", "dev"], cwd=GLOBE_DIR))
+
+    if not args.no_osiris and OSIRIS_DIR.exists() and (OSIRIS_DIR / "package.json").exists():
+        if port_open(OSIRIS_PORT):
+            print(f"• OSIRIS tactical suite already running on http://localhost:{OSIRIS_PORT}")
+        else:
+            if npm:
+                print(f"• Starting OSIRIS tactical suite on http://localhost:{OSIRIS_PORT} …")
+                procs.append(subprocess.Popen([npm, "run", "dev"], cwd=OSIRIS_DIR))
 
     if port_open(DASH_PORT):
         print(f"• Dashboard already running on http://localhost:{DASH_PORT}")
@@ -96,8 +107,13 @@ def main() -> int:
         ))
 
     ok = wait_for(GLOBE_PORT, 90, "3D globe") & wait_for(DASH_PORT, 90, "dashboard")
-    print(f"\n{'Ready' if ok else 'Partly up'}: open http://localhost:{DASH_PORT} "
-          "(the '3D Holo Globe' page shows the globe). Ctrl+C to stop.\n")
+    print(f"\n{'Ready' if ok else 'Partly up'}:")
+    print(f"  📊 Streamlit Dashboard:  http://localhost:{DASH_PORT}")
+    print(f"  🌐 3D Holo Globe:        http://localhost:{GLOBE_PORT}/SIH26162/")
+    if not args.no_osiris and OSIRIS_DIR.exists():
+        print(f"  🛡️ OSIRIS Tactical OSINT: http://localhost:{OSIRIS_PORT}")
+    print("\nCtrl+C to stop all services.\n")
+
     if ok and not args.no_browser:
         webbrowser.open(f"http://localhost:{DASH_PORT}")
 

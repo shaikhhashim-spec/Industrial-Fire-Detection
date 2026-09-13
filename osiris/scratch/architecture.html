@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OSIRIS Architecture Deployment</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;500;700&display=swap');
+  
+  :root {
+    --bg: #0b0f19;
+    --card: #151b2b;
+    --cyan: #00E5FF;
+    --gold: #D4AF37;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: rgba(0, 229, 255, 0.2);
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 40px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .header {
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+
+  h1 {
+    font-family: 'Fira Code', monospace;
+    color: var(--cyan);
+    margin: 0 0 10px 0;
+    font-size: 28px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .subtitle {
+    color: var(--gold);
+    font-size: 14px;
+    font-family: 'Fira Code', monospace;
+    letter-spacing: 1px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+  }
+
+  .box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.05);
+  }
+
+  .box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--cyan), transparent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .box-title {
+    font-family: 'Fira Code', monospace;
+    color: var(--cyan);
+    font-size: 18px;
+    margin-top: 0;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .badge {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'Fira Code', monospace;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  li {
+    margin-bottom: 12px;
+    padding-left: 20px;
+    position: relative;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  li::before {
+    content: '>';
+    position: absolute;
+    left: 0;
+    color: var(--cyan);
+    font-family: 'Fira Code', monospace;
+    font-weight: bold;
+  }
+
+  .flow-diagram {
+    margin-top: 40px;
+    padding: 30px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+
+  .node {
+    padding: 15px 25px;
+    background: rgba(0, 229, 255, 0.05);
+    border: 1px solid var(--cyan);
+    border-radius: 6px;
+    text-align: center;
+    font-family: 'Fira Code', monospace;
+    font-size: 13px;
+    color: #fff;
+    width: 220px;
+  }
+
+  .node.external {
+    border-color: var(--muted);
+    color: var(--muted);
+    background: rgba(148, 163, 184, 0.05);
+  }
+
+  .node.intel {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(212, 175, 55, 0.05);
+  }
+
+  .arrow {
+    color: var(--muted);
+    font-family: 'Fira Code', monospace;
+  }
+
+  .details {
+    margin-top: 40px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  
+  .details h3 {
+    color: var(--gold);
+    font-family: 'Fira Code', monospace;
+    margin-top: 30px;
+  }
+
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>OSIRIS // Deployment Architecture</h1>
+    <div class="subtitle">SYSTEM ANALYSIS REPORT :: GENERATED FOR LIVE PRODUCTION (100.89.48.10)</div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <div class="box-title">Docker Compose Network <span class="badge">umami_default</span></div>
+      <ul>
+        <li><strong>Container 1:</strong> osiris-cache (Nginx:Alpine) - Port 8080</li>
+        <li><strong>Container 2:</strong> osiris (Next.js 15) - Port 3000</li>
+        <li><strong>Container 3:</strong> osiris-intel (Node.js 22) - Port 4000</li>
+        <li><strong>Restart Policy:</strong> unless-stopped (auto-heals on failure)</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <div class="box-title">osiris-cache (Entrypoint) <span class="badge">NGINX</span></div>
+      <ul>
+        <li><strong>Reverse Proxy:</strong> Routes traffic from :8080 to Next.js on :3000</li>
+        <li><strong>Tile Caching:</strong> Intercepts `/proxy/tiles/`</li>
+        <li><strong>Cache Layer:</strong> 10GB Disk / 100MB RAM Zone `tile_cache`</li>
+        <li><strong>Target:</strong> basemaps.cartocdn.com (cached 1 year immutable)</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <div class="box-title">osiris (Core Dashboard) <span class="badge">NEXT.JS</span></div>
+      <ul>
+        <li><strong>Client UI:</strong> MapLibre-GL map with dynamic WebGL layers.</li>
+        <li><strong>Server APIs:</strong> Handles fetch aggregation for Aviation, Maritime, Satellites, Wildfires.</li>
+        <li><strong>Data Volume:</strong> Injects local JSON disk caches for massive payloads (e.g. 18k satellites).</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <div class="box-title">osiris-intel (Ontology Engine) <span class="badge">NODE.JS</span></div>
+      <ul>
+        <li><strong>Function:</strong> Entity resolution (Aircraft, Vessels, IPs, Companies).</li>
+        <li><strong>Data Source 1:</strong> OpenSanctions OFAC SDN (in-memory graph, 24h refresh).</li>
+        <li><strong>Data Source 2:</strong> Wikidata SPARQL (Aggressive LRU Cache).</li>
+        <li><strong>Endpoint:</strong> `GET /resolve?type=x&id=y`</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="flow-diagram">
+    <div class="box-title" style="justify-content: center; margin-bottom: 30px;">Network Flow & Connectivity</div>
+    
+    <div class="flow-row">
+      <div class="node external">External User (Browser)</div>
+      <div class="arrow">==[ Port 8080 ]==></div>
+      <div class="node">osiris-cache (Nginx)</div>
+    </div>
+    
+    <div class="flow-row">
+      <div class="node">osiris-cache (Nginx)</div>
+      <div class="arrow">==[ Proxy ]==></div>
+      <div class="node external">basemaps.cartocdn.com<br><span style="font-size: 10px">(Tile caching)</span></div>
+    </div>
+
+    <div class="flow-row">
+      <div class="node">osiris-cache (Nginx)</div>
+      <div class="arrow">==[ Proxy ]==></div>
+      <div class="node">osiris (Next.js :3000)</div>
+    </div>
+
+    <div class="flow-row">
+      <div class="node">osiris (Next.js :3000)</div>
+      <div class="arrow">==[ Internal API ]==></div>
+      <div class="node intel">osiris-intel (Node.js :4000)</div>
+    </div>
+
+    <div class="flow-row">
+      <div class="node intel">osiris-intel (Node.js :4000)</div>
+      <div class="arrow">==[ Outbound REST ]==></div>
+      <div class="node external">OpenSanctions CSV<br>Wikidata SPARQL<br>RIPEstat / ip-api</div>
+    </div>
+
+    <div class="flow-row">
+      <div class="node">osiris (Next.js :3000)</div>
+      <div class="arrow">==[ Outbound REST ]==></div>
+      <div class="node external">NASA FIRMS, AISStream,<br>OpenSky, CelesTrak</div>
+    </div>
+  </div>
+
+  <div class="details">
+    <h3>Key Operational Insights</h3>
+    <p>
+      The architecture operates on a unified internal bridge network (`umami_default` and `default`). 
+      The only port exposed to the host machine is `8080`, managed by the Nginx caching layer. This protects the Next.js server from direct connections and offloads heavy map tile fetching.
+    </p>
+    <p>
+      The intelligence resolving system (`osiris-intel`) does not talk directly to the client browser. Instead, Next.js calls it internally via `http://osiris-intel:4000/resolve` when the user clicks on entities like aircraft or vessels, keeping API keys and data flows secure within the server environment.
+    </p>
+    <p>
+      Data caching strategies are separated by domain: Web tiles are cached on disk via Nginx, massive static feeds (like satellites) are cached on disk by Next.js, and entity resolution data is cached in-memory (LRU) inside the intel container.
+    </p>
+  </div>
+
+</body>
+</html>
