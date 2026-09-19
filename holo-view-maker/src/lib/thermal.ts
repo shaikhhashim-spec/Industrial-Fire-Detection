@@ -164,3 +164,15 @@ export async function fetchThermalEvents(): Promise<{
   }
   return { events: [], source: "none", meta: null };
 }
+
+/** Convert lat/lon to a point on a sphere of given radius (three.js Y-up). */
+export function latLonToVec3(lat: number, lon: number, radius: number): [number, number, number] {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  return [
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  ];
+}
+
