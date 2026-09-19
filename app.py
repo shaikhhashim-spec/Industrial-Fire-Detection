@@ -10,14 +10,21 @@ Run with: streamlit run app.py
 """
 from __future__ import annotations
 
+import atexit
 import json
+import shutil
+import socket
+import subprocess
+import sys
 import urllib.request
+from pathlib import Path
 
 import folium
 import geopandas as gpd
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from folium.plugins import Fullscreen, MarkerCluster, TimestampedGeoJson
 from streamlit_folium import st_folium
 
@@ -27,14 +34,76 @@ from src.firms.fetch import FirmsAuthError, check_map_key
 from src.processing.spatial_clusters import find_spatial_clusters
 from src.utils.export_3d_globe import (
     export_pipeline_events_for_holo_view,
+    generate_embedded_3d_globe_html,
     load_or_export_holo_events,
 )
 
 TIMELAPSE_MAX_POINTS = 600
 # holo-view-maker's Vite dev server (its vite config pins port 8080)
 HOLO_DEFAULT_URL = "http://localhost:8080"
+GLOBE_DIR = config.BASE_DIR / "holo-view-maker"
+OSIRIS_DIR = config.BASE_DIR / "osiris"
 
 st.set_page_config(page_title="Thermal Intelligence", layout="wide", page_icon=":material/local_fire_department:", initial_sidebar_state="expanded")
+
+
+def _is_port_open(port: int) -> bool:
+    try:
+        with socket.socket() as s:
+            s.settimeout(0.3)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+    except Exception:
+        return False
+
+
+@st.cache_resource(show_spinner=False)
+def _ensure_background_services() -> list:
+    """Automatically starts holo-view-maker (port 8080) and OSIRIS (port 3000)
+    in the background if they aren't already running, so http://localhost:8501
+    runs all components out-of-the-box."""
+    npm = shutil.which("npm") or shutil.which("npm.cmd")
+    if not npm:
+        return []
+
+    flags = 0
+    if sys.platform == "win32":
+        flags = subprocess.CREATE_NO_WINDOW
+
+    spawned: list[subprocess.Popen] = []
+
+    # 1. 3D Globe Dev Server (Port 8080)
+    if not _is_port_open(8080) and GLOBE_DIR.exists() and (GLOBE_DIR / "package.json").exists():
+        try:
+            p = subprocess.Popen([npm, "run", "dev"], cwd=GLOBE_DIR, creationflags=flags)
+            spawned.append(p)
+        except Exception:
+            pass
+
+    # 2. OSIRIS Tactical OSINT Suite (Port 3000)
+    if not _is_port_open(3000) and OSIRIS_DIR.exists() and (OSIRIS_DIR / "package.json").exists():
+        try:
+            p = subprocess.Popen([npm, "run", "dev"], cwd=OSIRIS_DIR, creationflags=flags)
+            spawned.append(p)
+        except Exception:
+            pass
+
+    def _cleanup():
+        for proc in spawned:
+            try:
+                if sys.platform == "win32":
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+                else:
+                    proc.terminate()
+            except Exception:
+                pass
+
+    if spawned:
+        atexit.register(_cleanup)
+
+    return spawned
+
+
+_ensure_background_services()
 
 
 @st.cache_resource(show_spinner=False)
@@ -242,10 +311,13 @@ section[data-testid="stSidebar"] [data-testid="stButton"] button{ justify-conten
 """
 
 
-# ---------------------------------------------------------------- helpers --
-
-def _section_header(text: str):
-    st.markdown(f'<div class="sec-hdr">{text}</div>', unsafe_allow_html=True)
+def _section_header(text: str, icon: str | None = None, icon_color: str | None = None, **kwargs):
+    if icon:
+        color_style = f' style="color:{icon_color};"' if icon_color else ""
+        icon_html = f'<span class="material-symbols-outlined" style="font-size:1.1rem;vertical-align:-2px;margin-right:6px;{color_style.strip()}">{icon}</span>'
+        st.markdown(f'<div class="sec-hdr">{icon_html}{text}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="sec-hdr">{text}</div>', unsafe_allow_html=True)
 
 
 def _format_satellites(value) -> str:
@@ -2525,23 +2597,42 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
         ("Total radiative power", f"{total_frp:,.0f} MW"),
     ])
 
-    # The globe itself: the holo-view-maker MapLibre app, embedded so the
-    # dashboard and the globe are one site on one live run.
+    # 3D Globe Engine Selection & Viewer
     holo_url = (st.session_state.get("holo_host_url") or HOLO_DEFAULT_URL).rstrip("/")
-    if _holo_app_reachable(holo_url):
-        st.iframe(f"{holo_url}/?embed=1", height=900)
-        g1, g2 = st.columns([4, 1])
-        with g1:
-            st.caption("Drag to rotate, scroll to zoom, click a hotspot to see why it is there. "
-                       "Press ? inside the globe for shortcuts.")
-        with g2:
-            st.link_button("Open full screen", holo_url, width="stretch", icon=":material/open_in_new:")
-    else:
-        st.warning(
-            f"The globe server is not answering at {holo_url}. Start the dashboard and the globe together with "
-            "python start_all.py, or run npm run dev inside holo-view-maker, then reload this page.",
-            icon=":material/warning:",
+    globe_online = _holo_app_reachable(holo_url)
+
+    c_eng1, c_eng2 = st.columns([3.5, 1.5])
+    with c_eng1:
+        engine_mode = st.radio(
+            "Visualization Engine",
+            ["🌐 MapLibre 3D Holo Globe (Live Server)", "🌟 Instant WebGL 3D Globe (Embedded Three.js)"],
+            horizontal=True,
+            key="globe_engine_mode_selector",
         )
+    with c_eng2:
+        if engine_mode.startswith("🌐 MapLibre"):
+            if globe_online:
+                st.link_button("Open full screen", holo_url, width="stretch", icon=":material/open_in_new:")
+            else:
+                if st.button("Refresh Globe Status", key="refresh_globe_conn", width="stretch", icon=":material/sync:"):
+                    st.cache_data.clear()
+                    st.rerun()
+
+    if engine_mode.startswith("🌐 MapLibre") and globe_online:
+        st.iframe(f"{holo_url}/?embed=1", height=900)
+        st.caption("Drag to rotate, scroll to zoom, click a hotspot to see why it is there. "
+                   "Press ? inside the globe for shortcuts.")
+    elif engine_mode.startswith("🌐 MapLibre") and not globe_online:
+        _ensure_background_services()
+        st.info(
+            "The 3D Globe server is warming up in the background. Displaying the instant Three.js 3D WebGL Globe below.",
+            icon=":material/hourglass_top:",
+        )
+        globe_html = generate_embedded_3d_globe_html(events=events, auto_rotate=True)
+        components.html(globe_html, height=800, scrolling=False)
+    else:
+        globe_html = generate_embedded_3d_globe_html(events=events, auto_rotate=True)
+        components.html(globe_html, height=800, scrolling=False)
 
     with st.expander("OSIRIS Tactical Suite & Multi-Domain Recon"):
         st.caption("OSIRIS provides 16 multi-domain global OSINT feeds (Aviation / OpenSky, Earthquakes / USGS, "

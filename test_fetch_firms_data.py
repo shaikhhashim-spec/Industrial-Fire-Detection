@@ -6,6 +6,7 @@ Run with:  python -m unittest test_fetch_firms_data -v
 (or: python -m pytest test_fetch_firms_data.py -v, if pytest is installed)
 """
 
+import os
 import shutil
 import tempfile
 import unittest
@@ -58,13 +59,14 @@ class FetchFirmsDataTests(unittest.TestCase):
         self.assertEqual(len(cached_files), 1)
 
     def test_missing_map_key_raises_auth_error_immediately(self):
-        with patch("requests.get") as mock_get:
-            with self.assertRaises(FirmsAuthError):
-                fetch_firms_data(
-                    source="VIIRS_SNPP_NRT", day_range=1, area_coords="-125,32,-114,42",
-                    map_key=None, cache_dir=self.cache_dir,
-                )
-        mock_get.assert_not_called()  # never even tries the network
+        with patch.dict(os.environ, {"FIRMS_MAP_KEY": ""}, clear=False):
+            with patch("requests.get") as mock_get:
+                with self.assertRaises(FirmsAuthError):
+                    fetch_firms_data(
+                        source="VIIRS_SNPP_NRT", day_range=1, area_coords="-125,32,-114,42",
+                        map_key=None, cache_dir=self.cache_dir,
+                    )
+            mock_get.assert_not_called()  # never even tries the network
 
     def test_invalid_key_response_not_retried(self):
         bad_resp = _mock_response("Invalid MAP_KEY")
