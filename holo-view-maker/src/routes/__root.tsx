@@ -11,6 +11,14 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import {
+  STALE_RELOAD_SCRIPT,
+  isFileLoadError,
+  reloadOnceForNewDeploy,
+  watchForStaleDeploy,
+} from "../lib/stale-deploy";
+
+if (typeof window !== "undefined") watchForStaleDeploy();
 
 function NotFoundComponent() {
   return (
@@ -37,9 +45,13 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const stale = isFileLoadError(error);
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
+  useEffect(() => {
+    if (stale) reloadOnceForNewDeploy();
+  }, [stale]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -48,17 +60,26 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          {stale
+            ? "A newer version was published while this page was open. Reloading fetches it."
+            : "Something went wrong on our end. You can try refreshing or head back home."}
+        </p>
+        <p className="mt-3 font-mono text-[0.68rem] break-words text-muted-foreground">
+          {error.message}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
+              if (stale) {
+                window.location.reload();
+                return;
+              }
               router.invalidate();
               reset();
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            {stale ? "Reload" : "Try again"}
           </button>
           <a
             href={import.meta.env.BASE_URL}
@@ -99,6 +120,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: `${import.meta.env.BASE_URL}favicon.ico`, type: "image/x-icon" },
     ],
+    scripts: [{ children: STALE_RELOAD_SCRIPT }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
