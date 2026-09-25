@@ -1,0 +1,50 @@
+{
+ "type": "FeatureCollection",
+ "meta": {
+  "source": "SkylineWebcams India listing",
+  "listing": "https://www.skylinewebcams.com/en/webcam/india.html",
+  "generatedAt": "2026-09-25T15:25:35.890604+00:00",
+  "count": 2,
+  "note": "Links only. SkylineWebcams does not allow embedding. Positions are town centres."
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.31497,
+     19.16023
+    ]
+   },
+   "properties": {
+    "id": "takht-sachkhand-sri-hazur",
+    "name": "Nanded - Takht Sachkhand Sri Hazur",
+    "about": "View of the Takht Sachkhand Sri Hazur temple in Nanded, India",
+    "town": "Nanded",
+    "state": "Maharashtra",
+    "url": "https://www.skylinewebcams.com/en/webcam/india/maharashtra/nanded/takht-sachkhand-sri-hazur.html",
+    "positionFrom": "town centre, GeoNames"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     72.70819,
+     24.59243
+    ]
+   },
+   "properties": {
+    "id": "tower-of-peace",
+    "name": "Tower Of Peace - Mount Abu",
+    "about": "View over the Tower of Peace in Mount Abu, India",
+    "town": "Mount Abu",
+    "state": "Rajasthan",
+    "url": "https://www.skylinewebcams.com/en/webcam/india/rajasthan/mount-abu/tower-of-peace.html",
+    "positionFrom": "town centre, OpenStreetMap place=town"
+   }
+  }
+ ]
+}

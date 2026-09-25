@@ -355,6 +355,13 @@ What it is not, and why:
 - The view wedge draws the mapped heading with a typical 60 degree, 45 metre
   view. It is not measured coverage.
 
+There is also a **Live webcams** layer (press `V`) for SkylineWebcams, the
+tourism webcam site. It lists only two cameras in all of India (Nanded and
+Mount Abu). SkylineWebcams does not allow its pages to be embedded, so the
+globe shows a marker at the town centre and a button that opens the live view
+on their site. Nothing of theirs is copied. Refresh it with
+`python scripts/build_india_webcams.py`.
+
 Refresh with `python scripts/build_india_cameras.py --refresh`. The output,
 `holo-view-maker/public/data/cameras.geojson`, is ODbL data (see
 `holo-view-maker/THIRD_PARTY_NOTICES.md`). Open the globe on a place with

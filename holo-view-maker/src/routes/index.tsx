@@ -17,11 +17,13 @@ import { StatusBar } from "@/components/StatusBar";
 import { ShortcutsHelp } from "@/components/ShortcutsHelp";
 import { HazardCard } from "@/components/HazardCard";
 import { CameraCard } from "@/components/CameraCard";
+import { WebcamCard } from "@/components/WebcamCard";
 import { useFireSats, usePolledFeed } from "@/hooks/use-live-feeds";
 import { DEFAULT_LAYERS, SHORTCUT_TO_LAYER, type LayerKey, type Layers } from "@/lib/layers";
 import { fetchEarthquakes, fetchEonet, type Hazard } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
 import { fetchCameras, type CameraData } from "@/lib/cameras";
+import { fetchWebcams, type WebcamData } from "@/lib/webcams";
 import { viewFromUrl } from "@/lib/view-params";
 
 const NO_SATS: FireSat[] = [];
@@ -115,6 +117,8 @@ function Index() {
   const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null);
   const [cameraData, setCameraData] = useState<CameraData | null>(null);
   const [selectedCameraId, setSelectedCameraId] = useState<number | null>(null);
+  const [webcamData, setWebcamData] = useState<WebcamData | null>(null);
+  const [selectedWebcamId, setSelectedWebcamId] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const { set: satSet, feed: tleFeed } = useFireSats();
@@ -134,10 +138,18 @@ function Index() {
   const selectHazard = useCallback((h: Hazard) => {
     setSelectedHazard(h);
     setSelectedCameraId(null);
+    setSelectedWebcamId(null);
     setSpin(false);
   }, []);
   const selectCamera = useCallback((id: number) => {
     setSelectedCameraId(id);
+    setSelectedHazard(null);
+    setSelectedWebcamId(null);
+    setSpin(false);
+  }, []);
+  const selectWebcam = useCallback((id: string) => {
+    setSelectedWebcamId(id);
+    setSelectedCameraId(null);
     setSelectedHazard(null);
     setSpin(false);
   }, []);
@@ -151,6 +163,7 @@ function Index() {
         setHelpOpen(false);
         setSelectedHazard(null);
         setSelectedCameraId(null);
+        setSelectedWebcamId(null);
         setSelectedId(null);
         return;
       }
@@ -218,6 +231,24 @@ function Index() {
       (selectedHazard.kind === "eonet" && layers.eonet))
       ? selectedHazard
       : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchWebcams().then((d) => {
+      if (!cancelled) setWebcamData(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const shownWebcam = useMemo(
+    () =>
+      layers.webcams && selectedWebcamId != null
+        ? (webcamData?.webcams.find((w) => w.id === selectedWebcamId) ?? null)
+        : null,
+    [layers.webcams, selectedWebcamId, webcamData],
+  );
 
   // The card closes with its layer, like the hazard card.
   const shownCamera = useMemo(
@@ -313,6 +344,7 @@ function Index() {
               eonet: eonetFeed.updatedAt ? naturalEvents.length : undefined,
               plumes: events.filter((e) => e.plume).length,
               cameras: cameraData?.cameras.length,
+              webcams: webcamData?.webcams.length,
             }}
             feeds={{ sats: tleFeed, quakes: usgsFeed, eonet: eonetFeed }}
             sats={sats}
@@ -438,11 +470,17 @@ function Index() {
               cameras={cameraData}
               selectedCameraId={layers.cameras ? selectedCameraId : null}
               onSelectCamera={selectCamera}
+              webcams={webcamData}
+              selectedWebcamId={layers.webcams ? selectedWebcamId : null}
+              onSelectWebcam={selectWebcam}
               onInteract={stopSpin}
             />
           </Suspense>
           {shownHazard && (
             <HazardCard hazard={shownHazard} onClose={() => setSelectedHazard(null)} />
+          )}
+          {shownWebcam && (
+            <WebcamCard webcam={shownWebcam} onClose={() => setSelectedWebcamId(null)} />
           )}
           {shownCamera && (
             <CameraCard
