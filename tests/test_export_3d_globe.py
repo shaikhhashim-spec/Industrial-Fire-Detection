@@ -3,6 +3,7 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 import geopandas as gpd
 import pandas as pd
@@ -117,10 +118,29 @@ class TestExport3DGlobe(unittest.TestCase):
         self.assertEqual(e["persistenceDays"], 6)
 
     def test_export_writes_meta_and_events(self):
-        with TemporaryDirectory() as td:
+        # Self-contained: the run must not depend on a local live-data cache
+        # (gitignored, so absent on a fresh clone or in CI) or on a wind lookup.
+        events_df = pd.DataFrame([
+            {
+                "event_id": "NAT-TEST02",
+                "grid_cell": "NAT_CELL_02",
+                "state": "Odisha",
+                "latitude": 21.5,
+                "longitude": 84.8,
+                "avg_frp": 14.5,
+                "persistence_days": 6,
+                "is_persistent": True,
+                "risk_score": 62.0,
+                "risk_level": "HIGH",
+                "observation_count": 8,
+                "satellite": "VIIRS_NOAA20_NRT",
+                "avg_confidence": 85.0,
+            }
+        ])
+        with TemporaryDirectory() as td, mock.patch("src.utils.export_3d_globe._attach_plume"):
             dest = Path(td) / "events.json"
-            events = export_pipeline_events_for_holo_view(destinations=[dest])
-            self.assertGreater(len(events), 0)
+            events = export_pipeline_events_for_holo_view(events_df=events_df, destinations=[dest])
+            self.assertEqual(len(events), 1)
             payload = json.loads(dest.read_text(encoding="utf-8"))
             self.assertEqual(len(payload["events"]), len(events))
             # meta.source says honestly where the globe's points came from

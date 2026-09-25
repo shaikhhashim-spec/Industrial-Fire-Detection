@@ -360,8 +360,8 @@ def export_pipeline_events_for_holo_view(
     """Main export entrypoint. Transmutes live or cached detections into 3D Holo format
 
     and saves to `holo-view-maker/public/data/events.json` and `output/holo_events.json`
-    as `{"meta": {...}, "events": [...]}` — `meta.source` says honestly whether the
-    globe is showing live FIRMS data or demo data.
+    as `{"meta": {...}, "events": [...]}` — `meta.source` says where the globe's
+    points came from (live FIRMS data, or a mix of live runs).
     """
     events: list[dict[str, Any]] = []
     sources: set[str] = set()
