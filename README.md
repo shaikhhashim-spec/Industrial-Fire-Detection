@@ -333,6 +333,33 @@ Without that secret configured, the deployed app still runs — it just shows
 the Settings-page warning and whatever history is already cached, rather
 than failing outright.
 
+### CCTV camera layer (3D globe)
+
+The globe has a **CCTV cameras** layer (press `C`): 8,950 public-space cameras
+across India that OpenStreetMap volunteers have mapped, drawn as a clustered
+mesh that resolves into heading-facing icons and view wedges as you zoom in.
+Click a camera for what it watches, its type, mounting, heading and operator;
+open any hotspot to see the nearest mapped cameras with distance and heading.
+
+What it is not, and why:
+
+- **It is locations, not video.** India has no open feed of CCTV, and plant and
+  police cameras are private. Reaching feeds that are exposed by
+  misconfiguration would be unauthorised access, so this project does not.
+  Nothing on the globe contacts a camera.
+- **It is crowd-mapped, not a census.** Coverage follows where volunteers have
+  mapped (Karnataka and Delhi hold nearly two thirds of it), and only a small
+  share of hotspots have any mapped camera within 10 km. The panel says so when
+  none is found.
+- **Private, indoor and doorbell cameras are left out** on purpose.
+- The view wedge draws the mapped heading with a typical 60 degree, 45 metre
+  view. It is not measured coverage.
+
+Refresh with `python scripts/build_india_cameras.py --refresh`. The output,
+`holo-view-maker/public/data/cameras.geojson`, is ODbL data (see
+`holo-view-maker/THIRD_PARTY_NOTICES.md`). Open the globe on a place with
+`?lat=12.9757&lon=77.607&z=15.6`.
+
 ## 16. Implemented Features
 
 - FIRMS fetch with retries, TTL caching, and error-payload detection

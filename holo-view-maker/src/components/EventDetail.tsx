@@ -7,6 +7,7 @@ import {
   type ThermalEvent,
 } from "@/lib/thermal";
 import { hazardsNear, type Hazard } from "@/lib/hazards";
+import { CAMERA_COLORS, compass, countWithin, nearestCameras, type Camera } from "@/lib/cameras";
 import { nextPasses, type FireSat } from "@/lib/satellites";
 import { fmtIn, fmtIst, fmtUtc } from "@/lib/format";
 import { useNow } from "@/hooks/use-live-feeds";
@@ -248,14 +249,81 @@ function NearbyHazards({ event, hazards }: { event: ThermalEvent; hazards: Hazar
   );
 }
 
+const CAMERA_RADIUS_KM = 10;
+
+/** Mapped cameras closest to the hotspot: who could be asked to look. These are
+ *  OpenStreetMap locations, so the list says what it is and is not. */
+function NearbyCameras({
+  event,
+  cameras,
+  onSelect,
+}: {
+  event: ThermalEvent;
+  cameras: Camera[];
+  onSelect: (id: number) => void;
+}) {
+  const near = useMemo(
+    () => nearestCameras(event.latitude, event.longitude, cameras, 4, CAMERA_RADIUS_KM),
+    [event.latitude, event.longitude, cameras],
+  );
+  const total = useMemo(
+    () => countWithin(event.latitude, event.longitude, cameras, CAMERA_RADIUS_KM),
+    [event.latitude, event.longitude, cameras],
+  );
+  if (!cameras.length) return null;
+  return (
+    <div>
+      <span className="field-label">Mapped cameras within {CAMERA_RADIUS_KM} km</span>
+      {near.length === 0 ? (
+        <p className="mt-1 text-[0.72rem] text-muted-foreground">
+          None mapped. OpenStreetMap only lists cameras that volunteers added, so this does not mean
+          there are none.
+        </p>
+      ) : (
+        <>
+          <div className="mt-1 flex flex-col">
+            {near.map(({ camera, km }) => (
+              <button
+                key={camera.id}
+                onClick={() => onSelect(camera.id)}
+                className="flex items-center gap-2 border-b border-border py-1 text-left text-[0.72rem] transition-colors duration-150 last:border-b-0 hover:bg-muted"
+              >
+                <span
+                  className="size-2 shrink-0 rounded-[2px]"
+                  style={{ background: CAMERA_COLORS[camera.kind] }}
+                />
+                <span className="truncate">{camera.name || camera.kind}</span>
+                <span className="truncate text-muted-foreground">
+                  {camera.heading != null ? `faces ${compass(camera.heading)}` : ""}
+                </span>
+                <span className="ml-auto font-mono tabular-nums text-muted-foreground">
+                  {km.toFixed(1)} km
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-[0.66rem] leading-snug text-muted-foreground">
+            {total.toLocaleString()} mapped in range, nearest {near.length} shown. Locations only,
+            no video.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function EventDetail({
   event,
   sats = [],
   hazards = [],
+  cameras = [],
+  onSelectCamera,
 }: {
   event: ThermalEvent | null;
   sats?: FireSat[];
   hazards?: Hazard[];
+  cameras?: Camera[] | undefined;
+  onSelectCamera?: (id: number) => void;
 }) {
   if (!event) {
     return (
@@ -309,6 +377,10 @@ export function EventDetail({
       <WhyHere event={event} />
 
       <NearbyHazards event={event} hazards={hazards} />
+
+      {onSelectCamera && (
+        <NearbyCameras event={event} cameras={cameras} onSelect={onSelectCamera} />
+      )}
 
       <div>
         <div className="flex items-end justify-between">

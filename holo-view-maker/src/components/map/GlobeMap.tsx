@@ -37,8 +37,21 @@ import {
   swathGeoJSON,
 } from "@/lib/geo-layers";
 import { assetUrl } from "@/lib/asset-url";
+import { viewFromUrl } from "@/lib/view-params";
 import { NIGHT_COORDS, paintNight } from "@/lib/night-raster";
 import { FACILITY_COLOR_EXPR } from "@/lib/facilities";
+import {
+  CAMERA_COLORS,
+  CAMERA_COLOR_EXPR,
+  CAMERA_KINDS,
+  cameraIconName,
+  cameraWedges,
+  compass,
+  describeCamera,
+  drawCameraIcon,
+  type Camera,
+  type CameraData,
+} from "@/lib/cameras";
 
 // Same font stack the CARTO style itself uses, so its glyph server has it.
 const LABEL_FONT = ["Montserrat Regular", "Open Sans Regular", "Noto Sans Regular"];
@@ -74,6 +87,9 @@ export interface GlobeMapProps {
   naturalEvents: Hazard[];
   selectedHazard: Hazard | null;
   onSelectHazard: (h: Hazard) => void;
+  cameras: CameraData | null;
+  selectedCameraId: number | null;
+  onSelectCamera: (id: number) => void;
   /** The user grabbed the map, so stop auto-rotating. */
   onInteract: () => void;
 }
@@ -90,10 +106,28 @@ const LAYER_IDS: Record<Exclude<LayerKey, "borders">, string[]> = {
   graticule: ["graticule"],
   imagery: ["imagery"],
   facilities: ["facilities", "facility-labels"],
+  cameras: [
+    "camera-wedges-fill",
+    "camera-wedges-line",
+    "camera-clusters",
+    "camera-cluster-count",
+    "camera-points",
+    "camera-icons",
+    "camera-selected",
+  ],
 };
 
 // topmost first: a hotspot sitting on a plant should pick the hotspot
-const INTERACTIVE = ["sat-core", "thermal", "quakes", "eonet", "facilities"];
+const INTERACTIVE = [
+  "sat-core",
+  "thermal",
+  "quakes",
+  "eonet",
+  "camera-icons",
+  "camera-points",
+  "camera-clusters",
+  "facilities",
+];
 
 // Transparent at low density on purpose: scattered single detections should read
 // as dots, and only real clusters (steel plants, coalfields) should glow.
@@ -298,6 +332,125 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
     },
   });
 
+  // ── mapped CCTV cameras (OpenStreetMap): a clustered mesh that resolves into
+  //    heading-facing icons and view wedges as you zoom in. Drawn under the
+  //    hotspots so a fire is never hidden by a camera. ──
+  for (const kind of CAMERA_KINDS) {
+    for (const directional of [true, false]) {
+      map.addImage(
+        cameraIconName(kind, directional),
+        drawCameraIcon(CAMERA_COLORS[kind], directional),
+        {
+          pixelRatio: 2,
+        },
+      );
+    }
+  }
+  map.addSource("cameras", {
+    type: "geojson",
+    data: EMPTY_FC,
+    cluster: true,
+    clusterRadius: 46,
+    clusterMaxZoom: 11,
+    attribution: "Cameras © OpenStreetMap contributors",
+  });
+  map.addSource("camera-wedges", { type: "geojson", data: EMPTY_FC });
+  map.addLayer({
+    id: "camera-wedges-fill",
+    type: "fill",
+    source: "camera-wedges",
+    minzoom: 14,
+    paint: {
+      "fill-color": ["get", "color"],
+      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15, 0.22],
+    },
+  });
+  map.addLayer({
+    id: "camera-wedges-line",
+    type: "line",
+    source: "camera-wedges",
+    minzoom: 14,
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": 0.8,
+      "line-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15, 0.6],
+    },
+  });
+  map.addLayer({
+    id: "camera-clusters",
+    type: "circle",
+    source: "cameras",
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-radius": ["step", ["get", "point_count"], 9, 25, 12, 100, 16, 400, 21],
+      "circle-color": "#0b1016",
+      "circle-opacity": 0.92,
+      "circle-stroke-color": CAMERA_COLORS.Traffic,
+      "circle-stroke-width": 1.2,
+      "circle-stroke-opacity": 0.85,
+    },
+  });
+  map.addLayer({
+    id: "camera-cluster-count",
+    type: "symbol",
+    source: "cameras",
+    filter: ["has", "point_count"],
+    layout: {
+      "text-field": ["get", "point_count_abbreviated"],
+      "text-font": LABEL_FONT,
+      "text-size": 10,
+      "text-allow-overlap": true,
+    },
+    paint: { "text-color": "#d5dee8" },
+  });
+  map.addLayer({
+    id: "camera-points",
+    type: "circle",
+    source: "cameras",
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.8, 12, 3.2, 14, 4],
+      "circle-color": CAMERA_COLOR_EXPR,
+      "circle-stroke-color": "#05080c",
+      "circle-stroke-width": 0.8,
+      "circle-opacity": ["interpolate", ["linear"], ["zoom"], 13, 1, 14, 0],
+      "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], 13, 1, 14, 0],
+    },
+  });
+  map.addLayer({
+    id: "camera-icons",
+    type: "symbol",
+    source: "cameras",
+    filter: ["!", ["has", "point_count"]],
+    minzoom: 13,
+    layout: {
+      "icon-image": [
+        "concat",
+        "cam-",
+        ["get", "kind"],
+        ["case", ["has", "heading"], "-dir", "-dot"],
+      ],
+      "icon-rotate": ["coalesce", ["get", "heading"], 0],
+      "icon-rotation-alignment": "map",
+      "icon-size": ["interpolate", ["linear"], ["zoom"], 13, 0.7, 17, 1.25],
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+    },
+    paint: { "icon-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0, 14, 1] },
+  });
+  map.addSource("camera-selected", { type: "geojson", data: EMPTY_FC });
+  map.addLayer({
+    id: "camera-selected",
+    type: "circle",
+    source: "camera-selected",
+    paint: {
+      "circle-radius": 13,
+      "circle-color": "rgba(0,0,0,0)",
+      "circle-stroke-color": "#5cb8dc",
+      "circle-stroke-width": 1.8,
+    },
+  });
+
   // ── thermal detections: a fire heatmap at planet scale, crisp points up close ──
   map.addSource("thermal", { type: "geojson", data: EMPTY_FC });
   map.addLayer({
@@ -436,8 +589,19 @@ function satLabel(sat: FireSat): HTMLElement {
 }
 
 export function GlobeMap(props: GlobeMapProps) {
-  const { events, selectedId, colorBy, spin, layers, sats, quakes, naturalEvents, selectedHazard } =
-    props;
+  const {
+    events,
+    selectedId,
+    colorBy,
+    spin,
+    layers,
+    sats,
+    quakes,
+    naturalEvents,
+    selectedHazard,
+    cameras,
+    selectedCameraId,
+  } = props;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -452,8 +616,8 @@ export function GlobeMap(props: GlobeMapProps) {
     const map = new MLMap({
       container: container.current,
       style: DARK_STYLE,
-      center: START_CENTER,
-      zoom: fitZoom(container.current),
+      center: viewFromUrl()?.center ?? START_CENTER,
+      zoom: viewFromUrl()?.zoom ?? fitZoom(container.current),
       minZoom: 1,
       maxZoom: 18,
       maxPitch: 60,
@@ -506,6 +670,22 @@ export function GlobeMap(props: GlobeMapProps) {
     const describe = (f: MapGeoJSONFeature): string | null => {
       const id = String(f.properties["id"]);
       const p = latest.current;
+      if (f.layer.id === "camera-clusters") {
+        const n = Number(f.properties["point_count"]);
+        return `<b>${n.toLocaleString()} mapped cameras</b><br><span>Click to zoom in</span>`;
+      }
+      if (f.layer.id === "camera-icons" || f.layer.id === "camera-points") {
+        const c = f.properties as unknown as Camera;
+        const facing =
+          c.heading != null
+            ? `faces ${compass(c.heading)}, ${Math.round(c.heading)}°`
+            : "facing not mapped";
+        return (
+          `<b>${esc(c.name || `${c.kind} camera`)}</b><br>` +
+          `<span>${esc(describeCamera(c))}</span><br>` +
+          `<span>${facing} · ${esc(c.state)}</span>`
+        );
+      }
       if (f.layer.id === "thermal") {
         const e = p.events.find((x) => x.id === id);
         if (!e) return null;
@@ -567,6 +747,19 @@ export function GlobeMap(props: GlobeMapProps) {
       if (!f) return;
       const id = String(f.properties["id"]);
       const p = latest.current;
+      if (f.layer.id === "camera-clusters" && f.geometry.type === "Point") {
+        const center = f.geometry.coordinates as [number, number];
+        const clusterId = Number(f.properties["cluster_id"]);
+        (map.getSource("cameras") as GeoJSONSource)
+          .getClusterExpansionZoom(clusterId)
+          .then((zoom) => map.easeTo({ center, zoom: zoom + 0.6 }))
+          .catch(() => undefined);
+        return;
+      }
+      if (f.layer.id === "camera-icons" || f.layer.id === "camera-points") {
+        p.onSelectCamera(Number(f.properties["id"]));
+        return;
+      }
       if (f.layer.id === "thermal") p.onSelect(id);
       else if (f.layer.id === "quakes" || f.layer.id === "eonet") {
         const h = [...p.quakes, ...p.naturalEvents].find((x) => x.id === id);
@@ -631,6 +824,47 @@ export function GlobeMap(props: GlobeMapProps) {
         : EMPTY_FC,
     );
   }, [ready, selectedHazard]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    setData(map, "cameras", cameras?.collection ?? EMPTY_FC);
+    setData(map, "camera-wedges", cameras ? cameraWedges(cameras.cameras) : EMPTY_FC);
+  }, [ready, cameras]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const cam =
+      selectedCameraId != null
+        ? cameras?.cameras.find((c: Camera) => c.id === selectedCameraId)
+        : undefined;
+    setData(
+      map,
+      "camera-selected",
+      cam
+        ? {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [cam.lon, cam.lat] },
+            properties: {},
+          }
+        : EMPTY_FC,
+    );
+  }, [ready, cameras, selectedCameraId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || selectedCameraId == null) return;
+    const cam = latest.current.cameras?.cameras.find((c: Camera) => c.id === selectedCameraId);
+    if (cam) {
+      map.flyTo({
+        center: [cam.lon, cam.lat],
+        zoom: Math.max(map.getZoom(), 14.5),
+        speed: 1.4,
+        essential: true,
+      });
+    }
+  }, [ready, selectedCameraId]);
 
   useEffect(() => {
     const map = mapRef.current;

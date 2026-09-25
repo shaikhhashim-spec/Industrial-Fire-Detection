@@ -15,6 +15,7 @@ import {
 import { FACILITY_COLORS, FACILITY_LEGEND } from "@/lib/facilities";
 import { EONET_COLORS, QUAKE_COLOR } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
+import { CAMERA_COLORS, CAMERA_KINDS } from "@/lib/cameras";
 
 /** Presentational only — the whole row is the button (a button inside a
  * button is invalid HTML and silently drops the inner click). */
@@ -60,6 +61,8 @@ export interface LayerPanelProps {
   satDetections: Record<string, number>;
   /** EONET category counts, so the legend names only what is actually open. */
   eonetCategories: { id: string; label: string; count: number }[];
+  /** Mapped cameras per kind, from the camera file's own summary. */
+  cameraKinds?: Record<string, number> | undefined;
   onShowHelp: () => void;
 }
 
@@ -71,6 +74,7 @@ export function LayerPanel({
   sats,
   satDetections,
   eonetCategories,
+  cameraKinds,
   onShowHelp,
 }: LayerPanelProps) {
   const total = LAYER_GROUPS.reduce((n, g) => n + g.layers.length, 0);
@@ -100,6 +104,15 @@ export function LayerPanel({
         }))}
       />
     ),
+    cameras: cameraKinds ? (
+      <Legend
+        items={CAMERA_KINDS.filter((k) => cameraKinds[k]).map((k) => ({
+          color: CAMERA_COLORS[k],
+          label: k,
+          value: cameraKinds[k]!.toLocaleString(),
+        }))}
+      />
+    ) : undefined,
     sats: (
       <Legend
         items={sats.map((s) => ({

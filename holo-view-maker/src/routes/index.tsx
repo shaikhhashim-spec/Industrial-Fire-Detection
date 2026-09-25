@@ -16,10 +16,13 @@ import { LayerPanel } from "@/components/LayerPanel";
 import { StatusBar } from "@/components/StatusBar";
 import { ShortcutsHelp } from "@/components/ShortcutsHelp";
 import { HazardCard } from "@/components/HazardCard";
+import { CameraCard } from "@/components/CameraCard";
 import { useFireSats, usePolledFeed } from "@/hooks/use-live-feeds";
 import { DEFAULT_LAYERS, SHORTCUT_TO_LAYER, type LayerKey, type Layers } from "@/lib/layers";
 import { fetchEarthquakes, fetchEonet, type Hazard } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
+import { fetchCameras, type CameraData } from "@/lib/cameras";
+import { viewFromUrl } from "@/lib/view-params";
 
 const NO_SATS: FireSat[] = [];
 const NO_EVENTS: ThermalEvent[] = [];
@@ -100,7 +103,7 @@ function Index() {
   // Eight classification hues exceed what a scatter can be read by, so risk
   // (four ordered states) is the default colouring, as on the dashboard map.
   const [colorBy, setColorBy] = useState<"category" | "risk">("risk");
-  const [spin, setSpin] = useState(true);
+  const [spin, setSpin] = useState(() => viewFromUrl() === null);
   const [minRisk, setMinRisk] = useState(0);
   const [showAllDetections, setShowAllDetections] = useState(false);
   const [active, setActive] = useState<Set<Category>>(new Set(CATEGORIES));
@@ -110,6 +113,8 @@ function Index() {
   const [loading, setLoading] = useState(true);
   const [layers, setLayers] = useState<Layers>(DEFAULT_LAYERS);
   const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null);
+  const [cameraData, setCameraData] = useState<CameraData | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = useState<number | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const { set: satSet, feed: tleFeed } = useFireSats();
@@ -128,6 +133,12 @@ function Index() {
   }, []);
   const selectHazard = useCallback((h: Hazard) => {
     setSelectedHazard(h);
+    setSelectedCameraId(null);
+    setSpin(false);
+  }, []);
+  const selectCamera = useCallback((id: number) => {
+    setSelectedCameraId(id);
+    setSelectedHazard(null);
     setSpin(false);
   }, []);
   const stopSpin = useCallback(() => setSpin(false), []);
@@ -139,6 +150,7 @@ function Index() {
       if (e.key === "Escape") {
         setHelpOpen(false);
         setSelectedHazard(null);
+        setSelectedCameraId(null);
         setSelectedId(null);
         return;
       }
@@ -166,6 +178,17 @@ function Index() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Static file, read once: mapped cameras change over weeks, not seconds.
+  useEffect(() => {
+    let cancelled = false;
+    fetchCameras().then((d) => {
+      if (!cancelled) setCameraData(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // "Corroborated" hides one-pixel, one-pass detections with nothing else
   // backing them (no repeat, no mapped facility) and flagged false positives.
@@ -195,6 +218,15 @@ function Index() {
       (selectedHazard.kind === "eonet" && layers.eonet))
       ? selectedHazard
       : null;
+
+  // The card closes with its layer, like the hazard card.
+  const shownCamera = useMemo(
+    () =>
+      layers.cameras && selectedCameraId != null
+        ? (cameraData?.cameras.find((c) => c.id === selectedCameraId) ?? null)
+        : null,
+    [layers.cameras, selectedCameraId, cameraData],
+  );
 
   const eonetCategories = useMemo(() => {
     const byId = new Map<string, { id: string; label: string; count: number }>();
@@ -280,11 +312,13 @@ function Index() {
               quakes: usgsFeed.updatedAt ? quakes.length : undefined,
               eonet: eonetFeed.updatedAt ? naturalEvents.length : undefined,
               plumes: events.filter((e) => e.plume).length,
+              cameras: cameraData?.cameras.length,
             }}
             feeds={{ sats: tleFeed, quakes: usgsFeed, eonet: eonetFeed }}
             sats={sats}
             satDetections={satDetections}
             eonetCategories={eonetCategories}
+            cameraKinds={cameraData?.meta.kinds}
             onShowHelp={() => setHelpOpen(true)}
           />
 
@@ -401,11 +435,22 @@ function Index() {
               naturalEvents={naturalEvents}
               selectedHazard={shownHazard}
               onSelectHazard={selectHazard}
+              cameras={cameraData}
+              selectedCameraId={layers.cameras ? selectedCameraId : null}
+              onSelectCamera={selectCamera}
               onInteract={stopSpin}
             />
           </Suspense>
           {shownHazard && (
             <HazardCard hazard={shownHazard} onClose={() => setSelectedHazard(null)} />
+          )}
+          {shownCamera && (
+            <CameraCard
+              camera={shownCamera}
+              events={events}
+              onClose={() => setSelectedCameraId(null)}
+              onSelectEvent={selectEvent}
+            />
           )}
           {!loading && dataSource !== "live" && (
             <div className="pointer-events-none absolute inset-x-0 top-1/3 z-10 mx-auto max-w-sm rounded-md border border-border bg-card/95 p-4 text-center">
@@ -425,7 +470,13 @@ function Index() {
         {/* Detail + queue */}
         <aside className="flex min-h-0 flex-col gap-4">
           <div className="min-h-[18rem] flex-1">
-            <EventDetail event={selected} sats={sats} hazards={[...quakes, ...naturalEvents]} />
+            <EventDetail
+              event={selected}
+              sats={sats}
+              hazards={[...quakes, ...naturalEvents]}
+              cameras={layers.cameras ? cameraData?.cameras : undefined}
+              onSelectCamera={selectCamera}
+            />
           </div>
           <div className="panel max-h-64 overflow-y-auto p-2">
             <p className="field-label px-2 py-1">Priority queue</p>
