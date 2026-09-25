@@ -82,6 +82,18 @@ export interface RecommendedAction {
   urgency: "Now" | "Today" | "This week" | "Monitor";
 }
 
+/** Downwind smoke/gas dispersion cone from live wind at the event's location —
+ *  a visual heuristic (cone length scales with wind speed and FRP), not a
+ *  scientific atmospheric dispersion model. Only high-intensity events carry one. */
+export interface PlumeData {
+  windSpeedKmh: number;
+  windDirectionDeg: number;
+  downwindBearingDeg: number;
+  coneLengthKm: number;
+  /** [lon, lat] pairs, apex-first — GeoJSON coordinate order. */
+  polygon: [number, number][];
+}
+
 export interface ThermalEvent {
   id: string;
   region: string;
@@ -116,6 +128,7 @@ export interface ThermalEvent {
   riskFactors?: RiskFactor[];
   actions?: RecommendedAction[];
   model?: ModelCheck | null;
+  plume?: PlumeData;
 }
 
 /** Provenance written by the Python exporter alongside the events. */

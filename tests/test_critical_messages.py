@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from src.alerts.messages import (
     format_critical_alert_message,
     is_critical_alert,

@@ -12,7 +12,7 @@ def _zone(kind_tag_key, kind_tag_value, minx, miny, maxx, maxy):
 def test_empty_landcover_leaves_defaults():
     df = pd.DataFrame({"latitude": [22.8], "longitude": [86.18]})
     out = join_landcover_context(df, gpd.GeoDataFrame())
-    assert out.loc[0, "in_agricultural_zone"] == False  # noqa: E712
+    assert out.loc[0, "in_agricultural_zone"] == False
     assert pd.isna(out.loc[0, "forest_distance_km"])
     assert pd.isna(out.loc[0, "water_distance_km"])
 

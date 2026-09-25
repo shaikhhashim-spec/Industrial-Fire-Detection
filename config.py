@@ -134,6 +134,15 @@ AGRI_BURN_MONTHS = {10, 11, 12, 1, 2, 3}  # crop-residue burning season (post-ha
 FOREST_NEAR_KM = 1.0   # "near/within a mapped forest" evidence threshold for wildfire classification
 WATER_NEAR_KM = 0.5    # "near/within a mapped water body" — sun-glint is a well-documented FIRMS false-positive cause here
 
+# Smoke/gas dispersion-cone overlay: which hotspots get one, and how many are
+# computed per export/map render. Each cone needs a live wind lookup
+# (src/utils/wind.py, cached 6h per rounded lat/lon), so the count is capped
+# to keep an export or a Live Map rerun from stalling on dozens of uncached
+# network calls.
+PLUME_FRP_MIN_MW = 5.0
+PLUME_CATEGORIES = {"Likely Industrial Fire", "Transient Industrial Flare", "Likely Wildfire"}
+PLUME_MAX_CONES = 20
+
 # Category set reconciles the spec's requested taxonomy with categories this
 # project's own calibration against real data required (see
 # "Persistent Non-Industrial Thermal Source" and "Persistent Industrial

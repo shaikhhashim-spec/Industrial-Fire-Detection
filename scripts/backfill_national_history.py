@@ -29,12 +29,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config  # noqa: E402
-from src.firms.fetch import FirmsAuthError, _fetch_chunk, _tile_bbox  # noqa: E402
-from src.ml.rules import normalize_confidence  # noqa: E402
-from src.national import states as national_states  # noqa: E402
-from src.national import store as national_store  # noqa: E402
-from src.processing import cleaning  # noqa: E402
+import config
+from src.firms.fetch import FirmsAuthError, _fetch_chunk, _tile_bbox
+from src.ml.rules import normalize_confidence
+from src.national import states as national_states
+from src.national import store as national_store
+from src.processing import cleaning
 
 
 def backfill(days: int = config.NATIONAL_HISTORY_DAYS, api_key: str | None = None) -> None:

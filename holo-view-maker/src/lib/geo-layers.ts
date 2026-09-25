@@ -11,7 +11,7 @@ import type {
   Point,
   Polygon,
 } from "geojson";
-import { CATEGORY_COLORS, RISK_COLORS, type ThermalEvent } from "@/lib/thermal";
+import { CATEGORY_COLORS, RISK_COLORS, type PlumeData, type ThermalEvent } from "@/lib/thermal";
 import { subPoint, swathHalfAngle, type FireSat } from "@/lib/satellites";
 import { EONET_COLORS, quakeColor, type Hazard } from "@/lib/hazards";
 
@@ -36,6 +36,29 @@ export function eventsToGeoJSON(events: ThermalEvent[]): FeatureCollection<Point
         riskColor: RISK_COLORS[e.riskLevel],
       },
     })),
+  };
+}
+
+/** Downwind smoke/gas dispersion cones — pre-computed server-side (a live wind
+ * lookup per event), so this just carries each qualifying event's `plume`
+ * polygon into GeoJSON, coloured by the same risk palette as the hotspots. */
+export function plumesToGeoJSON(events: ThermalEvent[]): FeatureCollection<Polygon> {
+  return {
+    type: "FeatureCollection",
+    features: events
+      .filter((e): e is ThermalEvent & { plume: PlumeData } => !!e.plume)
+      .map((e) => ({
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [e.plume.polygon] },
+        properties: {
+          id: e.id,
+          frp: e.frp,
+          riskLevel: e.riskLevel,
+          riskColor: RISK_COLORS[e.riskLevel],
+          windSpeedKmh: e.plume.windSpeedKmh,
+          downwindBearingDeg: e.plume.downwindBearingDeg,
+        },
+      })),
   };
 }
 

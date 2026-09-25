@@ -7,6 +7,7 @@ export type LayerKey =
   | "swath"
   | "quakes"
   | "eonet"
+  | "plumes"
   | "daynight"
   | "imagery"
   | "borders"
@@ -21,6 +22,7 @@ export const DEFAULT_LAYERS: Layers = {
   swath: false,
   quakes: true,
   eonet: true,
+  plumes: true,
   daynight: true,
   imagery: false,
   borders: true,
@@ -115,6 +117,12 @@ export const LAYER_GROUPS: LayerGroupDef[] = [
         label: "Natural events",
         description: "NASA EONET, open wildfires, storms and volcanoes",
         shortcut: "N",
+      },
+      {
+        key: "plumes",
+        label: "Smoke & gas plumes",
+        description: "Downwind hazard cones on high-intensity hotspots",
+        shortcut: "P",
       },
     ],
   },

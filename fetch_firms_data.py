@@ -30,8 +30,8 @@ import io
 import logging
 import os
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -71,9 +71,9 @@ def _build_url(
     source: str,
     day_range: int,
     *,
-    area_coords: Optional[str] = None,
-    country_code: Optional[str] = None,
-    start_date: Optional[str] = None,
+    area_coords: str | None = None,
+    country_code: str | None = None,
+    start_date: str | None = None,
 ) -> str:
     if area_coords and country_code:
         raise ValueError("Provide either area_coords or country_code, not both.")
@@ -93,7 +93,7 @@ def _build_url(
     return "/".join(parts)
 
 
-def _looks_like_error_payload(text: str) -> Optional[str]:
+def _looks_like_error_payload(text: str) -> str | None:
     """
     FIRMS often returns HTTP 200 even on error conditions (invalid key, bad
     query, quota exceeded) — the body is a short plain-text message instead
@@ -129,10 +129,10 @@ def fetch_firms_data(
     source: str,
     day_range: int = 1,
     *,
-    area_coords: Optional[str] = None,
-    country_code: Optional[str] = None,
-    start_date: Optional[str] = None,
-    map_key: Optional[str] = None,
+    area_coords: str | None = None,
+    country_code: str | None = None,
+    start_date: str | None = None,
+    map_key: str | None = None,
     cache_dir: str = ".cache/firms",
     use_cache: bool = True,
     cache_ttl_hours: float = 6.0,
@@ -221,7 +221,7 @@ def fetch_firms_data(
             logger.info("Using local cache (%.1fh old): %s", age_hours, cache_file)
             return _add_detection_id(pd.read_csv(cache_file))
 
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:
             logger.info("Fetching FIRMS data (attempt %d/%d): %s", attempt, max_retries, url)
@@ -271,10 +271,10 @@ def fetch_multi_source(
     sources: Iterable[str],
     day_range: int = 1,
     *,
-    area_coords: Optional[str] = None,
-    country_code: Optional[str] = None,
-    start_date: Optional[str] = None,
-    map_key: Optional[str] = None,
+    area_coords: str | None = None,
+    country_code: str | None = None,
+    start_date: str | None = None,
+    map_key: str | None = None,
     cache_dir: str = ".cache/firms",
     use_cache: bool = True,
     cache_ttl_hours: float = 6.0,

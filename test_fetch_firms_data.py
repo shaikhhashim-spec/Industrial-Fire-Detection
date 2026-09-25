@@ -10,18 +10,18 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import requests
 
 from fetch_firms_data import (
-    fetch_firms_data,
-    fetch_multi_source,
-    add_persistence_flags,
     FirmsAPIError,
     FirmsAuthError,
+    add_persistence_flags,
+    fetch_firms_data,
+    fetch_multi_source,
 )
-import pandas as pd
 
 GOOD_CSV = (
     "latitude,longitude,brightness,acq_date,acq_time,confidence,frp\n"

@@ -170,7 +170,7 @@ NON_THERMAL_DETAIL = {
 NON_THERMAL_NAME = re.compile(
     r"depot|warehouse|godown|godam|workshop|garage|\bstore\b|bus stand|metro|service station|showroom|"
     r"shipyard|timber|cycle|tyre|auto ",
-    re.I,
+    re.IGNORECASE,
 )
 
 

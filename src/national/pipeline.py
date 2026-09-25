@@ -18,8 +18,8 @@ import pandas as pd
 import config
 from src.firms import fetch as firms_fetch
 from src.national import context as national_context
-from src.national import snapshot as national_snapshot
 from src.national import risk_model as national_risk_model
+from src.national import snapshot as national_snapshot
 from src.national import states as national_states
 from src.national import store as national_store
 from src.processing import cleaning

@@ -279,6 +279,7 @@ function Index() {
               // no number until a feed has answered: "0" would read as "none happening"
               quakes: usgsFeed.updatedAt ? quakes.length : undefined,
               eonet: eonetFeed.updatedAt ? naturalEvents.length : undefined,
+              plumes: events.filter((e) => e.plume).length,
             }}
             feeds={{ sats: tleFeed, quakes: usgsFeed, eonet: eonetFeed }}
             sats={sats}

@@ -308,8 +308,8 @@ def validate_categories(ev: pd.DataFrame) -> tuple[pd.Series, pd.Series, dict]:
     ))
     info = {
         "trained": True,
-        "n_train": int(len(X_train)),
-        "n_test": int(len(X_test)),
+        "n_train": len(X_train),
+        "n_test": len(X_test),
         "holdout_agreement": round(holdout, 4),
         "classes": list(encoder.classes_),
         "feature_importances": importances,

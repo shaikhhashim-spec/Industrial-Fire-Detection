@@ -29,6 +29,7 @@ import {
   eventsToGeoJSON,
   graticuleGeoJSON,
   hazardsGeoJSON,
+  plumesToGeoJSON,
   satPointsGeoJSON,
   satPositions,
   satTracksGeoJSON,
@@ -83,6 +84,7 @@ const LAYER_IDS: Record<Exclude<LayerKey, "borders">, string[]> = {
   swath: ["sat-swath-fill", "sat-swath-line"],
   quakes: ["quake-pulse", "quakes"],
   eonet: ["eonet-tracks", "eonet"],
+  plumes: ["plume-fill", "plume-outline"],
   daynight: ["night"],
   graticule: ["graticule"],
   imagery: ["imagery"],
@@ -347,6 +349,21 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
     },
   });
 
+  // ── smoke / gas dispersion cones on high-intensity hotspots ──
+  map.addSource("plumes", { type: "geojson", data: EMPTY_FC });
+  map.addLayer({
+    id: "plume-fill",
+    type: "fill",
+    source: "plumes",
+    paint: { "fill-color": ["get", "riskColor"], "fill-opacity": 0.35 },
+  });
+  map.addLayer({
+    id: "plume-outline",
+    type: "line",
+    source: "plumes",
+    paint: { "line-color": ["get", "riskColor"], "line-width": 1.5, "line-dasharray": [2, 2] },
+  });
+
   // ── fire satellites ──
   map.addSource("sat-tracks", { type: "geojson", data: EMPTY_FC });
   map.addLayer({
@@ -574,7 +591,9 @@ export function GlobeMap(props: GlobeMapProps) {
   // ── data ──
   useEffect(() => {
     const map = mapRef.current;
-    if (ready && map) setData(map, "thermal", eventsToGeoJSON(events));
+    if (!ready || !map) return;
+    setData(map, "thermal", eventsToGeoJSON(events));
+    setData(map, "plumes", plumesToGeoJSON(events));
   }, [ready, events]);
 
   useEffect(() => {

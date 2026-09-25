@@ -616,19 +616,20 @@ def _add_base_layers(m: folium.Map):
     "API KEY REQUIRED" across keyless raster tiles. (The 3D globe still uses
     CARTO's GL vector style, which is keyless and unwatermarked.)
 
-    Dark is added last so it is the one showing: folium stacks tile layers in
-    the order they are added, and a later layer covers the ones before it."""
+    Satellite imagery is the one shown by default (real overhead imagery
+    reads as more realistic than an abstract canvas); Light and Dark stay
+    one click away in the layer control."""
     folium.TileLayer(
         tiles=ESRI_TILES.format(service="World_Imagery"),
-        attr="Esri, Maxar, Earthstar Geographics", name="Satellite imagery", control=True,
+        attr="Esri, Maxar, Earthstar Geographics", name="Satellite imagery", control=True, show=True,
     ).add_to(m)
     folium.TileLayer(
         tiles=ESRI_TILES.format(service="Canvas/World_Light_Gray_Base"),
-        attr=ESRI_ATTR, name="Light", control=True,
+        attr=ESRI_ATTR, name="Light", control=True, show=False,
     ).add_to(m)
     folium.TileLayer(
         tiles=ESRI_TILES.format(service="Canvas/World_Dark_Gray_Base"),
-        attr=ESRI_ATTR, name="Dark", control=True,
+        attr=ESRI_ATTR, name="Dark", control=True, show=False,
     ).add_to(m)
 
 
@@ -658,7 +659,7 @@ def _legend_html(title: str, items: dict[str, str]) -> str:
     </div>"""
 
 
-def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.Map:
+def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str, show_wind_plumes: bool = False) -> folium.Map:
     center_lat = (config.BBOX["min_lat"] + config.BBOX["max_lat"]) / 2
     center_lon = (config.BBOX["min_lon"] + config.BBOX["max_lon"]) / 2
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8, tiles=None, control_scale=True)
@@ -702,6 +703,30 @@ def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str) -> folium.
             fill=True, fill_color=color, fill_opacity=0.85, weight=1,
             popup=folium.Popup(popup_html, max_width=280),
         ).add_to(cluster)
+
+    if show_wind_plumes and not gdf.empty:
+        from src.utils import wind as wind_utils
+
+        qualifies = (gdf["frp"] >= config.PLUME_FRP_MIN_MW) | gdf[label_field].isin(config.PLUME_CATEGORIES)
+        plume_rows = gdf[qualifies].sort_values("frp", ascending=False).head(config.PLUME_MAX_CONES)
+        if not plume_rows.empty:
+            plume_group = folium.FeatureGroup(name="Smoke / Gas Plumes", show=True)
+            for _, row in plume_rows.iterrows():
+                lat, lon = row.geometry.y, row.geometry.x
+                wind_data = wind_utils.get_wind(lat, lon)
+                bearing = wind_utils.downwind_bearing(wind_data["direction_deg"])
+                length_km = wind_utils.dispersion_cone_length_km(wind_data["speed_kmh"], row["frp"])
+                polygon = wind_utils.dispersion_cone_polygon(
+                    lat, lon, wind_data["direction_deg"], wind_data["speed_kmh"], row["frp"],
+                )
+                cone_color = RISK_COLORS.get(row.get("risk_level", ""), "#ec835a")
+                folium.Polygon(
+                    locations=polygon, color=cone_color, weight=1, fill=True, fill_color=cone_color,
+                    fill_opacity=0.25, dash_array="4",
+                    tooltip=(f"Downwind: {bearing:.0f}° | Wind: {wind_data['speed_kmh']:.1f} km/h | "
+                             f"Hazard range: {length_km:.1f} km"),
+                ).add_to(plume_group)
+            plume_group.add_to(m)
 
     legend_source = CATEGORY_COLORS if color_by != "risk" else RISK_COLORS
     legend_title = "Classification" if color_by != "risk" else "Risk level"
@@ -1224,6 +1249,7 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
         "flt_color": "risk",
         "flt_onlyp": False,
         "flt_onlyc": False,
+        "flt_plumes": True,
     }
 
     if show_ui:
@@ -1244,10 +1270,14 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
             frp_range = g3.slider("FRP range (MW)", 0.0, max(frp_max_val, 1.0), (0.0, max(frp_max_val, 1.0)), key="flt_frp")
             color_by = g4.radio("Colour map by", ["risk", "classification"], horizontal=True, key="flt_color")
 
-            h1, h2, h3 = st.columns([1, 1, 2])
+            h1, h2, h3, h4 = st.columns([1, 1, 1.4, 1.6])
             only_persistent = h1.checkbox("Only persistent", key="flt_onlyp")
             only_critical = h2.checkbox("Only critical risk", key="flt_onlyc")
-            if h3.button("Reset Filters", key="flt_reset"):
+            show_wind_plumes = h3.toggle(
+                "Smoke / gas plumes", value=True, key="flt_plumes",
+                help="Downwind hazard cones scaled by wind speed and FRP, on high-intensity hotspots.",
+            )
+            if h4.button("Reset Filters", key="flt_reset"):
                 for k in defaults:
                     st.session_state.pop(k, None)
                 st.rerun()
@@ -1260,6 +1290,7 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
         min_conf, min_persist, frp_range = get("flt_conf"), get("flt_pers"), get("flt_frp")
         only_persistent, only_critical = get("flt_onlyp"), get("flt_onlyc")
         label_field, color_by = get("flt_label"), get("flt_color")
+        show_wind_plumes = get("flt_plumes")
         # Guard against stale ranges after the dataset window changes.
         date_range = (max(date_range[0], min_date), min(date_range[1], max_date))
         frp_range = (frp_range[0], min(frp_range[1], max(frp_max_val, 1.0)))
@@ -1277,7 +1308,7 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
     filtered = gdf[mask]
     filtered_cells = set(filtered["grid_cell"]) if not filtered.empty else set()
     filtered_clusters = cluster_df[cluster_df["grid_cell"].isin(filtered_cells)] if not cluster_df.empty else cluster_df
-    return filtered, filtered_clusters, label_field, color_by
+    return filtered, filtered_clusters, label_field, color_by, show_wind_plumes
 
 
 # Explanation first, coordinates last: the point of the national table is why a
@@ -1448,19 +1479,21 @@ def _render_firms_key_status(validate_key: str) -> None:
 
 
 def _render_settings_belt():
-    with st.container(border=True):
+    tab_pipeline, tab_risk, tab_view, tab_alerts = st.tabs(["Pipeline", "Risk weights", "View", "Alerts"])
+
+    with tab_pipeline, st.container(border=True):
         _section_header("Pipeline")
         _render_firms_key_status("settings_belt_validate")
         if st.button("Run pipeline", key="settings_belt_run", width="stretch", icon=":material/play_circle:"):
             run_and_cache()
             st.rerun()
 
-    with st.container(border=True):
+    with tab_view, st.container(border=True):
         _section_header("View")
         st.session_state["analyst_mode"] = st.toggle("Analyst mode", value=st.session_state["analyst_mode"], key="analyst_mode_toggle",
                                                        help="Expose raw features, model probabilities, and processing internals.")
 
-    with st.container(border=True):
+    with tab_risk, st.container(border=True):
         _section_header("Operational parameters (prototype, not scientific constants)")
         min_days = st.slider("Persistence threshold (days)", 2, 15, config.PERSISTENCE_MIN_DAYS, key="settings_persist_slider")
         st.caption(f"Currently: ≥{min_days} distinct days in {config.PERSISTENCE_DEFAULT_WINDOW_DAYS} ⇒ persistent. "
@@ -1485,7 +1518,8 @@ def _render_settings_belt():
             recompute_risk_and_cache(custom_weights)
             st.rerun()
 
-    _render_alert_gateway_settings("belt")
+    with tab_alerts:
+        _render_alert_gateway_settings("belt")
 
 
 
@@ -1504,14 +1538,15 @@ def _route_regional_page(page: str):
                 "to pull live NASA FIRMS detections for the region.", icon=":material/info:")
         return
 
-    filtered, filtered_clusters, label_field, color_by = _apply_regional_filters(gdf, cluster_df, page)
+    filtered, filtered_clusters, label_field, color_by, show_wind_plumes = _apply_regional_filters(gdf, cluster_df, page)
 
     if page == "Overview":
         _render_kpis(gdf, cluster_df, alerts)
         _render_alert_banner(alerts)
+        _render_top_alerts_panel(alerts, key="belt")
         _render_overview(filtered, filtered_clusters, label_field, color_by)
     elif page == "Live Map":
-        _render_live_map(filtered, label_field, color_by)
+        _render_live_map(filtered, label_field, color_by, show_wind_plumes)
     elif page == "3D Globe":
         _render_3d_globe_page(filtered, filtered_clusters, is_regional=True)
     elif page == "Events":
@@ -1559,6 +1594,46 @@ def _render_alert_banner(alerts):
     )
 
 
+def _render_top_alerts_panel(alerts: list[dict], key: str):
+    """Overview's centerpiece: the highest-risk events, already explained,
+    front and center, instead of only aggregate charts. Uses the same
+    alert-card markup and risk explainer as the Alerts page."""
+    if not alerts:
+        return
+    with st.container(border=True):
+        h1, h2 = st.columns([4.0, 1.2])
+        with h1:
+            _section_header("Top alerts")
+        with h2:
+            st.button("View all alerts", key=f"overview_view_all_{key}", width="stretch",
+                      icon=":material/notifications_active:", on_click=_navigate(page="Alerts"))
+        for i, a in enumerate(alerts[:3]):
+            severity = str(a.get("severity", "MODERATE"))
+            color = RISK_COLORS.get(severity, MUTED)
+            event_id = str(a.get("event_id", a.get("grid_cell", "?")))
+            days = int(a.get("persistence_days", 0) or 0)
+            facts = [
+                ("Risk", f'{float(a.get("risk_score", 0)):.0f}/100'),
+                ("Location", f'{a["latitude"]:.3f}, {a["longitude"]:.3f}'),
+                ("Active", f'{days} day' + ("" if days == 1 else "s")),
+                ("Peak FRP", f'{a["frp"]:.1f} MW'),
+            ]
+            facts_html = "".join(
+                f'<span class="fact"><span class="k">{k}</span><span class="v">{v}</span></span>'
+                for k, v in facts
+            )
+            st.markdown(
+                f'<div class="alertcard"><div class="title"><i class="sev" style="background:{color}"></i>'
+                f'{a["title"]}<span class="mono" style="color:var(--ink2);font-weight:400;font-size:.85em;">'
+                f'{event_id}</span></div>'
+                f'<div class="facts">{facts_html}</div>'
+                f'<div class="meta">{severity.capitalize()} severity. {a["classification"]}.</div></div>',
+                unsafe_allow_html=True,
+            )
+            with st.expander("Why it is risky and what to do"):
+                _render_risk_explainer(a, key=f"overview_top_alert_{key}_{i}")
+
+
 def _render_overview(filtered, filtered_clusters, label_field, color_by):
     c1, c2 = st.columns(2)
     with c1:
@@ -1586,7 +1661,7 @@ def _render_overview(filtered, filtered_clusters, label_field, color_by):
                 st.caption("No persistent clusters in the current filter selection.")
 
 
-def _render_live_map(filtered, label_field, color_by):
+def _render_live_map(filtered, label_field, color_by, show_wind_plumes: bool = False):
     with st.container(border=True):
         hdr, toggle = st.columns([4.0, 1.0])
         with hdr:
@@ -1599,7 +1674,7 @@ def _render_live_map(filtered, label_field, color_by):
                 st.caption(f"Showing the {TIMELAPSE_MAX_POINTS} most recent of {len(filtered)} points for smooth playback.")
             st_folium(build_timelapse_map(filtered, label_field), width=None, height=660, returned_objects=[], key="map_live_timelapse")
         else:
-            st_folium(build_map(filtered, label_field, color_by), width=None, height=660, returned_objects=[], key="map_live")
+            st_folium(build_map(filtered, label_field, color_by, show_wind_plumes), width=None, height=660, returned_objects=[], key="map_live")
 
 
 
@@ -1795,45 +1870,55 @@ def _render_alerts_tab(alerts):
         st.info("No alerts in the current live data.", icon=":material/info:")
         return
 
-    _section_header(f"{len(alerts):,} open alerts")
-    for i, a in enumerate(alerts[:50]):
-        severity = str(a.get("severity", "MODERATE"))
-        color = RISK_COLORS.get(severity, MUTED)
-        event_id = str(a.get("event_id", a.get("grid_cell", "?")))
-        days = int(a.get("persistence_days", 0) or 0)
-        rank = a.get("priority")
-        facts = [
-            ("Risk", f'{float(a.get("risk_score", 0)):.0f}/100'),
-            ("Location", f'{a["latitude"]:.3f}, {a["longitude"]:.3f}'),
-            ("Active", f'{days} day' + ("" if days == 1 else "s")),
-            ("Peak FRP", f'{a["frp"]:.1f} MW'),
-        ]
-        if rank is not None and pd.notna(rank):
-            facts.insert(0, ("Priority", f"#{int(rank)}"))
-        facts_html = "".join(
-            f'<span class="fact"><span class="k">{k}</span><span class="v">{v}</span></span>'
-            for k, v in facts
-        )
+    _section_header(f"{len(alerts):,} open alerts, ranked by risk")
+    i = 0
+    for tier in ("CRITICAL", "HIGH", "MODERATE", "LOW"):
+        group = [a for a in alerts[:50] if str(a.get("severity", "MODERATE")).upper() == tier]
+        if not group:
+            continue
         st.markdown(
-            f'<div class="alertcard"><div class="title"><i class="sev" style="background:{color}"></i>'
-            f'{a["title"]}<span class="mono" style="color:var(--ink2);font-weight:400;font-size:.85em;">'
-            f'{event_id}</span></div>'
-            f'<div class="facts">{facts_html}</div>'
-            f'<div class="meta">{severity.capitalize()} severity. {a["classification"]}.</div></div>',
+            f'<div class="actions-title" style="margin-top:1.1rem;">{tier.title()} ({len(group)})</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Dispatch this alert", key=f"alert_crit_send_{i}", icon=":material/sms:",
-                     help=f"Send this alert to {phone} and start the acknowledgement clock"):
-            res = alert_messages.send_critical_alert(a, phone=phone, force=True)
-            if res["status"] in ("delivered", "simulated"):
-                escalation.record_dispatch(a, phone, channel=res["channel"])
-                st.toast(f"Dispatched {event_id} to {phone}.", icon=":material/sms:")
-                st.rerun()
-            else:
-                st.error(f"Dispatch failed: {res.get('detail') or res.get('reason') or 'Error'}",
-                         icon=":material/cancel:")
-        with st.expander("Why it is risky and what to do"):
-            _render_risk_explainer(a, key=f"alert_{i}")
+        for a in group:
+            severity = str(a.get("severity", "MODERATE"))
+            color = RISK_COLORS.get(severity, MUTED)
+            event_id = str(a.get("event_id", a.get("grid_cell", "?")))
+            days = int(a.get("persistence_days", 0) or 0)
+            rank = a.get("priority")
+            facts = [
+                ("Risk", f'{float(a.get("risk_score", 0)):.0f}/100'),
+                ("Location", f'{a["latitude"]:.3f}, {a["longitude"]:.3f}'),
+                ("Active", f'{days} day' + ("" if days == 1 else "s")),
+                ("Peak FRP", f'{a["frp"]:.1f} MW'),
+            ]
+            if rank is not None and pd.notna(rank):
+                facts.insert(0, ("Priority", f"#{int(rank)}"))
+            facts_html = "".join(
+                f'<span class="fact"><span class="k">{k}</span><span class="v">{v}</span></span>'
+                for k, v in facts
+            )
+            st.markdown(
+                f'<div class="alertcard"><div class="title"><i class="sev" style="background:{color}"></i>'
+                f'{a["title"]}<span class="mono" style="color:var(--ink2);font-weight:400;font-size:.85em;">'
+                f'{event_id}</span></div>'
+                f'<div class="facts">{facts_html}</div>'
+                f'<div class="meta">{severity.capitalize()} severity. {a["classification"]}.</div></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("Dispatch this alert", key=f"alert_crit_send_{i}", icon=":material/sms:",
+                         help=f"Send this alert to {phone} and start the acknowledgement clock"):
+                res = alert_messages.send_critical_alert(a, phone=phone, force=True)
+                if res["status"] in ("delivered", "simulated"):
+                    escalation.record_dispatch(a, phone, channel=res["channel"])
+                    st.toast(f"Dispatched {event_id} to {phone}.", icon=":material/sms:")
+                    st.rerun()
+                else:
+                    st.error(f"Dispatch failed: {res.get('detail') or res.get('reason') or 'Error'}",
+                             icon=":material/cancel:")
+            with st.expander("Why it is risky and what to do"):
+                _render_risk_explainer(a, key=f"alert_{i}")
+            i += 1
 
 
 def _render_analytics(filtered, filtered_clusters, run_info):
@@ -1859,11 +1944,10 @@ def _render_analytics(filtered, filtered_clusters, run_info):
                 st.plotly_chart(fig, width="stretch", key="chart_risk_dist_belt")
 
     c3, c4 = st.columns(2)
-    with c3:
-        with st.container(border=True):
-            _section_header("Persistence distribution (days active)")
-            if not filtered.empty:
-                st.bar_chart(filtered["persistence_days"].value_counts().sort_index())
+    with c3, st.container(border=True):
+        _section_header("Persistence distribution (days active)")
+        if not filtered.empty:
+            st.bar_chart(filtered["persistence_days"].value_counts().sort_index())
     with c4:
         with st.container(border=True):
             _section_header("FRP distribution (MW)")
@@ -1978,6 +2062,7 @@ def _camera_player(camera: dict, height: int = 260):
     script tag, so this goes through a component iframe rather than markdown
     (Streamlit strips scripts from unsafe_allow_html)."""
     import streamlit.components.v1 as components
+
     from src.cameras import registry as camera_registry
 
     url = camera["stream_url"]
@@ -2160,10 +2245,16 @@ def _render_cameras_page(events_df: pd.DataFrame):
                            "inside coverage right now.")
             for camera in watching + idle:
                 seen = report["by_camera"].get(camera["id"], pd.DataFrame())
+                is_watching = camera in watching
                 v1, v2 = st.columns([2.0, 1.6])
                 with v1:
                     _camera_player(camera, height=260)
                 with v2:
+                    status_pill = _pill(
+                        "Watching a flagged site" if is_watching else "Idle",
+                        RISK_COLORS["HIGH"] if is_watching else MUTED,
+                    )
+                    st.markdown(f'<div style="margin-bottom:.5rem;">{status_pill}</div>', unsafe_allow_html=True)
                     st.markdown(
                         f'<div class="panel" style="padding:.7rem .95rem;">'
                         f'<div class="row"><span class="k">Camera</span><span class="v">{camera["name"]}</span></div>'
@@ -2605,7 +2696,9 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
 
 def _render_settings_national():
     info = st.session_state.get("national_info") or {}
-    with st.container(border=True):
+    tab_pipeline, tab_window, tab_alerts = st.tabs(["Pipeline", "Data window", "Alerts"])
+
+    with tab_pipeline, st.container(border=True):
         _section_header("Pipeline")
         _render_firms_key_status("settings_nat_validate")
         if st.button("Run pipeline", key="settings_nat_run", width="stretch", icon=":material/play_circle:"):
@@ -2614,7 +2707,7 @@ def _render_settings_national():
         st.caption("Switch Region in the top bar to the Jharkhand and Odisha belt to run the detailed "
                    "pipeline instead.")
 
-    with st.container(border=True):
+    with tab_window, st.container(border=True):
         _section_header("Data window")
         st.caption(f"Each live run pulls the latest {config.NATIONAL_DAY_RANGE * 24} hours from NASA FIRMS and "
                    f"merges it into a persistent store. Persistence is then judged over up to a "
@@ -2625,7 +2718,8 @@ def _render_settings_national():
         weights = ", ".join(f"{k.replace('frp', 'FRP')} {v:.0%}" for k, v in config.NATIONAL_RISK_WEIGHTS.items())
         st.caption(f"History currently stored: {info.get('history_days_covered', 0)} days. Risk weights: {weights}")
 
-    _render_alert_gateway_settings("india")
+    with tab_alerts:
+        _render_alert_gateway_settings("india")
 
 
 def _route_national_page(page: str):
@@ -2651,6 +2745,7 @@ def _route_national_page(page: str):
     if page == "Overview":
         _render_national_kpis(filtered_detail, filtered_events)
         _render_national_alert_banner(alerts)
+        _render_top_alerts_panel(alerts, key="national")
         oc1, oc2 = st.columns([2, 1])
         with oc1:
             _render_national_top_states_chart(state_summary, state_filter)

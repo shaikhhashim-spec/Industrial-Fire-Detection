@@ -1,7 +1,7 @@
 import pandas as pd
 
-from src.national.states import assign_state
 from src.national.pipeline import _national_risk
+from src.national.states import assign_state
 from src.processing.cleaning import clean_hotspots
 
 

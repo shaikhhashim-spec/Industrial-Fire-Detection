@@ -180,6 +180,11 @@ def covers(camera: dict[str, Any], lat: float, lon: float) -> bool:
 
 
 __all__ = [
-    "COVERED_TIERS", "match_events", "siting_candidates", "summary", "nearest_camera", "covers",
+    "COVERED_TIERS",
     "config",
+    "covers",
+    "match_events",
+    "nearest_camera",
+    "siting_candidates",
+    "summary",
 ]

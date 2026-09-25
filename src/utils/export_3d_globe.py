@@ -116,6 +116,33 @@ def _as_int(value: Any, default: int) -> int:
     return int(round(number)) if math.isfinite(number) else default
 
 
+def _qualifies_for_plume(category: Any, frp: float) -> bool:
+    return frp >= config.PLUME_FRP_MIN_MW or category in config.PLUME_CATEGORIES
+
+
+def _attach_plume(event: dict[str, Any]) -> None:
+    """Downwind smoke/gas dispersion cone for a high-intensity event, from
+    live wind at its location. A visual heuristic (see src/utils/wind.py's
+    module docstring), not a scientific atmospheric dispersion model."""
+    from src.utils import wind as wind_utils
+
+    lat, lon, frp = event["latitude"], event["longitude"], event["frp"]
+    wind_data = wind_utils.get_wind(lat, lon)
+    bearing = wind_utils.downwind_bearing(wind_data["direction_deg"])
+    cone_length_km = wind_utils.dispersion_cone_length_km(wind_data["speed_kmh"], frp)
+    polygon_latlon = wind_utils.dispersion_cone_polygon(
+        lat, lon, wind_data["direction_deg"], wind_data["speed_kmh"], frp,
+    )
+    event["plume"] = {
+        "windSpeedKmh": round(wind_data["speed_kmh"], 1),
+        "windDirectionDeg": round(wind_data["direction_deg"], 0),
+        "downwindBearingDeg": round(bearing, 0),
+        "coneLengthKm": round(cone_length_km, 1),
+        # GeoJSON coordinate order (lon, lat) — dispersion_cone_polygon returns (lat, lon).
+        "polygon": [[lon_, lat_] for lat_, lon_ in polygon_latlon],
+    }
+
+
 def transform_regional_to_holo_events(
     detail_gdf: gpd.GeoDataFrame | pd.DataFrame | None,
     cluster_df: pd.DataFrame | None,
@@ -377,6 +404,17 @@ def export_pipeline_events_for_holo_view(
     # Sort descending by risk score
     events.sort(key=lambda x: x["riskScore"], reverse=True)
 
+    # Downwind smoke/gas dispersion cones for the highest-intensity events
+    # only: a live wind lookup per event, capped so an export never turns
+    # into dozens of sequential, mostly-uncached HTTP calls.
+    qualifying = [e for e in events if _qualifies_for_plume(e["category"], e["frp"])]
+    qualifying.sort(key=lambda x: x["frp"], reverse=True)
+    for e in qualifying[:config.PLUME_MAX_CONES]:
+        try:
+            _attach_plume(e)
+        except Exception as exc:
+            print(f"[export_3d_globe] plume skipped for {e['id']}: {exc}")
+
     source = sources.pop() if len(sources) == 1 else ("mixed" if sources else "none")
     payload = _json_safe({
         "meta": {
@@ -407,6 +445,7 @@ def export_pipeline_events_for_holo_view(
 
     if not destinations:  # the real globe export, not a test/temp destination
         _export_facilities_layer()
+        _export_plumes_layer(events)
     return events
 
 
@@ -437,6 +476,35 @@ def _export_facilities_layer() -> None:
             FACILITIES_PUBLIC.write_text(json.dumps(_json_safe(fc), ensure_ascii=False), encoding="utf-8")
     except Exception as e:
         print(f"[export_3d_globe] facility layer export skipped: {e}")
+
+
+PLUMES_PUBLIC = config.BASE_DIR / "holo-view-maker" / "public" / "data" / "plumes.geojson"
+
+
+def _export_plumes_layer(events: list[dict[str, Any]]) -> None:
+    """Standalone GeoJSON of the same dispersion cones already embedded on
+    each qualifying event, for consumers that want the polygons without the
+    rest of the event payload."""
+    try:
+        features = [
+            {
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [e["plume"]["polygon"]]},
+                "properties": {
+                    "eventId": e["id"],
+                    "frp": e["frp"],
+                    "riskLevel": e["riskLevel"],
+                    "windSpeedKmh": e["plume"]["windSpeedKmh"],
+                    "downwindBearingDeg": e["plume"]["downwindBearingDeg"],
+                },
+            }
+            for e in events if e.get("plume")
+        ]
+        fc = {"type": "FeatureCollection", "features": features}
+        PLUMES_PUBLIC.parent.mkdir(parents=True, exist_ok=True)
+        PLUMES_PUBLIC.write_text(json.dumps(_json_safe(fc), ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        print(f"[export_3d_globe] plumes layer export skipped: {e}")
 
 
 def load_or_export_holo_events() -> list[dict[str, Any]]:
