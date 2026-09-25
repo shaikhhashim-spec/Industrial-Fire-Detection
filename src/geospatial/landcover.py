@@ -74,7 +74,12 @@ def _cache_is_fresh() -> bool:
 
 def load_cached_landcover_zones() -> gpd.GeoDataFrame | None:
     if config.LANDCOVER_CACHE_PATH.exists():
-        return gpd.read_file(config.LANDCOVER_CACHE_PATH)
+        from src.utils.geo_io import read_geojson
+        try:
+            return read_geojson(config.LANDCOVER_CACHE_PATH)
+        except Exception as e:
+            print(f"[geospatial.landcover] failed to read cache: {e}")
+            return None
     return None
 
 

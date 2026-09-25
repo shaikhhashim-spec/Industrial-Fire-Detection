@@ -36,6 +36,7 @@ import {
   stormTracksGeoJSON,
   swathGeoJSON,
 } from "@/lib/geo-layers";
+import { assetUrl } from "@/lib/asset-url";
 import { NIGHT_COORDS, paintNight } from "@/lib/night-raster";
 import { FACILITY_COLOR_EXPR } from "@/lib/facilities";
 
@@ -44,7 +45,7 @@ const LABEL_FONT = ["Montserrat Regular", "Open Sans Regular", "Noto Sans Regula
 
 // Self-hosted by scripts/prepare-map-worker.mjs (runs before dev and build): the
 // bundled worker URL breaks under Vite, leaving vector tiles and GeoJSON undrawn.
-setWorkerUrl(`/vendor/maplibre/${getVersion()}/maplibre-gl-worker.mjs`);
+setWorkerUrl(assetUrl(`vendor/maplibre/${getVersion()}/maplibre-gl-worker.mjs`));
 
 const DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const IMAGERY_TILES =
@@ -260,7 +261,7 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
   });
 
   // ── known industrial sites (OSM + WRI): the "why" behind hotspot clusters ──
-  map.addSource("facilities", { type: "geojson", data: "/data/facilities.geojson" });
+  map.addSource("facilities", { type: "geojson", data: assetUrl("data/facilities.geojson") });
   map.addLayer({
     id: "facilities",
     type: "circle",

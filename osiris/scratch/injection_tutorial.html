@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OSIRIS Cache Injection Protocol v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;500;700&display=swap');
+  
+  :root {
+    --bg: #0b0f19;
+    --card: #151b2b;
+    --cyan: #00E5FF;
+    --gold: #D4AF37;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: rgba(0, 229, 255, 0.2);
+    --error: #FF3D3D;
+    --success: #00E676;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 40px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    line-height: 1.6;
+  }
+
+  .header {
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+
+  h1 {
+    font-family: 'Fira Code', monospace;
+    color: var(--cyan);
+    margin: 0 0 10px 0;
+    font-size: 26px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  h2 {
+    font-family: 'Fira Code', monospace;
+    color: var(--gold);
+    font-size: 18px;
+    margin-top: 40px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    padding-bottom: 10px;
+  }
+
+  .subtitle {
+    color: var(--gold);
+    font-size: 13px;
+    font-family: 'Fira Code', monospace;
+    letter-spacing: 1px;
+  }
+
+  .alert {
+    background: rgba(255, 61, 61, 0.1);
+    border-left: 4px solid var(--error);
+    padding: 15px 20px;
+    margin: 20px 0;
+    font-size: 14px;
+  }
+
+  .alert-success {
+    background: rgba(0, 230, 118, 0.1);
+    border-left: 4px solid var(--success);
+    padding: 15px 20px;
+    margin: 20px 0;
+    font-size: 14px;
+  }
+
+  .step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 25px;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.05);
+  }
+
+  .step::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--cyan), transparent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .step-number {
+    position: absolute;
+    top: -15px;
+    right: 20px;
+    background: var(--bg);
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family: 'Fira Code', monospace;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .step-title {
+    font-family: 'Fira Code', monospace;
+    color: var(--cyan);
+    font-size: 16px;
+    margin-top: 0;
+    margin-bottom: 12px;
+  }
+
+  pre {
+    background: #06090e;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 15px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: #a5b4fc;
+    white-space: pre-wrap;
+  }
+  
+  code {
+    font-family: 'Fira Code', monospace;
+    color: var(--gold);
+    background: rgba(212, 175, 55, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>OSIRIS // Cache Injection Protocol v2</h1>
+    <div class="subtitle">TIMESTAMP BYPASS EDITION (THE DEFINITIVE FIX)</div>
+  </div>
+
+  <p>
+    This guide details the exact procedure required to bypass CelesTrak IP Rate Limits on the live production server. 
+    It corrects a critical flaw in the original injection protocol where the Next.js server would silently reject injected cache files older than 4 hours.
+  </p>
+
+  <div class="alert">
+    <strong>THE PROBLEM WITH V1:</strong> The Next.js <code>loadFromDisk()</code> function strictly checks the JSON <code>data.time</code> field. If the injected file's timestamp is more than 4 hours (14,400,000 ms) old, the server rejects it as "stale", deletes the massive 3.5 MB file, and falls back to a severely limited API (SatNOGS), resulting in only ~1,200 satellites on the live map.
+  </div>
+
+  <h2>Step-by-Step Execution Protocol</h2>
+
+  <div class="step">
+    <div class="step-number">STEP 01</div>
+    <div class="step-title">Verify the Localhost Cache (The Source of Truth)</div>
+    <p>Ensure you are pulling the <strong>correct</strong> cache file that contains all 18,000+ satellites. Do NOT use cache files from older playground folders. The correct file should be roughly <strong>3.5 MB</strong> in size.</p>
+    <pre>Target path: C:\Users\mrads\osiris\.next\cache\satellites-tle-cache.json</pre>
+  </div>
+
+  <div class="step">
+    <div class="step-number">STEP 02</div>
+    <div class="step-title">Artificially Bump the JSON Timestamp</div>
+    <p>Before sending the file to the live server, we must rewrite the <code>time</code> parameter inside the JSON payload to simulate that the data was just fetched. This prevents the server from rejecting it upon restart.</p>
+    <p>Run this exact command in PowerShell (or a Node.js script) on your localhost machine:</p>
+    <pre>node -e "const fs = require('fs'); const path = 'C:/Users/mrads/osiris/.next/cache/satellites-tle-cache.json'; const data = JSON.parse(fs.readFileSync(path, 'utf8')); data.time = Date.now(); fs.writeFileSync(path, JSON.stringify(data));"</pre>
+  </div>
+
+  <div class="step">
+    <div class="step-number">STEP 03</div>
+    <div class="step-title">The Atomic Injection Sequence</div>
+    <p>We must securely transfer the file to the live host, inject it into the running Next.js Docker container, immediately hand ownership of the file over to the Next.js process (so it doesn't crash on write attempts), and restart the container. <strong>This sequence must be performed back-to-back to prevent any API requests from interrupting the process.</strong></p>
+    <pre>scp C:\Users\mrads\osiris\.next\cache\satellites-tle-cache.json root@100.89.48.10:/root/satellites-tle-cache.json
+
+ssh root@100.89.48.10 "docker cp /root/satellites-tle-cache.json osiris:/app/.next/cache/satellites-tle-cache.json ; docker exec -u root osiris chown nextjs:nodejs /app/.next/cache/satellites-tle-cache.json ; docker restart osiris"</pre>
+  </div>
+
+  <div class="step">
+    <div class="step-number">STEP 04</div>
+    <div class="step-title">Validation</div>
+    <p>After the container restarts, wait 5 seconds and test the live API endpoint to ensure all satellites are being served.</p>
+    <pre>curl http://100.89.48.10:3000/api/satellites</pre>
+    <p>The JSON response should conclude with <code>"total": 18896</code> (or similar, depending on the daily CelesTrak catalog size) and <code>"source": "memory-cache"</code>.</p>
+  </div>
+
+  <div class="alert-success">
+    <strong>SUCCESS RESULT:</strong> Upon restart, the OSIRIS Next.js engine will seamlessly load the 18,000+ satellites directly from the hard drive in milliseconds. The live site will serve all orbital objects globally without triggering CelesTrak's automated IP firewall.
+  </div>
+
+</body>
+</html>

@@ -7,6 +7,7 @@ import {
   twoline2satrec,
   type SatRec,
 } from "satellite.js";
+import { assetUrl } from "@/lib/asset-url";
 import { sunElevation } from "@/lib/sun";
 
 /** The polar orbiters whose VIIRS / MODIS scans produce NASA FIRMS hotspots. */
@@ -206,7 +207,7 @@ async function loadFireSatsOnce(): Promise<FireSatSet> {
 
   const backingOff = Date.now() < readRetryAfter();
   const [bundledText, liveText] = await Promise.all([
-    fetch("/data/fire-sats.tle")
+    fetch(assetUrl("data/fire-sats.tle"))
       .then((r) => (r.ok ? r.text() : ""))
       .catch(() => ""),
     backingOff ? Promise.resolve("") : fetchCelestrak(),

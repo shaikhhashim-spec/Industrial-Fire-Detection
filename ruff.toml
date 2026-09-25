@@ -1,0 +1,5 @@
+extend-exclude = ["osiris", "holo-view-maker"]
+
+[lint]
+# Pyflakes only: undefined names, unused imports and variables.
+select = ["F"]

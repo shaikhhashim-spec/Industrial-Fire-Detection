@@ -1,3 +1,5 @@
+import { assetUrl } from "@/lib/asset-url";
+
 export type Category =
   | "Likely Industrial Fire"
   | "Persistent Non-Industrial Thermal Source"
@@ -157,7 +159,7 @@ export async function fetchThermalEvents(): Promise<{
   meta: DataMeta | null;
 }> {
   try {
-    const res = await fetch("/data/events.json", { cache: "no-cache" });
+    const res = await fetch(assetUrl("data/events.json"), { cache: "no-cache" });
     if (res.ok) {
       const data = await res.json();
       const list: ThermalEvent[] = Array.isArray(data) ? data : (data?.events ?? []);

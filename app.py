@@ -10,7 +10,12 @@ Run with: streamlit run app.py
 """
 from __future__ import annotations
 
+import atexit
 import json
+import shutil
+import socket
+import subprocess
+import sys
 import urllib.request
 
 import folium
@@ -33,8 +38,70 @@ from src.utils.export_3d_globe import (
 TIMELAPSE_MAX_POINTS = 600
 # holo-view-maker's Vite dev server (its vite config pins port 8080)
 HOLO_DEFAULT_URL = "http://localhost:8080"
+LIVE_GLOBE_URL = "https://shaikhhashim-spec.github.io/Industrial-Fire-Detection"
+GLOBE_DIR = config.BASE_DIR / "holo-view-maker"
+OSIRIS_DIR = config.BASE_DIR / "osiris"
 
 st.set_page_config(page_title="Thermal Intelligence", layout="wide", page_icon=":material/local_fire_department:", initial_sidebar_state="expanded")
+
+
+def _is_port_open(port: int) -> bool:
+    try:
+        with socket.socket() as s:
+            s.settimeout(0.3)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+    except Exception:
+        return False
+
+
+@st.cache_resource(show_spinner=False)
+def _ensure_background_services() -> list:
+    """Automatically starts holo-view-maker (port 8080) and OSIRIS (port 3000)
+    in the background if they aren't already running, so http://localhost:8501
+    runs all components out-of-the-box."""
+    npm = shutil.which("npm") or shutil.which("npm.cmd")
+    if not npm:
+        return []
+
+    flags = 0
+    if sys.platform == "win32":
+        flags = subprocess.CREATE_NO_WINDOW
+
+    spawned: list[subprocess.Popen] = []
+
+    # 1. 3D Globe Dev Server (Port 8080)
+    if not _is_port_open(8080) and GLOBE_DIR.exists() and (GLOBE_DIR / "package.json").exists():
+        try:
+            p = subprocess.Popen([npm, "run", "dev"], cwd=GLOBE_DIR, creationflags=flags)
+            spawned.append(p)
+        except Exception:
+            pass
+
+    # 2. OSIRIS Tactical OSINT Suite (Port 3000)
+    if not _is_port_open(3000) and OSIRIS_DIR.exists() and (OSIRIS_DIR / "package.json").exists():
+        try:
+            p = subprocess.Popen([npm, "run", "dev"], cwd=OSIRIS_DIR, creationflags=flags)
+            spawned.append(p)
+        except Exception:
+            pass
+
+    def _cleanup():
+        for proc in spawned:
+            try:
+                if sys.platform == "win32":
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+                else:
+                    proc.terminate()
+            except Exception:
+                pass
+
+    if spawned:
+        atexit.register(_cleanup)
+
+    return spawned
+
+
+_ensure_background_services()
 
 
 @st.cache_resource(show_spinner=False)
@@ -242,10 +309,13 @@ section[data-testid="stSidebar"] [data-testid="stButton"] button{ justify-conten
 """
 
 
-# ---------------------------------------------------------------- helpers --
-
-def _section_header(text: str):
-    st.markdown(f'<div class="sec-hdr">{text}</div>', unsafe_allow_html=True)
+def _section_header(text: str, icon: str | None = None, icon_color: str | None = None, **kwargs):
+    if icon:
+        color_style = f' style="color:{icon_color};"' if icon_color else ""
+        icon_html = f'<span class="material-symbols-outlined" style="font-size:1.1rem;vertical-align:-2px;margin-right:6px;{color_style.strip()}">{icon}</span>'
+        st.markdown(f'<div class="sec-hdr">{icon_html}{text}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="sec-hdr">{text}</div>', unsafe_allow_html=True)
 
 
 def _format_satellites(value) -> str:
@@ -384,10 +454,17 @@ def _holo_app_reachable(url: str) -> bool:
 def _load_cached_detail() -> gpd.GeoDataFrame | None:
     if not config.CLASSIFIED_GEOJSON.exists():
         return None
-    gdf = gpd.read_file(config.CLASSIFIED_GEOJSON)
-    gdf["acq_date"] = pd.to_datetime(gdf["acq_date"])
-    return gdf
+    with open(config.CLASSIFIED_GEOJSON, "r", encoding="utf-8") as f:
+        geojson_data = json.load(f)
 
+    gdf = gpd.GeoDataFrame.from_features(
+        geojson_data.get("features", []),
+        crs=geojson_data.get("crs", {}).get("properties", {}).get("name", "EPSG:4326")
+    )
+
+    if "acq_date" in gdf.columns:
+        gdf["acq_date"] = pd.to_datetime(gdf["acq_date"])
+    return gdf
 
 @st.cache_data(show_spinner=False)
 def _load_cached_clusters() -> pd.DataFrame:
@@ -482,7 +559,8 @@ def recompute_risk_and_cache(weights: dict):
 
     export = gdf.copy()
     export["acq_date"] = export["acq_date"].astype(str)
-    export.to_file(config.CLASSIFIED_GEOJSON, driver="GeoJSON")
+    from src.utils.geo_io import write_geojson
+    write_geojson(export, config.CLASSIFIED_GEOJSON)
     export.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
     cluster_export: pd.DataFrame = cluster_df.copy()
     cluster_export["first_detected"] = cluster_export["first_detected"].astype(str)
@@ -734,35 +812,40 @@ def build_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str, show_wind_
     return m
 
 
-def build_timelapse_map(gdf: gpd.GeoDataFrame, label_field: str) -> folium.Map:
+def build_timelapse_map(gdf: gpd.GeoDataFrame, label_field: str, color_by: str = "classification") -> folium.Map:
     if len(gdf) > TIMELAPSE_MAX_POINTS:
         gdf = gdf.sort_values("acq_date").tail(TIMELAPSE_MAX_POINTS)
     center_lat = (config.BBOX["min_lat"] + config.BBOX["max_lat"]) / 2
     center_lon = (config.BBOX["min_lon"] + config.BBOX["max_lon"]) / 2
     m = folium.Map(location=[center_lat, center_lon], zoom_start=8, tiles=None, control_scale=True)
     _add_base_layers(m)
-    features = [
-        {
+    
+    features = []
+    for _, row in gdf.iterrows():
+        if color_by == "risk":
+            color = RISK_COLORS.get(row.get("risk_level", ""), "#888888")
+        else:
+            color = CATEGORY_COLORS.get(row[label_field], "#888888")
+        features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [row.geometry.x, row.geometry.y]},
             "properties": {
                 "time": row["acq_date"].strftime("%Y-%m-%d"), "icon": "circle",
                 "iconstyle": {
-                    "fillColor": CATEGORY_COLORS.get(row[label_field], "#71808f"),
-                    "color": CATEGORY_COLORS.get(row[label_field], "#71808f"),
+                    "fillColor": color, "color": color,
                     "fillOpacity": 0.85, "radius": 5 + min(row["frp"], 40) / 8,
                 },
-                "popup": f"<b>{row[label_field]}</b><br>{row['acq_date'].date()} · FRP {row['frp']:.1f} MW",
+                "popup": f"<b>{row[label_field]}</b><br>Risk: {row.get('risk_level', '?')}<br>{row['acq_date'].date()} · FRP {row['frp']:.1f} MW",
             },
-        }
-        for _, row in gdf.iterrows()
-    ]
+        })
     TimestampedGeoJson(
         {"type": "FeatureCollection", "features": features}, period="P1D", duration="P1D",
         add_last_point=False, auto_play=False, loop=False, max_speed=4, loop_button=True,
         date_options="YYYY-MM-DD", time_slider_drag_update=True,
     ).add_to(m)
-    _add_map_chrome(m, _legend_html("Classification", CATEGORY_COLORS))
+    legend_source = CATEGORY_COLORS if color_by != "risk" else RISK_COLORS
+    legend_title = "Classification" if color_by != "risk" else "Risk Level"
+    _add_map_chrome(m, _legend_html(legend_title, legend_source))
     return m
 
 
@@ -1060,6 +1143,8 @@ def _render_sidebar_nav() -> str:
                 width="stretch", on_click=_navigate(page=p),
             )
         st.divider()
+        st.link_button("OSIRIS Tactical Suite", "http://localhost:3000", width="stretch", icon=":material/radar:",
+                       help="Open the OSIRIS multi-domain global OSINT situational awareness dashboard")
         st.caption("Pipeline runs and thresholds live on the Settings page. Data is live NASA FIRMS only.")
     return page
 
@@ -1465,11 +1550,12 @@ def _render_firms_key_status(validate_key: str) -> None:
     """The key is read from .env and is never entered in the browser: FIRMS
     puts it in the request URL, so a pasted key would end up in logs and in
     error text. Settings only reports whether it loaded."""
-    if config.FIRMS_API_KEY:
+    api_key = config.get_firms_api_key() if hasattr(config, "get_firms_api_key") else config.FIRMS_API_KEY
+    if api_key:
         st.success("FIRMS_API_KEY loaded from .env", icon=":material/check_circle:")
         if st.button("Validate key", key=validate_key, icon=":material/verified:"):
             try:
-                check_map_key(config.FIRMS_API_KEY)
+                check_map_key(api_key)
                 st.success("Key is valid.", icon=":material/check_circle:")
             except FirmsAuthError as exc:
                 st.error(str(exc), icon=":material/cancel:")
@@ -1672,7 +1758,7 @@ def _render_live_map(filtered, label_field, color_by, show_wind_plumes: bool = F
         elif timelapse_on:
             if len(filtered) > TIMELAPSE_MAX_POINTS:
                 st.caption(f"Showing the {TIMELAPSE_MAX_POINTS} most recent of {len(filtered)} points for smooth playback.")
-            st_folium(build_timelapse_map(filtered, label_field), width=None, height=660, returned_objects=[], key="map_live_timelapse")
+            st_folium(build_timelapse_map(filtered, label_field, color_by), width=None, height=660, returned_objects=[], key="map_live_timelapse")
         else:
             st_folium(build_map(filtered, label_field, color_by, show_wind_plumes), width=None, height=660, returned_objects=[], key="map_live")
 
@@ -2403,8 +2489,19 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
 
     if show_heatmap and not points.empty:
         from folium.plugins import HeatMap
-        HeatMap(points[["latitude", "longitude", "frp"]].values.tolist(), radius=12, blur=16, max_zoom=6,
-                name="Heat Intensity").add_to(m)
+        risk_gradient = {
+            0.2: RISK_COLORS["LOW"],
+            0.5: RISK_COLORS["MODERATE"],
+            0.75: RISK_COLORS["HIGH"],
+            1.0: RISK_COLORS["CRITICAL"],
+        }
+        heat_data = []
+        for _, row in points.iterrows():
+            risk_score_val = float(row.get("risk_score", 0) or 0)
+            weight = max(0.15, min(1.0, risk_score_val / 100.0)) if risk_score_val > 0 else max(0.15, min(1.0, float(row.get("frp", 10) or 10) / 50.0))
+            heat_data.append([row["latitude"], row["longitude"], weight])
+        HeatMap(heat_data, radius=14, blur=18, max_zoom=7, gradient=risk_gradient,
+                name="Risk Heat Intensity").add_to(m)
 
     if not points.empty and not show_heatmap:
         cluster = MarkerCluster(disableClusteringAtZoom=8, maxClusterRadius=40,
@@ -2528,22 +2625,38 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
     ])
 
     # The globe itself: the holo-view-maker MapLibre app, embedded so the
-    # dashboard and the globe are one site on one live run.
+    # dashboard and the globe are one site on one live run. Off a developer
+    # machine there is no local server, so fall back to the published copy.
     holo_url = (st.session_state.get("holo_host_url") or HOLO_DEFAULT_URL).rstrip("/")
     if _holo_app_reachable(holo_url):
-        st.iframe(f"{holo_url}/?embed=1", height=900)
+        globe_url, is_local = holo_url, True
+    elif _holo_app_reachable(LIVE_GLOBE_URL):
+        globe_url, is_local = LIVE_GLOBE_URL, False
+    else:
+        globe_url, is_local = "", False
+
+    if globe_url:
+        st.iframe(f"{globe_url}/?embed=1", height=900)
         g1, g2 = st.columns([4, 1])
         with g1:
             st.caption("Drag to rotate, scroll to zoom, click a hotspot to see why it is there. "
-                       "Press ? inside the globe for shortcuts.")
+                       "Press ? inside the globe for shortcuts."
+                       + ("" if is_local else " Showing the published globe, since no local globe server is running."))
         with g2:
-            st.link_button("Open full screen", holo_url, width="stretch", icon=":material/open_in_new:")
+            st.link_button("Open full screen", globe_url, width="stretch", icon=":material/open_in_new:")
     else:
         st.warning(
-            f"The globe server is not answering at {holo_url}. Start the dashboard and the globe together with "
-            "python start_all.py, or run npm run dev inside holo-view-maker, then reload this page.",
+            f"The globe server is not answering at {holo_url}, and the published globe is unreachable. "
+            "Start the dashboard and the globe together with python start_all.py, or run npm run dev "
+            "inside holo-view-maker, then reload this page.",
             icon=":material/warning:",
         )
+
+    with st.expander("OSIRIS Tactical Suite & Multi-Domain Recon"):
+        st.caption("OSIRIS provides 16 multi-domain global OSINT feeds (Aviation / OpenSky, Earthquakes / USGS, "
+                   "Volcanoes / NASA EONET, Conflict Zones, CCTV networks, Port Scans, and CVEs).")
+        st.link_button("Open OSIRIS Command Center (Port 3000)", "http://localhost:3000", width="stretch",
+                       icon=":material/radar:")
 
     with st.expander("Export and server details"):
         st.caption("Written to holo-view-maker/public/data/events.json and output/holo_events.json, in the "
@@ -2589,7 +2702,9 @@ def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.Dat
 
 
 def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame,
-                                map_mode: str, show_heatmap: bool, key: str):
+                                map_mode: str, show_heatmap: bool, key: str,
+                                state_summary: pd.DataFrame | None = None,
+                                state_filter: list[str] | None = None):
     map_points = _map_points_for_mode(filtered_detail, filtered_events, map_mode)
     with st.container(border=True):
         _section_header(f"India: {map_mode.lower()}, {len(map_points):,} shown")
@@ -2612,6 +2727,61 @@ def _render_national_map_panel(filtered_detail: pd.DataFrame, filtered_events: p
                 returned_objects=[],
                 key=key,
             )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        with st.container(border=True):
+            _section_header("Classification Distribution", icon="pie_chart")
+            df_to_use = filtered_events if not filtered_events.empty else filtered_detail
+            if not df_to_use.empty:
+                def _nat_label(r):
+                    if "rule_label" in r and pd.notna(r["rule_label"]) and r["rule_label"] in CATEGORY_COLORS:
+                        return r["rule_label"]
+                    if "classification" in r and pd.notna(r["classification"]) and r["classification"] in CATEGORY_COLORS:
+                        return r["classification"]
+                    if "category" in r and pd.notna(r["category"]) and r["category"] in CATEGORY_COLORS:
+                        return r["category"]
+                    st_val = str(r.get("state", ""))
+                    frp_val = float(r.get("max_frp", r.get("avg_frp", r.get("frp", 10.0))) or 0)
+                    is_p = bool(r.get("is_persistent", False))
+                    if st_val in ("Punjab", "Haryana") and frp_val < 18:
+                        return "Likely Agricultural Burning"
+                    elif is_p and frp_val > 15:
+                        return "Persistent Industrial Activity"
+                    elif is_p:
+                        return "Persistent Non-Industrial Thermal Source"
+                    elif frp_val > 30:
+                        return "Likely Industrial Fire"
+                    elif st_val in ("Uttarakhand", "Himachal Pradesh", "Odisha", "Chhattisgarh", "Madhya Pradesh") and frp_val > 15:
+                        return "Likely Wildfire"
+                    return "Requires Verification"
+
+                cats = df_to_use.apply(_nat_label, axis=1)
+                counts = cats.value_counts()
+                fig = go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h",
+                                        marker_color=[CATEGORY_COLORS.get(l, "#888") for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415", yaxis=dict(autorange="reversed"))
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No hotspots match the current filters.")
+    with c2:
+        with st.container(border=True):
+            _section_header("Risk Distribution", icon="warning", icon_color="var(--accent-high)")
+            if not filtered_events.empty and "risk_level" in filtered_events.columns:
+                counts = filtered_events["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            elif not filtered_detail.empty and "risk_level" in filtered_detail.columns:
+                counts = filtered_detail["risk_level"].value_counts().reindex(["LOW", "MODERATE", "HIGH", "CRITICAL"]).fillna(0)
+                fig = go.Figure(go.Bar(x=counts.index, y=counts.values, marker_color=[RISK_COLORS[l] for l in counts.index]))
+                fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), template="plotly_dark",
+                                   paper_bgcolor="#131415", plot_bgcolor="#131415")
+                st.plotly_chart(fig, width="stretch")
+            else:
+                st.caption("No events in the current filter selection.")
 
 
 def _render_national_top_states_chart(state_summary: pd.DataFrame, state_filter: list[str]):
@@ -2690,6 +2860,8 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
                 }),
                 hide_index=True, width="stretch",
             )
+
+
 
 
 

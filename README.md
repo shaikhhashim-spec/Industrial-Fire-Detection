@@ -3,10 +3,14 @@
 **AI-Based Detection & Classification of Industrial Fires and Persistent Thermal Sources**
 Ministry: NTRO · Category: Software · Target: Jharkhand–Odisha Iron Ore & Steel Belt
 
+[![CI](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/ci.yml)
+[![Deploy](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/pages.yml/badge.svg)](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/pages.yml)
+
 **[Live 3D Globe](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/)** —
-the holo-view-maker globe view, deployed on GitHub Pages. The Streamlit
-command-center dashboard (`app.py`) is a Python server, so it isn't on
-GitHub Pages — run it locally (see [Installation](#9-installation)); it
+the holo-view-maker globe view, deployed on GitHub Pages and rebuilt every six
+hours from live NASA FIRMS data (see [Deployment](#15-deployment)). The
+Streamlit command-center dashboard (`app.py`) is a Python server, so it isn't
+on GitHub Pages — run it locally (see [Installation](#9-installation)); it
 opens at `http://localhost:8501`.
 
 > This is an **AI-assisted early-warning and prioritization platform**, not an
@@ -286,15 +290,41 @@ layers are ever swapped out.
 
 ```bash
 pytest tests/ -v
+ruff check .
 ```
 
-41 tests across data cleaning, grid assignment, the persistence engine, risk
-scoring, the rule classifier, the alert engine, and FIRMS fetch — including
-edge cases: empty datasets, missing coordinates, missing FRP, invalid API
-keys, network timeouts, duplicate detections, and malformed responses. All
-FIRMS tests are mocked — no real key or network access needed to run them.
+Over 200 tests across data cleaning, grid assignment, the persistence engine,
+risk scoring, the rule classifier, the alert engine, the national pipeline, and
+FIRMS fetch — including edge cases: empty datasets, missing coordinates,
+missing FRP, invalid API keys, network timeouts, duplicate detections, and
+malformed responses. All FIRMS tests are mocked — no real key or network access
+needed to run them.
+
+The 3D globe has its own checks, run from `holo-view-maker/`:
+`npx tsc --noEmit`, `npm run lint` and `npm run build`. GitHub Actions
+(`.github/workflows/ci.yml`) runs all of the above on every push and pull
+request.
 
 ## 15. Deployment
+
+### 3D globe on GitHub Pages
+
+`.github/workflows/pages.yml` builds `holo-view-maker` and publishes it to
+`https://<owner>.github.io/<repo>/` on every push to `main`, and again every six
+hours. Set the repository secret `FIRMS_API_KEY` (Settings, Secrets and
+variables, Actions) and each run first re-pulls live NASA FIRMS data for India
+with `scripts/refresh_national_globe.py`. If the secret is missing or FIRMS is
+unreachable, the run still publishes, using the last committed
+`holo-view-maker/public/data/events.json`.
+
+Pages serves the site from a subpath (`/<repo>/`), so every file the globe
+loads at runtime (`/data/*`, `/vendor/*`) must go through `assetUrl()` in
+`holo-view-maker/src/lib/asset-url.ts`. A bare `/data/x.json` resolves to the
+domain root and 404s, which once left the map drawing only the satellite
+imagery and no hotspots. CI fails the build if such a URL sneaks back in.
+To test a subpath build locally: `BASE_PATH=/preview/ npm run build`.
+
+### Streamlit dashboard
 
 The simplest path is [Streamlit Community Cloud](https://streamlit.io/cloud)
 (free, GitHub login): push this repo, point it at `app.py`, and add

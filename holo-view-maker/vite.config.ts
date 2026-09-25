@@ -6,10 +6,24 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// GitHub Pages serves a project site from /<repo>/. Everywhere else (local dev,
+// the Streamlit embed at localhost:8080) the app lives at the root. BASE_PATH
+// overrides both, e.g. `BASE_PATH=/preview/ npm run build` to test a subpath.
+const repo = process.env["GITHUB_REPOSITORY"]?.split("/")[1];
+const base =
+  process.env["BASE_PATH"] ?? (process.env["GITHUB_ACTIONS"] && repo ? `/${repo}/` : "/");
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
+    // Pre-render to static HTML so GitHub Pages can serve the site.
+    prerender: {
+      enabled: true,
+      autoSubfolderIndex: true,
+      autoStaticPathsDiscovery: true,
+      crawlLinks: true,
+    },
   },
+  vite: { base },
 });
