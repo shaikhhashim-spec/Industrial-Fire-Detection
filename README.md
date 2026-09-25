@@ -10,8 +10,10 @@ Ministry: NTRO · Category: Software · Target: Jharkhand–Odisha Iron Ore & St
 the holo-view-maker globe view, deployed on GitHub Pages and rebuilt every six
 hours from live NASA FIRMS data (see [Deployment](#15-deployment)). The
 Streamlit command-center dashboard (`app.py`) is a Python server, so it isn't
-on GitHub Pages — run it locally (see [Installation](#9-installation)); it
-opens at `http://localhost:8501`.
+on GitHub Pages — run the whole platform locally with `python start_all.py`
+(see [Running the Application](#10-running-the-application)) and open
+`http://localhost:8085`: the dashboard, the 3D globe and OSIRIS are all inside
+that one address.
 
 > This is an **AI-assisted early-warning and prioritization platform**, not an
 > autonomous system that confirms fires. Satellite detection is not ground
@@ -194,11 +196,31 @@ NASA FIRMS pull, live or previously cached.
 ## 10. Running the Application
 
 ```bash
-streamlit run app.py
+python start_all.py
 ```
 
-Opens at `http://localhost:8501`. The left sidebar is pure navigation —
-**Overview, Live Map, 3D Globe, Events, Alerts, Cameras, Analytics,
+Then open **`http://localhost:8085`**. That is the only address: the dashboard,
+the 3D globe and OSIRIS are all inside it, so there is nothing else to open or
+remember. The first start also builds the globe and installs OSIRIS's
+dependencies, which takes a few minutes; later starts are quick. Options:
+`--port` picks another address, `--no-refresh` skips the live FIRMS refresh,
+`--no-osiris` leaves OSIRIS out, `--no-browser` does not open the browser,
+`--rebuild` forces a globe rebuild. Ctrl+C stops everything.
+
+How it fits together: the dashboard (Streamlit) and OSIRIS (Next.js) are
+separate programs, so `start_all.py` runs them on private loopback ports (chosen
+free at each start, never something you open) and puts one gateway in front of
+them (`gateway/app.py`). The gateway serves the 3D globe's production build
+itself, reading the live `events.json` so a data refresh needs no rebuild, and
+routes by host name on the one port: `localhost:8085` is the dashboard, and the
+globe and OSIRIS are embedded from `globe.localhost:8085` and
+`osiris.localhost:8085`, which browsers resolve to this machine without any
+setup. The gateway listens on loopback only. Running `streamlit run app.py` on
+its own still works, with the globe falling back to the published copy and no
+OSIRIS page content.
+
+The left sidebar is pure navigation —
+**Overview, Live Map, 3D Globe, OSIRIS, Events, Alerts, Cameras, Analytics,
 Investigations, Settings** — with a caption at the bottom making explicit
 that data is live NASA FIRMS only. The top bar holds the **Region** switch
 (India ↔ Jharkhand–Odisha Belt), live data-source status, global search, and

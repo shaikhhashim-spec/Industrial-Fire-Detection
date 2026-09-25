@@ -6,16 +6,13 @@ confirms fires, and satellite detection is NOT ground truth. See the
 "Requires Verification" category and every risk/confidence figure's own
 caveats.
 
-Run with: streamlit run app.py
+Run the whole platform, dashboard, 3D globe and OSIRIS on one address
+(http://localhost:8085), with: python start_all.py
 """
 from __future__ import annotations
 
-import atexit
 import json
-import shutil
-import socket
-import subprocess
-import sys
+import os
 import urllib.request
 
 import folium
@@ -36,72 +33,15 @@ from src.utils.export_3d_globe import (
 )
 
 TIMELAPSE_MAX_POINTS = 600
-# holo-view-maker's Vite dev server (its vite config pins port 8080)
-HOLO_DEFAULT_URL = "http://localhost:8080"
+# Set by start_all.py: the 3D globe and OSIRIS, served on this dashboard's own port
+# as globe.localhost and osiris.localhost (see gateway/app.py). Empty when the
+# dashboard is started on its own, and the globe then falls back to the
+# published copy.
+GLOBE_URL = os.getenv("GLOBE_URL", "").rstrip("/")
+OSIRIS_URL = os.getenv("OSIRIS_URL", "").rstrip("/")
 LIVE_GLOBE_URL = "https://shaikhhashim-spec.github.io/Industrial-Fire-Detection"
-GLOBE_DIR = config.BASE_DIR / "holo-view-maker"
-OSIRIS_DIR = config.BASE_DIR / "osiris"
 
 st.set_page_config(page_title="Thermal Intelligence", layout="wide", page_icon=":material/local_fire_department:", initial_sidebar_state="expanded")
-
-
-def _is_port_open(port: int) -> bool:
-    try:
-        with socket.socket() as s:
-            s.settimeout(0.3)
-            return s.connect_ex(("127.0.0.1", port)) == 0
-    except Exception:
-        return False
-
-
-@st.cache_resource(show_spinner=False)
-def _ensure_background_services() -> list:
-    """Automatically starts holo-view-maker (port 8080) and OSIRIS (port 3000)
-    in the background if they aren't already running, so http://localhost:8501
-    runs all components out-of-the-box."""
-    npm = shutil.which("npm") or shutil.which("npm.cmd")
-    if not npm:
-        return []
-
-    flags = 0
-    if sys.platform == "win32":
-        flags = subprocess.CREATE_NO_WINDOW
-
-    spawned: list[subprocess.Popen] = []
-
-    # 1. 3D Globe Dev Server (Port 8080)
-    if not _is_port_open(8080) and GLOBE_DIR.exists() and (GLOBE_DIR / "package.json").exists():
-        try:
-            p = subprocess.Popen([npm, "run", "dev"], cwd=GLOBE_DIR, creationflags=flags)
-            spawned.append(p)
-        except Exception:
-            pass
-
-    # 2. OSIRIS Tactical OSINT Suite (Port 3000)
-    if not _is_port_open(3000) and OSIRIS_DIR.exists() and (OSIRIS_DIR / "package.json").exists():
-        try:
-            p = subprocess.Popen([npm, "run", "dev"], cwd=OSIRIS_DIR, creationflags=flags)
-            spawned.append(p)
-        except Exception:
-            pass
-
-    def _cleanup():
-        for proc in spawned:
-            try:
-                if sys.platform == "win32":
-                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
-                else:
-                    proc.terminate()
-            except Exception:
-                pass
-
-    if spawned:
-        atexit.register(_cleanup)
-
-    return spawned
-
-
-_ensure_background_services()
 
 
 @st.cache_resource(show_spinner=False)
@@ -440,9 +380,8 @@ def _style_fig(fig: go.Figure, height: int = 320) -> go.Figure:
 
 @st.cache_data(ttl=30, show_spinner=False)
 def _holo_app_reachable(url: str) -> bool:
-    """Whether the holo-view-maker app answers at `url`. The 3D page opens on
-    that GPU-rendered MapLibre globe when it is running, and falls back to the
-    self-contained embedded globe when it is not."""
+    """Whether the globe answers at `url`. Only asked of the published copy, when
+    the dashboard was started on its own without the platform's own globe."""
     try:
         with urllib.request.urlopen(url, timeout=0.5) as resp:
             return resp.status < 500
@@ -1095,10 +1034,10 @@ Generated: {pd.Timestamp.now().isoformat()}
 
 # ------------------------------------------------------------------ nav --
 
-NAV_PAGES = ["Overview", "Live Map", "3D Globe", "Events", "Alerts", "Cameras", "Analytics",
+NAV_PAGES = ["Overview", "Live Map", "3D Globe", "OSIRIS", "Events", "Alerts", "Cameras", "Analytics",
              "Investigations", "Settings"]
 NAV_ICONS = {
-    "Overview": "space_dashboard", "Live Map": "map", "3D Globe": "public",
+    "Overview": "space_dashboard", "Live Map": "map", "3D Globe": "public", "OSIRIS": "radar",
     "Events": "flare", "Alerts": "notifications_active", "Cameras": "videocam",
     "Analytics": "monitoring", "Investigations": "manage_search", "Settings": "settings",
 }
@@ -1143,8 +1082,6 @@ def _render_sidebar_nav() -> str:
                 width="stretch", on_click=_navigate(page=p),
             )
         st.divider()
-        st.link_button("OSIRIS Tactical Suite", "http://localhost:3000", width="stretch", icon=":material/radar:",
-                       help="Open the OSIRIS multi-domain global OSINT situational awareness dashboard")
         st.caption("Pipeline runs and thresholds live on the Settings page. Data is live NASA FIRMS only.")
     return page
 
@@ -1635,6 +1572,8 @@ def _route_regional_page(page: str):
         _render_live_map(filtered, label_field, color_by, show_wind_plumes)
     elif page == "3D Globe":
         _render_3d_globe_page(filtered, filtered_clusters, is_regional=True)
+    elif page == "OSIRIS":
+        _render_osiris_page()
     elif page == "Events":
         _render_events_table(filtered_clusters, "belt")
     elif page == "Alerts":
@@ -2625,11 +2564,11 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
     ])
 
     # The globe itself: the holo-view-maker MapLibre app, embedded so the
-    # dashboard and the globe are one site on one live run. Off a developer
-    # machine there is no local server, so fall back to the published copy.
-    holo_url = (st.session_state.get("holo_host_url") or HOLO_DEFAULT_URL).rstrip("/")
-    if _holo_app_reachable(holo_url):
-        globe_url, is_local = holo_url, True
+    # dashboard and the globe are one site on one live run. start_all.py serves
+    # it on this dashboard's own port; started on its own, the dashboard falls
+    # back to the published copy.
+    if GLOBE_URL:
+        globe_url, is_local = GLOBE_URL, True
     elif _holo_app_reachable(LIVE_GLOBE_URL):
         globe_url, is_local = LIVE_GLOBE_URL, False
     else:
@@ -2637,36 +2576,33 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
 
     if globe_url:
         st.iframe(f"{globe_url}/?embed=1", height=900)
-        g1, g2 = st.columns([4, 1])
-        with g1:
-            st.caption("Drag to rotate, scroll to zoom, click a hotspot to see why it is there. "
-                       "Press ? inside the globe for shortcuts."
-                       + ("" if is_local else " Showing the published globe, since no local globe server is running."))
-        with g2:
-            st.link_button("Open full screen", globe_url, width="stretch", icon=":material/open_in_new:")
+        st.caption("Drag to rotate, scroll to zoom, click a hotspot to see why it is there. "
+                   "Press ? inside the globe for shortcuts."
+                   + ("" if is_local else " Showing the published globe, since the dashboard was not "
+                                          "started with python start_all.py."))
     else:
         st.warning(
-            f"The globe server is not answering at {holo_url}, and the published globe is unreachable. "
-            "Start the dashboard and the globe together with python start_all.py, or run npm run dev "
-            "inside holo-view-maker, then reload this page.",
+            "There is no globe to show. Start everything together with python start_all.py, "
+            "then reload this page.",
             icon=":material/warning:",
         )
 
-    with st.expander("OSIRIS Tactical Suite & Multi-Domain Recon"):
-        st.caption("OSIRIS provides 16 multi-domain global OSINT feeds (Aviation / OpenSky, Earthquakes / USGS, "
-                   "Volcanoes / NASA EONET, Conflict Zones, CCTV networks, Port Scans, and CVEs).")
-        st.link_button("Open OSIRIS Command Center (Port 3000)", "http://localhost:3000", width="stretch",
-                       icon=":material/radar:")
-
-    with st.expander("Export and server details"):
+    with st.expander("Export details"):
         st.caption("Written to holo-view-maker/public/data/events.json and output/holo_events.json, in the "
                    "ThermalEvent shape declared in holo-view-maker/src/lib/thermal.ts.")
-        st.session_state["holo_host_url"] = st.text_input(
-            "Globe server address", value=holo_url, key="holo_url_input_box",
-            help=f"Where holo-view-maker is served. Default: {HOLO_DEFAULT_URL}",
-        )
         st.download_button("Download events.json", json.dumps(events, indent=2), "events.json",
                            "application/json", key="download_holo_json_btn")
+
+
+def _render_osiris_page():
+    _section_header("OSIRIS")
+    st.caption("OSIRIS provides 16 multi-domain global OSINT feeds (Aviation / OpenSky, Earthquakes / USGS, "
+               "Volcanoes / NASA EONET, Conflict Zones, CCTV networks, Port Scans, and CVEs).")
+    if OSIRIS_URL:
+        st.iframe(f"{OSIRIS_URL}/", height=900)
+    else:
+        st.info("OSIRIS runs alongside the dashboard when everything is started with python start_all.py.",
+                icon=":material/info:")
 
 
 
@@ -2927,6 +2863,8 @@ def _route_national_page(page: str):
         _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_livemap")
     elif page == "3D Globe":
         _render_3d_globe_page(filtered_detail, filtered_events, is_regional=False)
+    elif page == "OSIRIS":
+        _render_osiris_page()
     elif page == "Events":
         _render_events_table(filtered_events, "india")
     elif page == "Alerts":

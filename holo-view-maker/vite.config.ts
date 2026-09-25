@@ -7,7 +7,7 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 // GitHub Pages serves a project site from /<repo>/. Everywhere else (local dev,
-// the Streamlit embed at localhost:8080) the app lives at the root. BASE_PATH
+// the copy the gateway serves at globe.localhost) the app lives at the root. BASE_PATH
 // overrides both, e.g. `BASE_PATH=/preview/ npm run build` to test a subpath.
 const repo = process.env["GITHUB_REPOSITORY"]?.split("/")[1];
 const base =

@@ -8,7 +8,9 @@ click==8.5.0
 folium==0.20.0
 geopandas==1.1.4
 h11==0.16.0
+httpcore==1.0.9
 httptools==0.8.0
+httpx==0.28.1
 idna==3.19
 itsdangerous==2.2.0
 Jinja2==3.1.6
