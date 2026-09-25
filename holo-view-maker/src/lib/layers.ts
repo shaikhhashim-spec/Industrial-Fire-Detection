@@ -8,7 +8,6 @@ export type LayerKey =
   | "quakes"
   | "eonet"
   | "plumes"
-  | "cameras"
   | "webcams"
   | "daynight"
   | "imagery"
@@ -25,7 +24,6 @@ export const DEFAULT_LAYERS: Layers = {
   quakes: true,
   eonet: true,
   plumes: true,
-  cameras: true,
   webcams: true,
   daynight: true,
   imagery: false,
@@ -133,12 +131,6 @@ export const LAYER_GROUPS: LayerGroupDef[] = [
   {
     label: "Ground view",
     layers: [
-      {
-        key: "cameras",
-        label: "CCTV cameras",
-        description: "Mapped public cameras, locations only",
-        shortcut: "C",
-      },
       {
         key: "webcams",
         label: "Live webcams",
