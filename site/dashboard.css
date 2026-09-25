@@ -1,0 +1,718 @@
+/* The dashboard's own tokens (app.py CSS, holo-view-maker/src/styles.css): one
+   token set across every part of the product. One accent, used only for actions,
+   selection and focus; risk keeps its own status palette. */
+:root {
+  --page: #0a0e13;
+  --sidebar: #0c1117;
+  --surface: #10161d;
+  --surface-2: #151d26;
+  --surface-3: #1b2531;
+  --line: #1d2733;
+  --line-strong: #2a3848;
+  --ink: #e4eaf0;
+  --ink2: #a1adba;
+  --muted: #71808f;
+  --accent: #5cb8dc;
+  --on-accent: #061018;
+  --radius: 6px;
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur: 160ms;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 400 16px/1.5 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+.mono,
+.val,
+.v,
+.k-mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: rgba(92, 184, 220, 0.28);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Layout: a sidebar and a main column, as in the dashboard. */
+.shell {
+  display: grid;
+  grid-template-columns: 21rem minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.side {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 5rem 1.25rem 1.5rem;
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+}
+
+.brand {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.brand-sub {
+  margin: 0.15rem 0 1.25rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.navbtn,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 0.83rem/1 "IBM Plex Sans", system-ui, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    filter var(--dur) var(--ease);
+}
+
+.navbtn {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.navbtn:hover,
+.btn:hover {
+  filter: brightness(1.14);
+  border-color: var(--accent);
+}
+
+.navbtn:active,
+.btn:active {
+  transform: scale(0.98);
+}
+
+.navbtn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.navbtn svg,
+.btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.side-note {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+
+.main {
+  padding: 5rem clamp(1rem, 4vw, 3.5rem) 3rem;
+  max-width: 88rem;
+  min-width: 0;
+}
+
+/* Top bar */
+.topbar {
+  display: grid;
+  grid-template-columns: 2.5fr 1.5fr 1.8fr 1.9fr 1.1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.topbar-brand h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.topbar-brand .sub {
+  color: var(--ink2);
+  font-size: 0.8rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field-label {
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.select,
+input[type="search"] {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 0.9rem "IBM Plex Sans", system-ui, sans-serif;
+}
+
+input[type="search"]::placeholder {
+  color: var(--muted);
+}
+
+input[type="search"] {
+  margin-top: 1.3rem;
+}
+
+.topbar-meta {
+  padding-top: 0.2rem;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--ink2);
+}
+
+.topbar-meta .v {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+#alerts-btn {
+  margin-top: 1.3rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.topbar-rule {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 0.9rem 0 1.2rem;
+}
+
+/* Metric strip: one row. A tile's colour is a thin top edge and a small marker
+   beside its label, never a full-colour number. */
+.statrow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 0.9rem;
+  background: var(--surface);
+}
+
+.stat {
+  padding: 0.8rem 1rem;
+  border-right: 1px solid var(--line);
+  border-top: 2px solid var(--stat-accent, transparent);
+}
+
+.stat:last-child {
+  border-right: none;
+}
+
+.stat .lbl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--ink2);
+}
+
+.mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  flex: none;
+  background: var(--mark, var(--muted));
+}
+
+.stat .val {
+  font-size: 1.3rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.8rem;
+  margin: 0 0 0.9rem;
+  font-size: 0.83rem;
+  color: var(--ink2);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.pill .mark {
+  width: 8px;
+  height: 8px;
+}
+
+.alertbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.alertbar .txt {
+  font-size: 0.88rem;
+}
+
+.alertbar b {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Panels and alert cards */
+.panel {
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.sec-hdr {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.count-note {
+  margin-bottom: 0.7rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.alertcard {
+  margin-bottom: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition:
+    border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.alertcard:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.alertcard .title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.alertcard .sev {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+  background: var(--sev, var(--muted));
+}
+
+.alertcard .id {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.85em;
+  font-weight: 400;
+  color: var(--ink2);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.75rem;
+  margin-top: 0.5rem;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.fact .k {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.fact .v {
+  font-size: 0.82rem;
+}
+
+.alertcard .meta {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+
+/* "Why it is risky and what to do" */
+details.explain {
+  margin: 0 0 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+details.explain > summary {
+  padding: 0.7rem 1rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+details.explain > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.explain > summary::before {
+  content: "\203A";
+  display: inline-block;
+  width: 1.1rem;
+  color: var(--ink2);
+  transition: transform var(--dur) var(--ease);
+}
+
+details.explain[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.explain-body {
+  padding: 0.2rem 1rem 1rem;
+}
+
+.risk-lead {
+  margin-bottom: 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.factors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.factor-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.factor-head .name {
+  font-weight: 500;
+}
+
+.factor-head .val,
+.factor-head .pts {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink2);
+}
+
+.factor-head .pts {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.bar {
+  display: block;
+  height: 6px;
+  margin: 0.35rem 0 0.3rem;
+  border-radius: 3px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.why {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+
+.model-note {
+  margin-top: 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+
+.model-note b {
+  color: var(--ink);
+}
+
+.caveat-inline {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.actions {
+  margin-top: 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+}
+
+.actions-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.actions ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actions li {
+  display: grid;
+  grid-template-columns: 5.6rem 1fr;
+  gap: 0.2rem 0.8rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.actions li:last-child {
+  border-bottom: none;
+}
+
+.urgency {
+  grid-row: span 2;
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--ink2);
+}
+
+.urgency::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--u);
+  flex: none;
+}
+
+.step {
+  font-size: 0.85rem;
+}
+
+.detail {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+
+.evidence-title {
+  margin: 1rem 0 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.evidence {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.84rem;
+  color: var(--ink2);
+}
+
+.evidence:last-child {
+  border-bottom: none;
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
+.empty,
+.loading,
+.footnote {
+  font-size: 0.83rem;
+  color: var(--muted);
+}
+
+.loading {
+  padding: 2rem 0;
+}
+
+.footnote {
+  margin-top: 1.5rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  line-height: 1.65;
+}
+
+/* Narrow screens: the sidebar becomes a strip above the page. */
+@media (max-width: 62rem) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .side {
+    position: static;
+    height: auto;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav {
+    flex-direction: row;
+  }
+
+  .navbtn {
+    width: auto;
+    flex: 1;
+  }
+
+  .main {
+    padding-top: 1.5rem;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .topbar-brand {
+    grid-column: 1 / -1;
+  }
+
+  input[type="search"],
+  #alerts-btn {
+    margin-top: 0;
+  }
+
+  .statrow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stat:nth-child(2) {
+    border-right: none;
+  }
+
+  .stat:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .alertbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

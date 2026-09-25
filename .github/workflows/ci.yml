@@ -64,6 +64,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test the public Overview page's logic
+        working-directory: .
+        run: node --test "site/*.test.mjs"
+
       # Guards the GitHub Pages bug where root-relative URLs (/data/..., /vendor/...)
       # 404 under /<repo>/ and the map drew no hotspots.
       - name: Check the build has no root-relative asset URLs

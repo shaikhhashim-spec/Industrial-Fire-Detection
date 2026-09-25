@@ -137,10 +137,24 @@ class TestExport3DGlobe(unittest.TestCase):
                 "avg_confidence": 85.0,
             }
         ])
+        detail_df = pd.DataFrame(
+            {
+                "state": ["Odisha", "Odisha", "Gujarat"],
+                "satellite": ["N", "Terra", "N20"],
+            }
+        )
         with TemporaryDirectory() as td, mock.patch("src.utils.export_3d_globe._attach_plume"):
             dest = Path(td) / "events.json"
-            events = export_pipeline_events_for_holo_view(events_df=events_df, destinations=[dest])
+            events = export_pipeline_events_for_holo_view(
+                events_df=events_df, national_detail_df=detail_df, destinations=[dest]
+            )
             self.assertEqual(len(events), 1)
+            meta = json.loads(dest.read_text(encoding="utf-8"))["meta"]
+            # The run-level counts the public Overview page shows, exactly as the dashboard counts them.
+            self.assertEqual(meta["observations"], 3)
+            self.assertEqual(meta["statesWithActivity"], 2)
+            self.assertEqual(meta["satellites"], ["NOAA-20", "S-NPP", "Terra (MODIS)"])
+            self.assertEqual(meta["persistentSources"], 1)
             payload = json.loads(dest.read_text(encoding="utf-8"))
             self.assertEqual(len(payload["events"]), len(events))
             # meta.source says honestly where the globe's points came from

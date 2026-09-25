@@ -24,3 +24,4 @@ dist/
 Thumbs.db
 .env.*
 !.env.example
+_site/

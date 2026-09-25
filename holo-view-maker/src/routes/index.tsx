@@ -21,6 +21,7 @@ import { DEFAULT_LAYERS, SHORTCUT_TO_LAYER, type LayerKey, type Layers } from "@
 import { fetchEarthquakes, fetchEonet, type Hazard } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
 import { viewFromUrl } from "@/lib/view-params";
+import { parentPath } from "@/lib/asset-url";
 
 const NO_SATS: FireSat[] = [];
 const NO_EVENTS: ThermalEvent[] = [];
@@ -251,6 +252,14 @@ function Index() {
             >
               {loading ? "Reloading" : "Reload"}
             </button>
+            {parentPath() && (
+              <a
+                href={parentPath() ?? "/"}
+                className="rounded-sm border border-border px-1.5 py-0.5 text-[0.7rem] transition-colors duration-150 hover:bg-muted"
+              >
+                Overview
+              </a>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-6">

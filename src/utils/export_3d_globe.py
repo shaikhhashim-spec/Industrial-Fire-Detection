@@ -106,6 +106,27 @@ def _normalize_status(row: pd.Series | dict) -> str:
     return "NEW"
 
 
+# FIRMS reports VIIRS by a one-letter code ("N" alone reads like a typo, but it is
+# Suomi NPP); MODIS already says Aqua or Terra.
+_SATELLITE_LABELS = {"N": "S-NPP", "N20": "NOAA-20", "N21": "NOAA-21", "Aqua": "Aqua (MODIS)", "Terra": "Terra (MODIS)"}
+
+
+def _national_summary(events_df: pd.DataFrame, detail_df: pd.DataFrame | None) -> dict[str, Any]:
+    """The run-level counts the dashboard's Overview shows, written into the data
+    file so a static page can show the same numbers without the raw observations."""
+    out: dict[str, Any] = {}
+    if "is_persistent" in events_df.columns:
+        out["persistentSources"] = int(events_df["is_persistent"].sum())
+    if detail_df is not None and not detail_df.empty:
+        out["observations"] = int(len(detail_df))
+        if "state" in detail_df.columns:
+            out["statesWithActivity"] = int(detail_df["state"].nunique())
+        if "satellite" in detail_df.columns:
+            names = detail_df["satellite"].dropna().astype(str).unique()
+            out["satellites"] = sorted(_SATELLITE_LABELS.get(s, s) for s in names)
+    return out
+
+
 def _as_int(value: Any, default: int) -> int:
     """A cached cluster_summary.csv carries NaN wherever a column did not apply
     to that row, and int(nan) raises. Anything unusable falls back."""
@@ -422,6 +443,7 @@ def export_pipeline_events_for_holo_view(
             "generatedAt": pd.Timestamp.now(tz="UTC").isoformat(),
             "events": len(events),
             "windowDays": config.NATIONAL_HISTORY_DAYS,
+            **(_national_summary(events_df, national_detail_df) if national_live else {}),
             "attribution": [
                 "NASA FIRMS VIIRS and MODIS active fires",
                 "© OpenStreetMap contributors (ODbL)",

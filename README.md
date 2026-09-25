@@ -17,9 +17,11 @@ inside that one address, so there is nothing else to open (details in
 [Running the Application](#10-running-the-application)).
 
 The dashboard is a Python server, so it cannot live on GitHub Pages. A
-[copy of the 3D globe alone](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/)
-is published there as a public preview, rebuilt every six hours from live NASA
-FIRMS data (see [Deployment](#15-deployment)).
+[public preview](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/)
+is published there instead: the dashboard's Overview page, with a link into the
+[3D globe](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/globe/).
+Both are rebuilt every six hours from live NASA FIRMS data (see
+[Deployment](#15-deployment)).
 
 > This is an **AI-assisted early-warning and prioritization platform**, not an
 > autonomous system that confirms fires. Satellite detection is not ground
@@ -332,11 +334,18 @@ request.
 
 ## 15. Deployment
 
-### 3D globe on GitHub Pages
+### Public preview on GitHub Pages
 
-`.github/workflows/pages.yml` builds `holo-view-maker` and publishes it to
-`https://<owner>.github.io/<repo>/` on every push to `main`, and again every six
-hours. Set the repository secret `FIRMS_API_KEY` (Settings, Secrets and
+`.github/workflows/pages.yml` publishes to `https://<owner>.github.io/<repo>/` on
+every push to `main`, and again every six hours. The site is two parts, put
+together by `scripts/assemble_pages_site.py`: the static Overview page (`site/`,
+plain HTML, CSS and JavaScript, no build step) at the root, and the 3D globe's
+production build under `/globe/`, the same shape the local gateway serves. The
+Overview draws the dashboard's Overview screen (the four tiles, the alert banner,
+the top alerts with their explanations, and search) from the same `events.json`
+the globe reads; its counts are worked out by `site/overview.mjs`, tested with
+`node --test "site/*.test.mjs"`. The other dashboard pages need the Python
+server and run locally. Set the repository secret `FIRMS_API_KEY` (Settings, Secrets and
 variables, Actions) and each run first re-pulls live NASA FIRMS data for India
 with `scripts/refresh_national_globe.py`. If the secret is missing or FIRMS is
 unreachable, the run still publishes, using the last committed
@@ -347,7 +356,8 @@ loads at runtime (`/data/*`, `/vendor/*`) must go through `assetUrl()` in
 `holo-view-maker/src/lib/asset-url.ts`. A bare `/data/x.json` resolves to the
 domain root and 404s, which once left the map drawing only the satellite
 imagery and no hotspots. CI fails the build if such a URL sneaks back in.
-To test a subpath build locally: `BASE_PATH=/preview/ npm run build`.
+The globe is built with `BASE_PATH=/<repo>/globe/`. To test a subpath build
+locally: `BASE_PATH=/preview/ npm run build`.
 
 ### Streamlit dashboard
 
