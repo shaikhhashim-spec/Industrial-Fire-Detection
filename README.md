@@ -6,14 +6,20 @@ Ministry: NTRO · Category: Software · Target: Jharkhand–Odisha Iron Ore & St
 [![CI](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/ci.yml)
 [![Deploy](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/pages.yml/badge.svg)](https://github.com/shaikhhashim-spec/Industrial-Fire-Detection/actions/workflows/pages.yml)
 
-**[Live 3D Globe](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/)** —
-the holo-view-maker globe view, deployed on GitHub Pages and rebuilt every six
-hours from live NASA FIRMS data (see [Deployment](#15-deployment)). The
-Streamlit command-center dashboard (`app.py`) is a Python server, so it isn't
-on GitHub Pages — run the whole platform locally with `python start_all.py`
-(see [Running the Application](#10-running-the-application)) and open
-`http://localhost:8085`: the dashboard, the 3D globe and OSIRIS are all inside
-that one address.
+## Run it
+
+```bash
+python start_all.py
+```
+
+Then open **http://localhost:8085**. The dashboard and the 3D globe are both
+inside that one address, so there is nothing else to open (details in
+[Running the Application](#10-running-the-application)).
+
+The dashboard is a Python server, so it cannot live on GitHub Pages. A
+[copy of the 3D globe alone](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/)
+is published there as a public preview, rebuilt every six hours from live NASA
+FIRMS data (see [Deployment](#15-deployment)).
 
 > This is an **AI-assisted early-warning and prioritization platform**, not an
 > autonomous system that confirms fires. Satellite detection is not ground
@@ -199,28 +205,25 @@ NASA FIRMS pull, live or previously cached.
 python start_all.py
 ```
 
-Then open **`http://localhost:8085`**. That is the only address: the dashboard,
-the 3D globe and OSIRIS are all inside it, so there is nothing else to open or
-remember. The first start also builds the globe and installs OSIRIS's
-dependencies, which takes a few minutes; later starts are quick. Options:
-`--port` picks another address, `--no-refresh` skips the live FIRMS refresh,
-`--no-osiris` leaves OSIRIS out, `--no-browser` does not open the browser,
-`--rebuild` forces a globe rebuild. Ctrl+C stops everything.
+Then open **`http://localhost:8085`**. That is the only address: the dashboard
+and the 3D globe are both inside it, so there is nothing else to open or
+remember. The first start also builds the globe, which takes a minute or two;
+later starts take a few seconds. Options: `--port` picks another address,
+`--no-refresh` skips the live FIRMS refresh, `--no-browser` does not open the
+browser, `--rebuild` forces a globe rebuild. Ctrl+C stops everything.
 
-How it fits together: the dashboard (Streamlit) and OSIRIS (Next.js) are
-separate programs, so `start_all.py` runs them on private loopback ports (chosen
-free at each start, never something you open) and puts one gateway in front of
-them (`gateway/app.py`). The gateway serves the 3D globe's production build
-itself, reading the live `events.json` so a data refresh needs no rebuild, and
-routes by host name on the one port: `localhost:8085` is the dashboard, and the
-globe and OSIRIS are embedded from `globe.localhost:8085` and
-`osiris.localhost:8085`, which browsers resolve to this machine without any
-setup. The gateway listens on loopback only. Running `streamlit run app.py` on
-its own still works, with the globe falling back to the published copy and no
-OSIRIS page content.
+How it fits together: the dashboard (Streamlit) and the 3D globe are separate
+programs, so `start_all.py` runs the dashboard on a private loopback port
+(chosen free at each start, never something you open) and puts one gateway in
+front of it (`gateway/app.py`). The gateway serves the globe's production build
+itself under `/globe/`, reading the live `events.json` so a data refresh needs
+no rebuild, and proxies everything else, WebSocket included, to the dashboard.
+The dashboard's "3D Globe" page embeds the globe from the same address. The
+gateway listens on loopback only. Running `streamlit run app.py` on its own
+still works, with the globe falling back to the published copy.
 
 The left sidebar is pure navigation —
-**Overview, Live Map, 3D Globe, OSIRIS, Events, Alerts, Cameras, Analytics,
+**Overview, Live Map, 3D Globe, Events, Alerts, Analytics,
 Investigations, Settings** — with a caption at the bottom making explicit
 that data is live NASA FIRMS only. The top bar holds the **Region** switch
 (India ↔ Jharkhand–Odisha Belt), live data-source status, global search, and
@@ -354,16 +357,6 @@ The simplest path is [Streamlit Community Cloud](https://streamlit.io/cloud)
 Without that secret configured, the deployed app still runs — it just shows
 the Settings-page warning and whatever history is already cached, rather
 than failing outright.
-
-### Live webcams layer (3D globe)
-
-The globe has a **Live webcams** layer (press `V`) for SkylineWebcams, the
-tourism webcam site. It lists only two cameras in all of India (Nanded and
-Mount Abu). SkylineWebcams does not allow its pages to be embedded, so the
-globe shows a marker at the town centre and a button that opens the live view
-on their site. Nothing of theirs is copied. Refresh it with
-`python scripts/build_india_webcams.py`. Open the globe on a place with
-`?lat=12.9757&lon=77.607&z=15.6`.
 
 ## 16. Implemented Features
 

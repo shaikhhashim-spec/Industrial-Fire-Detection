@@ -241,8 +241,5 @@ LANDCOVER_CACHE_PATH = CACHE_DIR / "osm_landcover.geojson"
 DB_PATH = DATA_DIR / "hotspots.db"
 ALERT_LOG_PATH = PROCESSED_DIR / "critical_alerts_log.json"
 ALERT_ESCALATION_PATH = PROCESSED_DIR / "alert_escalations.json"
-# Camera streams are entered by whoever holds the access, not fetched from
-# anywhere: there is no public live feed covering Indian industrial sites.
-CAMERA_REGISTRY_PATH = DATA_DIR / "cameras.json"
 
 

@@ -1,20 +1,15 @@
 """One address for the whole platform.
 
-The dashboard (Streamlit), the 3D globe and OSIRIS (Next.js) are separate
-programs. This gateway puts all of them behind one port, so there is a single
-address to open (http://localhost:8085) and nothing else to start or remember.
+The dashboard (Streamlit) and the 3D globe are separate programs. This gateway
+puts both behind one port, so there is a single address to open
+(http://localhost:8085) and nothing else to start or remember:
 
-Routing is by host name on that one port. Browsers resolve every *.localhost
-name to this machine with no setup, so each program gets its own root and none
-of them has to be modified to live under a path prefix:
+    /globe/   the 3D globe: its production build, served here
+    anything  else is the dashboard, proxied to Streamlit
 
-    localhost:8085          the dashboard (proxied to Streamlit)
-    globe.localhost:8085    the 3D globe (its production build, served here)
-    osiris.localhost:8085   OSIRIS (proxied to its dev server)
-
-The dashboard embeds the other two, so a visitor only ever types the first.
-The upstream servers listen on private loopback ports picked by start_all.py.
-The gateway itself is meant to be bound to localhost only.
+The dashboard embeds the globe from the same address, so the browser only ever
+sees one origin. Streamlit listens on a private loopback port picked by
+start_all.py, and the gateway itself is meant to be bound to localhost only.
 """
 from __future__ import annotations
 
@@ -24,14 +19,20 @@ import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import httpx
 import websockets
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 from starlette.requests import Request
-from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
 
@@ -40,23 +41,18 @@ from starlette.websockets import WebSocket
 mimetypes.add_type("text/javascript", ".mjs")
 
 ROOT = Path(__file__).resolve().parents[1]
-GLOBE_HOST = "globe.localhost"
-OSIRIS_HOST = "osiris.localhost"
+GLOBE_PATH = "/globe"
 
 _HOP_BY_HOP = frozenset(
     {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer", "trailers",
      "transfer-encoding", "upgrade"}
 )
-# OSIRIS allows framing only by its own origin. The dashboard that embeds it is a
-# different host name, so those two headers would block the embed for no benefit
-# on a private loopback server.
-_OSIRIS_STRIPPED = frozenset({"x-frame-options", "strict-transport-security"})
 
 
 @dataclass(frozen=True)
 class Config:
     dashboard_port: int
-    osiris_port: int | None = None
+    # The globe's build must have been made for the /globe/ base (start_all.py does).
     globe_dir: Path = ROOT / "holo-view-maker" / ".output" / "public"
     # Served ahead of the build's own copy, so a data refresh shows up in the
     # globe without rebuilding it.
@@ -65,23 +61,11 @@ class Config:
 
     @classmethod
     def from_env(cls) -> "Config":
-        osiris = os.getenv("GATEWAY_OSIRIS_PORT")
         return cls(
             dashboard_port=int(os.environ["GATEWAY_DASH_PORT"]),
-            osiris_port=int(osiris) if osiris else None,
             globe_dir=Path(os.getenv("GATEWAY_GLOBE_DIR") or cls.globe_dir),
             globe_data_dir=Path(os.getenv("GATEWAY_GLOBE_DATA_DIR") or cls.globe_data_dir),
         )
-
-
-def target_for(host_header: str) -> str:
-    """Which program a request is for: "globe", "osiris" or "dashboard"."""
-    host = (urlsplit("//" + host_header).hostname or "").lower()
-    if host == GLOBE_HOST:
-        return "globe"
-    if host == OSIRIS_HOST:
-        return "osiris"
-    return "dashboard"
 
 
 def _unavailable(title: str, detail: str, *, retry: bool) -> HTMLResponse:
@@ -96,8 +80,8 @@ def _unavailable(title: str, detail: str, *, retry: bool) -> HTMLResponse:
     return HTMLResponse(page, status_code=503)
 
 
-def _starting(name: str) -> HTMLResponse:
-    return _unavailable(f"{name} is starting", "This page reloads by itself as soon as it is ready.", retry=True)
+def _starting() -> HTMLResponse:
+    return _unavailable("The dashboard is starting", "This page reloads by itself as soon as it is ready.", retry=True)
 
 
 # --------------------------------------------------------------- the globe --
@@ -116,6 +100,7 @@ def _safe_file(base: Path, rel: str) -> Path | None:
 
 
 def _globe_response(config: Config, path: str) -> Response:
+    """`path` is relative to /globe/, e.g. "/" or "/assets/app-1a2b.js"."""
     index = config.globe_dir / "index.html"
     if not index.is_file():
         return _unavailable(
@@ -148,9 +133,10 @@ def _rewrite_location(value: str, upstream_origin: str, request: Request) -> str
     return value
 
 
-async def _proxy_http(request: Request, name: str, port: int, strip: frozenset[str] = frozenset()) -> Response:
+async def _proxy_http(request: Request) -> Response:
     config: Config = request.app.state.config
     client: httpx.AsyncClient = request.app.state.client
+    port = config.dashboard_port
     origin = f"http://{config.upstream_host}:{port}"
     raw_path = (request.scope.get("raw_path") or request.url.path.encode()).decode("latin-1")
     url = origin + raw_path + (f"?{request.url.query}" if request.url.query else "")
@@ -177,12 +163,12 @@ async def _proxy_http(request: Request, name: str, port: int, strip: frozenset[s
     try:
         upstream = await client.send(upstream_request, stream=True)
     except (httpx.ConnectError, httpx.ConnectTimeout):
-        return _starting(name)
+        return _starting()
 
     out: list[tuple[bytes, bytes]] = []
     for key, value in upstream.headers.multi_items():
         lower = key.lower()
-        if lower in _HOP_BY_HOP or lower in strip:
+        if lower in _HOP_BY_HOP:
             continue
         if lower == "location":
             value = _rewrite_location(value, origin, request)
@@ -196,8 +182,9 @@ async def _proxy_http(request: Request, name: str, port: int, strip: frozenset[s
     return response
 
 
-async def _proxy_ws(websocket: WebSocket, port: int) -> None:
+async def _proxy_ws(websocket: WebSocket) -> None:
     config: Config = websocket.app.state.config
+    port = config.dashboard_port
     origin = f"http://{config.upstream_host}:{port}"
     query = websocket.url.query
     uri = f"ws://{config.upstream_host}:{port}{websocket.url.path}" + (f"?{query}" if query else "")
@@ -247,28 +234,27 @@ async def _proxy_ws(websocket: WebSocket, port: int) -> None:
 # ------------------------------------------------------------------ routes --
 
 
+def _is_globe(path: str) -> bool:
+    return path == GLOBE_PATH or path.startswith(GLOBE_PATH + "/")
+
+
 async def _http(request: Request) -> Response:
-    config: Config = request.app.state.config
-    target = target_for(request.headers.get("host", ""))
-    if target == "globe":
+    path = request.url.path
+    if path == GLOBE_PATH:
+        query = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(GLOBE_PATH + "/" + query, status_code=307)
+    if _is_globe(path):
         if request.method not in {"GET", "HEAD"}:
             return Response(status_code=405, headers={"Allow": "GET, HEAD"})
-        return _globe_response(config, request.url.path)
-    if target == "osiris":
-        if config.osiris_port is None:
-            return _unavailable("OSIRIS is not running", "It was left out when the platform was started.", retry=False)
-        return await _proxy_http(request, "OSIRIS", config.osiris_port, _OSIRIS_STRIPPED)
-    return await _proxy_http(request, "The dashboard", config.dashboard_port)
+        return _globe_response(request.app.state.config, path[len(GLOBE_PATH):])
+    return await _proxy_http(request)
 
 
 async def _websocket(websocket: WebSocket) -> None:
-    config: Config = websocket.app.state.config
-    target = target_for(websocket.headers.get("host", ""))
-    port = config.osiris_port if target == "osiris" else config.dashboard_port if target == "dashboard" else None
-    if port is None:
+    if _is_globe(websocket.url.path):  # the globe has no WebSocket
         await websocket.close(code=1008)
         return
-    await _proxy_ws(websocket, port)
+    await _proxy_ws(websocket)
 
 
 async def _is_up(host: str, port: int) -> bool:
@@ -285,7 +271,6 @@ async def _health(request: Request) -> Response:
     return JSONResponse(
         {
             "dashboard": await _is_up(config.upstream_host, config.dashboard_port),
-            "osiris": None if config.osiris_port is None else await _is_up(config.upstream_host, config.osiris_port),
             "globe": (config.globe_dir / "index.html").is_file(),
         }
     )
@@ -294,7 +279,7 @@ async def _health(request: Request) -> Response:
 def create_app(config: Config) -> Starlette:
     @asynccontextmanager
     async def lifespan(app: Starlette):
-        # No read timeout: Streamlit and Next both hold long-lived responses open.
+        # No read timeout: Streamlit holds long-lived responses open.
         app.state.client = httpx.AsyncClient(
             timeout=httpx.Timeout(10.0, read=None),
             limits=httpx.Limits(max_connections=200, max_keepalive_connections=50),

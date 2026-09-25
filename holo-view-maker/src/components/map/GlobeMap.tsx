@@ -37,7 +37,6 @@ import {
   swathGeoJSON,
 } from "@/lib/geo-layers";
 import { assetUrl } from "@/lib/asset-url";
-import type { WebcamData } from "@/lib/webcams";
 import { viewFromUrl } from "@/lib/view-params";
 import { NIGHT_COORDS, paintNight } from "@/lib/night-raster";
 import { FACILITY_COLOR_EXPR } from "@/lib/facilities";
@@ -76,9 +75,6 @@ export interface GlobeMapProps {
   naturalEvents: Hazard[];
   selectedHazard: Hazard | null;
   onSelectHazard: (h: Hazard) => void;
-  webcams: WebcamData | null;
-  selectedWebcamId: string | null;
-  onSelectWebcam: (id: string) => void;
   /** The user grabbed the map, so stop auto-rotating. */
   onInteract: () => void;
 }
@@ -95,11 +91,10 @@ const LAYER_IDS: Record<Exclude<LayerKey, "borders">, string[]> = {
   graticule: ["graticule"],
   imagery: ["imagery"],
   facilities: ["facilities", "facility-labels"],
-  webcams: ["webcams", "webcams-dot", "webcam-labels", "webcam-selected"],
 };
 
 // topmost first: a hotspot sitting on a plant should pick the hotspot
-const INTERACTIVE = ["sat-core", "thermal", "quakes", "eonet", "webcams", "facilities"];
+const INTERACTIVE = ["sat-core", "thermal", "quakes", "eonet", "facilities"];
 
 // Transparent at low density on purpose: scattered single detections should read
 // as dots, and only real clusters (steel plants, coalfields) should glow.
@@ -304,61 +299,6 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
     },
   });
 
-  // ── live webcams (SkylineWebcams): link-out markers, a few in all of India ──
-  map.addSource("webcams", { type: "geojson", data: EMPTY_FC });
-  map.addLayer({
-    id: "webcams",
-    type: "circle",
-    source: "webcams",
-    paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 4.5, 8, 8],
-      "circle-color": "#0b1016",
-      "circle-stroke-color": "#e4eaf0",
-      "circle-stroke-width": 1.6,
-    },
-  });
-  map.addLayer({
-    id: "webcams-dot",
-    type: "circle",
-    source: "webcams",
-    paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 1.6, 8, 3],
-      "circle-color": "#e4eaf0",
-    },
-  });
-  map.addLayer({
-    id: "webcam-labels",
-    type: "symbol",
-    source: "webcams",
-    minzoom: 4,
-    layout: {
-      "text-field": ["get", "name"],
-      "text-font": LABEL_FONT,
-      "text-size": 10.5,
-      "text-offset": [0, 1.3],
-      "text-anchor": "top",
-      "text-max-width": 9,
-      "text-optional": true,
-    },
-    paint: {
-      "text-color": "#e4eaf0",
-      "text-halo-color": "#05080c",
-      "text-halo-width": 1.2,
-    },
-  });
-  map.addSource("webcam-selected", { type: "geojson", data: EMPTY_FC });
-  map.addLayer({
-    id: "webcam-selected",
-    type: "circle",
-    source: "webcam-selected",
-    paint: {
-      "circle-radius": 13,
-      "circle-color": "rgba(0,0,0,0)",
-      "circle-stroke-color": "#5cb8dc",
-      "circle-stroke-width": 1.8,
-    },
-  });
-
   // ── thermal detections: a fire heatmap at planet scale, crisp points up close ──
   map.addSource("thermal", { type: "geojson", data: EMPTY_FC });
   map.addLayer({
@@ -497,19 +437,8 @@ function satLabel(sat: FireSat): HTMLElement {
 }
 
 export function GlobeMap(props: GlobeMapProps) {
-  const {
-    events,
-    selectedId,
-    colorBy,
-    spin,
-    layers,
-    sats,
-    quakes,
-    naturalEvents,
-    selectedHazard,
-    webcams,
-    selectedWebcamId,
-  } = props;
+  const { events, selectedId, colorBy, spin, layers, sats, quakes, naturalEvents, selectedHazard } =
+    props;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -578,14 +507,6 @@ export function GlobeMap(props: GlobeMapProps) {
     const describe = (f: MapGeoJSONFeature): string | null => {
       const id = String(f.properties["id"]);
       const p = latest.current;
-      if (f.layer.id === "webcams") {
-        const w = f.properties as { name?: string; town?: string; state?: string };
-        return (
-          `<b>${esc(w.name ?? "Live webcam")}</b><br>` +
-          `<span>Live webcam on SkylineWebcams</span><br>` +
-          `<span>${esc(w.town ?? "")}, ${esc(w.state ?? "")}</span>`
-        );
-      }
       if (f.layer.id === "thermal") {
         const e = p.events.find((x) => x.id === id);
         if (!e) return null;
@@ -647,10 +568,6 @@ export function GlobeMap(props: GlobeMapProps) {
       if (!f) return;
       const id = String(f.properties["id"]);
       const p = latest.current;
-      if (f.layer.id === "webcams") {
-        p.onSelectWebcam(id);
-        return;
-      }
       if (f.layer.id === "thermal") p.onSelect(id);
       else if (f.layer.id === "quakes" || f.layer.id === "eonet") {
         const h = [...p.quakes, ...p.naturalEvents].find((x) => x.id === id);
@@ -715,41 +632,6 @@ export function GlobeMap(props: GlobeMapProps) {
         : EMPTY_FC,
     );
   }, [ready, selectedHazard]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!ready || !map) return;
-    setData(map, "webcams", webcams?.collection ?? EMPTY_FC);
-    const w =
-      selectedWebcamId != null
-        ? webcams?.webcams.find((x) => x.id === selectedWebcamId)
-        : undefined;
-    setData(
-      map,
-      "webcam-selected",
-      w
-        ? {
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [w.lon, w.lat] },
-            properties: {},
-          }
-        : EMPTY_FC,
-    );
-  }, [ready, webcams, selectedWebcamId]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!ready || !map || selectedWebcamId == null) return;
-    const w = latest.current.webcams?.webcams.find((x) => x.id === selectedWebcamId);
-    if (w) {
-      map.flyTo({
-        center: [w.lon, w.lat],
-        zoom: Math.max(map.getZoom(), 7),
-        speed: 1.4,
-        essential: true,
-      });
-    }
-  }, [ready, selectedWebcamId]);
 
   useEffect(() => {
     const map = mapRef.current;

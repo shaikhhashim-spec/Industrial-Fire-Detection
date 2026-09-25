@@ -6,9 +6,9 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-// GitHub Pages serves a project site from /<repo>/. Everywhere else (local dev,
-// the copy the gateway serves at globe.localhost) the app lives at the root. BASE_PATH
-// overrides both, e.g. `BASE_PATH=/preview/ npm run build` to test a subpath.
+// GitHub Pages serves a project site from /<repo>/, and everywhere else (local dev)
+// the app lives at the root. BASE_PATH overrides both: start_all.py builds with
+// BASE_PATH=/globe/ for the gateway, which serves the globe under that path.
 const repo = process.env["GITHUB_REPOSITORY"]?.split("/")[1];
 const base =
   process.env["BASE_PATH"] ?? (process.env["GITHUB_ACTIONS"] && repo ? `/${repo}/` : "/");

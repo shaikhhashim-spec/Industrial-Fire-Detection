@@ -40,7 +40,6 @@ The globe itself follows OSIRIS's approach: [MapLibre GL JS](https://maplibre.or
 |---|---|---|
 | Hotspots | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) VIIRS NRT (S-NPP, NOAA-20, NOAA-21), clipped to Indian state/UT boundaries | NASA open data |
 | Industrial sites (why a hotspot is there) | [OpenStreetMap](https://www.openstreetmap.org/copyright) via Overpass — power plants, works, industrial sites, coal mines, kilns, flares | ODbL; attribution shown in the app |
-| Live webcams | [SkylineWebcams](https://www.skylinewebcams.com/en/webcam/india.html) India listing (`scripts/build_india_webcams.py`): the webcam's name, town and page URL only. No video, image or stream is copied or embedded, and their site does not permit embedding, so the globe links out to it | Content belongs to SkylineWebcams; the layer only links to their pages |
 | Thermal power stations | [WRI Global Power Plant Database v1.3](https://datasets.wri.org/dataset/globalpowerplantdatabase) | CC BY 4.0 |
 | Nearest town / district | [GeoNames](https://www.geonames.org/) cities5000 + admin codes | CC BY 4.0 |
 | Globe basemap | [CARTO Basemaps](https://carto.com/basemaps) (Dark Matter GL style) on [OpenStreetMap](https://www.openstreetmap.org/copyright) data | Attribution required (shown on the map); free tier covers non-commercial and low-volume use |

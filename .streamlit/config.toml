@@ -24,5 +24,9 @@ dataframeHeaderBackgroundColor = "#151d26"
 [theme.sidebar]
 backgroundColor = "#0c1117"
 
+[client]
+# A product page, not a development sandbox: no Deploy button in the top bar.
+toolbarMode = "minimal"
+
 [server]
 headless = true

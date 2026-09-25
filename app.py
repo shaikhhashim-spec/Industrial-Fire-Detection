@@ -6,7 +6,7 @@ confirms fires, and satellite detection is NOT ground truth. See the
 "Requires Verification" category and every risk/confidence figure's own
 caveats.
 
-Run the whole platform, dashboard, 3D globe and OSIRIS on one address
+Run the whole platform, the dashboard and the 3D globe, on one address
 (http://localhost:8085), with: python start_all.py
 """
 from __future__ import annotations
@@ -33,12 +33,10 @@ from src.utils.export_3d_globe import (
 )
 
 TIMELAPSE_MAX_POINTS = 600
-# Set by start_all.py: the 3D globe and OSIRIS, served on this dashboard's own port
-# as globe.localhost and osiris.localhost (see gateway/app.py). Empty when the
-# dashboard is started on its own, and the globe then falls back to the
-# published copy.
+# Set by start_all.py: the 3D globe, served on this dashboard's own port under
+# /globe (see gateway/app.py). Empty when the dashboard is started on its own,
+# and the globe then falls back to the published copy.
 GLOBE_URL = os.getenv("GLOBE_URL", "").rstrip("/")
-OSIRIS_URL = os.getenv("OSIRIS_URL", "").rstrip("/")
 LIVE_GLOBE_URL = "https://shaikhhashim-spec.github.io/Industrial-Fire-Detection"
 
 st.set_page_config(page_title="Thermal Intelligence", layout="wide", page_icon=":material/local_fire_department:", initial_sidebar_state="expanded")
@@ -1034,11 +1032,11 @@ Generated: {pd.Timestamp.now().isoformat()}
 
 # ------------------------------------------------------------------ nav --
 
-NAV_PAGES = ["Overview", "Live Map", "3D Globe", "OSIRIS", "Events", "Alerts", "Cameras", "Analytics",
+NAV_PAGES = ["Overview", "Live Map", "3D Globe", "Events", "Alerts", "Analytics",
              "Investigations", "Settings"]
 NAV_ICONS = {
-    "Overview": "space_dashboard", "Live Map": "map", "3D Globe": "public", "OSIRIS": "radar",
-    "Events": "flare", "Alerts": "notifications_active", "Cameras": "videocam",
+    "Overview": "space_dashboard", "Live Map": "map", "3D Globe": "public",
+    "Events": "flare", "Alerts": "notifications_active",
     "Analytics": "monitoring", "Investigations": "manage_search", "Settings": "settings",
 }
 
@@ -1572,14 +1570,10 @@ def _route_regional_page(page: str):
         _render_live_map(filtered, label_field, color_by, show_wind_plumes)
     elif page == "3D Globe":
         _render_3d_globe_page(filtered, filtered_clusters, is_regional=True)
-    elif page == "OSIRIS":
-        _render_osiris_page()
     elif page == "Events":
         _render_events_table(filtered_clusters, "belt")
     elif page == "Alerts":
         _render_alerts_tab(alerts)
-    elif page == "Cameras":
-        _render_cameras_page(filtered_clusters)
     elif page == "Analytics":
         _render_analytics(filtered, filtered_clusters, run_info)
     elif page == "Investigations":
@@ -2077,293 +2071,6 @@ def _render_investigations(filtered_clusters, filtered_detail, analyst_mode: boo
 
 
 
-# ------------------------------------------------------------- cameras --
-
-CAMERA_COLOR = "#5cb8dc"
-
-
-def _camera_player(camera: dict, height: int = 260):
-    """Play one stream in the browser. HLS needs hls.js, which needs a real
-    script tag, so this goes through a component iframe rather than markdown
-    (Streamlit strips scripts from unsafe_allow_html)."""
-    import streamlit.components.v1 as components
-
-    from src.cameras import registry as camera_registry
-
-    url = camera["stream_url"]
-    kind = camera.get("stream_type") or camera_registry.infer_stream_type(url)
-    frame = (
-        "width:100%;height:100%;border:0;background:#0a0e13;display:block;"
-        "object-fit:cover;border-radius:6px;"
-    )
-
-    if kind == "youtube":
-        embed = camera_registry.youtube_embed(url) or url
-        body = f'<iframe src="{embed}" style="{frame}" allow="autoplay; encrypted-media" allowfullscreen></iframe>'
-    elif kind in ("mjpeg", "image"):
-        # An MJPEG endpoint streams into an <img>; a still needs re-requesting.
-        refresh = (
-            f'<script>setInterval(function(){{var i=document.getElementById("shot");'
-            f'i.src="{url}"+({"1" if "?" in url else "0"}?"&":"?")+"t="+Date.now();}}, 5000);</script>'
-            if kind == "image" else ""
-        )
-        body = f'<img id="shot" src="{url}" style="{frame}" alt="{camera["name"]}">{refresh}'
-    elif kind == "hls":
-        body = f"""
-        <video id="v" style="{frame}" muted autoplay playsinline controls></video>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js"></script>
-        <script>
-          var v = document.getElementById('v'), src = {url!r};
-          if (v.canPlayType('application/vnd.apple.mpegurl')) {{ v.src = src; }}
-          else if (window.Hls && Hls.isSupported()) {{
-            var h = new Hls({{ liveDurationInfinity: true }});
-            h.loadSource(src); h.attachMedia(v);
-            h.on(Hls.Events.ERROR, function (e, d) {{
-              if (d.fatal) document.getElementById('msg').textContent =
-                'Stream did not load (' + d.type + '). Check the URL is reachable and served over https.';
-            }});
-          }} else {{
-            document.getElementById('msg').textContent = 'This browser cannot play HLS.';
-          }}
-        </script>"""
-    else:
-        body = f'<iframe src="{url}" style="{frame}" allowfullscreen></iframe>'
-
-    components.html(
-        f'<div style="height:{height}px">{body}</div>'
-        f'<p id="msg" style="font:12px/1.5 \'IBM Plex Sans\',system-ui,sans-serif;color:#d03b3b;margin:.4rem 0 0"></p>',
-        height=height + 26,
-    )
-
-
-def build_camera_map(cameras: list[dict], uncovered: pd.DataFrame, candidates: list[dict]) -> folium.Map:
-    """Cameras with their coverage circles, the sites nobody is watching, and
-    the suggested positions, on one map."""
-    center_lat = (config.INDIA_BBOX["min_lat"] + config.INDIA_BBOX["max_lat"]) / 2
-    center_lon = (config.INDIA_BBOX["min_lon"] + config.INDIA_BBOX["max_lon"]) / 2
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles=None, control_scale=True)
-    _add_base_layers(m)
-
-    if not uncovered.empty:
-        group = folium.FeatureGroup(name="Sites with no camera").add_to(m)
-        for _, row in uncovered.iterrows():
-            colour = RISK_COLORS.get(str(row.get("risk_level")), MUTED)
-            folium.CircleMarker(
-                location=[row["latitude"], row["longitude"]], radius=3,
-                color=colour, fill=True, fill_color=colour, fill_opacity=0.8, weight=0.5,
-                tooltip=f"{row.get('event_id', '')}: risk {float(row.get('risk_score', 0)):.0f}, no camera",
-            ).add_to(group)
-
-    if candidates:
-        group = folium.FeatureGroup(name="Suggested camera positions").add_to(m)
-        for i, c in enumerate(candidates, start=1):
-            folium.CircleMarker(
-                location=[c["latitude"], c["longitude"]], radius=7,
-                color=ACCENT, fill=False, weight=2, dash_array="3",
-                tooltip=f"Suggestion {i}: one camera here covers {c['events_covered']} flagged sites",
-            ).add_to(group)
-
-    if cameras:
-        group = folium.FeatureGroup(name="Registered cameras").add_to(m)
-        for camera in cameras:
-            folium.Circle(
-                location=[camera["latitude"], camera["longitude"]],
-                radius=float(camera.get("coverage_km", 3.0)) * 1000,
-                color=CAMERA_COLOR, weight=1, fill=True, fill_color=CAMERA_COLOR, fill_opacity=0.10,
-                tooltip=f"{camera['name']}: {camera.get('coverage_km', 3.0)} km coverage",
-            ).add_to(group)
-            folium.CircleMarker(
-                location=[camera["latitude"], camera["longitude"]], radius=5,
-                color=CAMERA_COLOR, fill=True, fill_color=CAMERA_COLOR, fill_opacity=1, weight=1,
-                popup=folium.Popup(
-                    f'<div style="font-family:{FONT_STACK};font-size:12.5px;color:{INK};min-width:170px;">'
-                    f'<b>{camera["name"]}</b><br><span style="color:{INK2};">'
-                    f'{camera.get("operator") or "operator not recorded"}</span></div>', max_width=220),
-            ).add_to(group)
-
-    _add_map_chrome(m, _legend_html("Risk level of uncovered sites", RISK_COLORS))
-    return m
-
-
-def _render_camera_registry_form():
-    from src.cameras import registry as camera_registry
-
-    with st.container(border=True):
-        _section_header("Register a camera")
-        st.caption("The stream has to be one you are entitled to publish: a plant control room, a district "
-                   "authority feed, or a public camera. Anything outside India is rejected, the same way the "
-                   "hotspot pipeline drops detections outside Indian territory.")
-        c1, c2 = st.columns(2)
-        name = c1.text_input("Name", key="cam_name", placeholder="Rourkela Steel Plant, south gate")
-        operator = c2.text_input("Operator", key="cam_operator", placeholder="SAIL Rourkela")
-        c3, c4, c5 = st.columns(3)
-        lat = c3.number_input("Latitude", value=22.2604, format="%.5f", key="cam_lat")
-        lon = c4.number_input("Longitude", value=84.8536, format="%.5f", key="cam_lon")
-        coverage = c5.number_input("Coverage radius (km)", min_value=0.1,
-                                   max_value=float(camera_registry.MAX_COVERAGE_KM),
-                                   value=float(camera_registry.DEFAULT_COVERAGE_KM), step=0.5, key="cam_radius",
-                                   help="How far from the camera a detection is still identifiable on screen. "
-                                        "Keep it modest so coverage is not overclaimed.")
-        url = st.text_input("Stream URL", key="cam_url",
-                            placeholder="https://example.org/live/stream.m3u8, a YouTube live link, or an MJPEG endpoint")
-        c6, c7 = st.columns([1, 2])
-        kind = c6.selectbox("Kind", camera_registry.KINDS, key="cam_kind")
-        notes = c7.text_input("Notes", key="cam_notes", placeholder="What it points at, and who to call")
-
-        if url:
-            st.caption(f"Detected stream type: {camera_registry.infer_stream_type(url)}")
-
-        if st.button("Add camera", key="cam_add", icon=":material/videocam:"):
-            record, problems = camera_registry.add({
-                "name": name, "operator": operator, "kind": kind, "latitude": lat, "longitude": lon,
-                "stream_url": url, "coverage_km": coverage, "notes": notes,
-            })
-            if problems:
-                for problem in problems:
-                    st.error(problem, icon=":material/cancel:")
-            else:
-                st.success(f"Registered {record['name']} as {record['id']}.", icon=":material/check_circle:")
-                st.rerun()
-
-
-def _render_cameras_page(events_df: pd.DataFrame):
-    from src.cameras import coverage as camera_coverage
-    from src.cameras import registry as camera_registry
-
-    cameras = camera_registry.load()
-    active = [c for c in cameras if c.get("active", True)]
-    report = camera_coverage.summary(events_df, active)
-
-    _stat_row([
-        ("Cameras registered", f"{len(cameras):,}"),
-        ("High and critical sites", f"{report['n_flagged']:,}", RISK_COLORS["HIGH"] if report["n_flagged"] else None),
-        ("Covered by a camera", f"{report['n_covered']:,}", RISK_COLORS["LOW"] if report["n_covered"] else None),
-        ("Nobody watching", f"{report['n_uncovered']:,}", RISK_COLORS["CRITICAL"] if report["n_uncovered"] else None),
-    ])
-    if report["n_flagged"]:
-        critical = report["n_critical_uncovered"]
-        share = (
-            "No camera covers any of them yet" if report["n_covered"] == 0
-            else f"{report['coverage_share']:.0%} of them have a camera within its stated radius"
-        )
-        st.caption(
-            f"{report['n_flagged']:,} sites in this run would be dispatched on. {share}. "
-            f"{critical} critical site{'' if critical == 1 else 's'} nobody is watching."
-        )
-
-    # ── live view ──
-    with st.container(border=True):
-        _section_header("Live view")
-        if not active:
-            st.info(
-                "No cameras registered yet. There is no public live CCTV feed covering Indian industrial "
-                "sites, so nothing can be filled in automatically: plant cameras are private systems, and the "
-                "open aggregators list a handful of tourism and weather cameras nationwide. Add a stream you "
-                "hold the access to below, and the coverage analysis underneath already works without one.",
-                icon=":material/videocam_off:",
-            )
-        else:
-            watching = [c for c in active if len(report["by_camera"].get(c["id"], [])) > 0]
-            idle = [c for c in active if c not in watching]
-            if watching:
-                st.caption(f"{len(watching)} camera{'' if len(watching) == 1 else 's'} with a flagged site "
-                           "inside coverage right now.")
-            for camera in watching + idle:
-                seen = report["by_camera"].get(camera["id"], pd.DataFrame())
-                is_watching = camera in watching
-                v1, v2 = st.columns([2.0, 1.6])
-                with v1:
-                    _camera_player(camera, height=260)
-                with v2:
-                    status_pill = _pill(
-                        "Watching a flagged site" if is_watching else "Idle",
-                        RISK_COLORS["HIGH"] if is_watching else MUTED,
-                    )
-                    st.markdown(f'<div style="margin-bottom:.5rem;">{status_pill}</div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="panel" style="padding:.7rem .95rem;">'
-                        f'<div class="row"><span class="k">Camera</span><span class="v">{camera["name"]}</span></div>'
-                        f'<div class="row"><span class="k">Operator</span><span class="v">'
-                        f'{camera.get("operator") or "not recorded"}</span></div>'
-                        f'<div class="row"><span class="k">Position</span><span class="v">'
-                        f'{camera["latitude"]:.4f}, {camera["longitude"]:.4f}</span></div>'
-                        f'<div class="row"><span class="k">Coverage</span><span class="v">'
-                        f'{camera.get("coverage_km", 3.0)} km</span></div>'
-                        f'<div class="row"><span class="k">Flagged sites in view</span><span class="v">'
-                        f'{len(seen)}</span></div></div>',
-                        unsafe_allow_html=True,
-                    )
-                    if len(seen):
-                        st.dataframe(
-                            _style_severity(
-                                seen[[c for c in ("event_id", "risk_score", "risk_level", "distance_km")
-                                      if c in seen.columns]]
-                                .rename(columns={"event_id": "Event", "risk_score": "Risk",
-                                                 "risk_level": "Tier", "distance_km": "km"})
-                            ),
-                            hide_index=True, width="stretch", height=150,
-                        )
-                    else:
-                        st.caption("Nothing flagged inside this camera's radius in the current run.")
-
-    # ── gaps ──
-    with st.container(border=True):
-        _section_header("Where a camera would help most")
-        if report["n_uncovered"] == 0 and report["n_flagged"]:
-            st.success("Every high and critical site in this run is inside a registered camera's radius.",
-                       icon=":material/check_circle:")
-        elif not report["candidates"]:
-            st.caption("No high or critical sites in the current run, so there is nothing to cover.")
-        else:
-            st.caption(
-                f"Greedy coverage over the {report['n_uncovered']:,} unwatched sites, assuming a "
-                f"{report['radius_km']:.1f} km radius. Each row is a position where one camera would see the "
-                "most sites nothing is currently watching, best first."
-            )
-            table = pd.DataFrame([{
-                "Sites covered": c["events_covered"],
-                "Highest risk": round(c["max_risk"]),
-                "Place": c["place"] or "",
-                "District": c["district"] or "",
-                "State": c["state"] or "",
-                "Nearest facility": (c["facility"] or {}).get("name") if isinstance(c["facility"], dict) else "",
-                "Latitude": c["latitude"],
-                "Longitude": c["longitude"],
-            } for c in report["candidates"]])
-            st.dataframe(table, hide_index=True, width="stretch")
-
-    with st.container(border=True):
-        _section_header("Coverage map")
-        st_folium(
-            build_camera_map(active, report["uncovered"], report["candidates"]),
-            width=None, height=560, returned_objects=[], key="map_cameras",
-        )
-
-    _render_camera_registry_form()
-
-    if cameras:
-        with st.container(border=True):
-            _section_header(f"Registered cameras ({len(cameras)})")
-            for i, camera in enumerate(cameras):
-                c1, c2, c3 = st.columns([4.0, 1.0, 1.0])
-                c1.markdown(
-                    f'<div class="queue-row"><span class="mark" style="background:'
-                    f'{CAMERA_COLOR if camera.get("active", True) else MUTED}"></span>'
-                    f'<span class="t">{camera["name"]}</span>'
-                    f'<span class="mono id">{camera["id"]}</span>'
-                    f'<span class="w">{camera.get("kind", "Other")}, {camera.get("stream_type")}, '
-                    f'{camera.get("coverage_km", 3.0)} km</span></div>',
-                    unsafe_allow_html=True,
-                )
-                label = "Disable" if camera.get("active", True) else "Enable"
-                if c2.button(label, key=f"cam_toggle_{i}", width="stretch"):
-                    camera_registry.set_active(camera["id"], not camera.get("active", True))
-                    st.rerun()
-                if c3.button("Remove", key=f"cam_remove_{i}", width="stretch"):
-                    camera_registry.remove(camera["id"])
-                    st.rerun()
-
-
 # ---------------------------------------------------------- national mode --
 
 NATIONAL_MODES = ["Raw hotspots", "Events", "Persistent sources", "Industrial sources", "High risk", "Critical"]
@@ -2592,19 +2299,6 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
                    "ThermalEvent shape declared in holo-view-maker/src/lib/thermal.ts.")
         st.download_button("Download events.json", json.dumps(events, indent=2), "events.json",
                            "application/json", key="download_holo_json_btn")
-
-
-def _render_osiris_page():
-    _section_header("OSIRIS")
-    st.caption("OSIRIS provides 16 multi-domain global OSINT feeds (Aviation / OpenSky, Earthquakes / USGS, "
-               "Volcanoes / NASA EONET, Conflict Zones, CCTV networks, Port Scans, and CVEs).")
-    if OSIRIS_URL:
-        st.iframe(f"{OSIRIS_URL}/", height=900)
-    else:
-        st.info("OSIRIS runs alongside the dashboard when everything is started with python start_all.py.",
-                icon=":material/info:")
-
-
 
 
 def _render_national_kpis(filtered_detail: pd.DataFrame, filtered_events: pd.DataFrame):
@@ -2863,14 +2557,10 @@ def _route_national_page(page: str):
         _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_livemap")
     elif page == "3D Globe":
         _render_3d_globe_page(filtered_detail, filtered_events, is_regional=False)
-    elif page == "OSIRIS":
-        _render_osiris_page()
     elif page == "Events":
         _render_events_table(filtered_events, "india")
     elif page == "Alerts":
         _render_alerts_tab(alerts)
-    elif page == "Cameras":
-        _render_cameras_page(filtered_events)
     elif page == "Analytics":
         _render_national_analytics(filtered_detail, filtered_events, state_summary, state_filter)
     elif page == "Investigations":
