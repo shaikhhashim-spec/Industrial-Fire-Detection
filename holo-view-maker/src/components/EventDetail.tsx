@@ -213,9 +213,9 @@ function WhatToDo({ actions }: { actions: RecommendedAction[] }) {
   );
 }
 
-/** Earthquakes and open natural events close enough to change how the
- *  detection reads. A hotspot inside a live wildfire is not an industrial
- *  anomaly, and that belongs beside the risk, not on a separate page. */
+/** Open natural events close enough to change how the detection reads. A
+ *  hotspot inside a live wildfire is not an industrial anomaly, and that
+ *  belongs beside the risk, not on a separate page. */
 function NearbyHazards({ event, hazards }: { event: ThermalEvent; hazards: Hazard[] }) {
   const near = hazardsNear(event.latitude, event.longitude, hazards, 150);
   if (!near.length) return null;
@@ -228,11 +228,7 @@ function NearbyHazards({ event, hazards }: { event: ThermalEvent; hazards: Hazar
             key={hazard.id}
             className="flex items-baseline gap-2 border-b border-border py-1 text-[0.72rem] last:border-b-0"
           >
-            <span className="text-foreground">
-              {hazard.kind === "earthquake" && hazard.magnitude != null
-                ? `M${hazard.magnitude.toFixed(1)} earthquake`
-                : hazard.categoryLabel}
-            </span>
+            <span className="text-foreground">{hazard.categoryLabel}</span>
             <span className="truncate text-muted-foreground">{hazard.title}</span>
             <span className="ml-auto font-mono tabular-nums text-muted-foreground">
               {km.toFixed(0)} km

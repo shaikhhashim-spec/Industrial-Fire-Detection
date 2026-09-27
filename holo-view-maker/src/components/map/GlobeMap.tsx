@@ -71,7 +71,6 @@ export interface GlobeMapProps {
   onSelect: (id: string) => void;
   layers: Layers;
   sats: FireSat[];
-  quakes: Hazard[];
   naturalEvents: Hazard[];
   selectedHazard: Hazard | null;
   onSelectHazard: (h: Hazard) => void;
@@ -84,7 +83,6 @@ const LAYER_IDS: Record<Exclude<LayerKey, "borders">, string[]> = {
   detections: ["thermal-heat", "thermal-glow", "thermal", "thermal-selected"],
   sats: ["sat-track-past", "sat-track-ahead", "sat-glow", "sat-core"],
   swath: ["sat-swath-fill", "sat-swath-line"],
-  quakes: ["quake-pulse", "quakes"],
   eonet: ["eonet-tracks", "eonet"],
   plumes: ["plume-fill", "plume-outline"],
   daynight: ["night"],
@@ -94,7 +92,7 @@ const LAYER_IDS: Record<Exclude<LayerKey, "borders">, string[]> = {
 };
 
 // topmost first: a hotspot sitting on a plant should pick the hotspot
-const INTERACTIVE = ["sat-core", "thermal", "quakes", "eonet", "facilities"];
+const INTERACTIVE = ["sat-core", "thermal", "eonet", "facilities"];
 
 // Transparent at low density on purpose: scattered single detections should read
 // as dots, and only real clusters (steel plants, coalfields) should glow.
@@ -182,7 +180,7 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
     underLabels,
   );
 
-  // ── hazard context: open natural events, then earthquakes on top ──
+  // ── hazard context: open natural events ──
   map.addSource("eonet-tracks", { type: "geojson", data: EMPTY_FC });
   map.addLayer({
     id: "eonet-tracks",
@@ -206,45 +204,6 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
       "circle-opacity": 0.8,
       "circle-stroke-color": "#0a0e13",
       "circle-stroke-width": 0.8,
-    },
-  });
-
-  map.addSource("quakes", { type: "geojson", data: EMPTY_FC });
-  // The pulse marks quakes from the past 24 h. It is an age encoding the
-  // legend names, not an attention-grabbing animation for its own sake.
-  map.addLayer({
-    id: "quake-pulse",
-    type: "circle",
-    source: "quakes",
-    filter: ["==", ["get", "recent"], true],
-    paint: {
-      "circle-radius": 8,
-      "circle-color": "rgba(0,0,0,0)",
-      "circle-stroke-color": ["get", "color"],
-      "circle-stroke-width": 1,
-      "circle-stroke-opacity": 0.5,
-    },
-  });
-  const magAbove = ["max", 0, ["-", ["get", "mag"], 2.5]] as ExpressionSpecification;
-  map.addLayer({
-    id: "quakes",
-    type: "circle",
-    source: "quakes",
-    paint: {
-      "circle-radius": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        1,
-        ["+", 1.6, ["*", magAbove, 1.2]],
-        6,
-        ["+", 4, ["*", magAbove, 3]],
-      ],
-      "circle-color": ["get", "color"],
-      "circle-opacity": 0.2,
-      "circle-stroke-color": ["get", "color"],
-      "circle-stroke-width": 1.1,
-      "circle-stroke-opacity": 0.9,
     },
   });
 
@@ -437,8 +396,7 @@ function satLabel(sat: FireSat): HTMLElement {
 }
 
 export function GlobeMap(props: GlobeMapProps) {
-  const { events, selectedId, colorBy, spin, layers, sats, quakes, naturalEvents, selectedHazard } =
-    props;
+  const { events, selectedId, colorBy, spin, layers, sats, naturalEvents, selectedHazard } = props;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -540,11 +498,9 @@ export function GlobeMap(props: GlobeMapProps) {
           ? `<b>${esc(s.name)}</b> · ${s.instrument}<br><span>FIRMS fire sensor · live position</span>`
           : null;
       }
-      const h = [...p.quakes, ...p.naturalEvents].find((x) => x.id === id);
+      const h = p.naturalEvents.find((x) => x.id === id);
       if (!h) return null;
-      return h.kind === "earthquake"
-        ? `<b>M${h.magnitude?.toFixed(1) ?? "?"}</b> ${esc(h.title)}<br><span>${fmtAgo(h.time)} · USGS</span>`
-        : `<b>${esc(h.categoryLabel)}</b> ${esc(h.title)}<br><span>${fmtAgo(h.time)} · NASA EONET</span>`;
+      return `<b>${esc(h.categoryLabel)}</b> ${esc(h.title)}<br><span>${fmtAgo(h.time)} · NASA EONET</span>`;
     };
 
     map.on("mousemove", (e) => {
@@ -569,8 +525,8 @@ export function GlobeMap(props: GlobeMapProps) {
       const id = String(f.properties["id"]);
       const p = latest.current;
       if (f.layer.id === "thermal") p.onSelect(id);
-      else if (f.layer.id === "quakes" || f.layer.id === "eonet") {
-        const h = [...p.quakes, ...p.naturalEvents].find((x) => x.id === id);
+      else if (f.layer.id === "eonet") {
+        const h = p.naturalEvents.find((x) => x.id === id);
         if (h) p.onSelectHazard(h);
       }
     });
@@ -604,11 +560,6 @@ export function GlobeMap(props: GlobeMapProps) {
     map.setPaintProperty("thermal", "circle-color", colorExpr(colorBy));
     map.setPaintProperty("thermal-glow", "circle-color", colorExpr(colorBy));
   }, [ready, colorBy]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (ready && map) setData(map, "quakes", hazardsGeoJSON(quakes));
-  }, [ready, quakes]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -734,7 +685,7 @@ export function GlobeMap(props: GlobeMapProps) {
     };
   }, [ready, sats, layers.sats]);
 
-  // ── animation loop: auto-rotate, the recent-quake pulse, the selection pulse ──
+  // ── animation loop: auto-rotate, the selection pulse ──
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
@@ -747,11 +698,6 @@ export function GlobeMap(props: GlobeMapProps) {
         const c = map.getCenter();
         map.setCenter([c.lng + dt * SPIN_DEG_PER_SEC, c.lat]);
       }
-      if (layers.quakes) {
-        const f = ((t / 1000) % 1.6) / 1.6;
-        map.setPaintProperty("quake-pulse", "circle-radius", 6 + f * 16);
-        map.setPaintProperty("quake-pulse", "circle-stroke-opacity", 0.55 * (1 - f));
-      }
       if (selectedId) {
         map.setPaintProperty("thermal-selected", "circle-radius", 10 + Math.sin(t / 220) * 2.5);
       }
@@ -759,7 +705,7 @@ export function GlobeMap(props: GlobeMapProps) {
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [ready, spin, layers.quakes, selectedId]);
+  }, [ready, spin, selectedId]);
 
   // MapLibre's stylesheet forces `position: relative` on the map element, so the
   // positioning lives on a wrapper and the map just fills it.

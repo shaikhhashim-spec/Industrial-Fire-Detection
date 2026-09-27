@@ -13,7 +13,7 @@ import type {
 } from "geojson";
 import { CATEGORY_COLORS, RISK_COLORS, type PlumeData, type ThermalEvent } from "@/lib/thermal";
 import { subPoint, swathHalfAngle, type FireSat } from "@/lib/satellites";
-import { EONET_COLORS, quakeColor, type Hazard } from "@/lib/hazards";
+import { EONET_COLORS, type Hazard } from "@/lib/hazards";
 
 const DEG = Math.PI / 180;
 
@@ -220,9 +220,9 @@ export function graticuleGeoJSON(step = 30): FeatureCollection<LineString> {
   return { type: "FeatureCollection", features };
 }
 
-// ── hazard context: earthquakes and open natural events ──
+// ── hazard context: open natural events ──
 
-export function hazardsGeoJSON(items: Hazard[], now = Date.now()): FeatureCollection<Point> {
+export function hazardsGeoJSON(items: Hazard[]): FeatureCollection<Point> {
   return {
     type: "FeatureCollection",
     features: items.map((h) => ({
@@ -230,12 +230,7 @@ export function hazardsGeoJSON(items: Hazard[], now = Date.now()): FeatureCollec
       geometry: { type: "Point", coordinates: [h.lon, h.lat] },
       properties: {
         id: h.id,
-        mag: h.magnitude ?? 0,
-        recent: now - h.time < 86400000,
-        color:
-          h.kind === "earthquake"
-            ? quakeColor(h.time, now)
-            : (EONET_COLORS[h.category] ?? "#a1adba"),
+        color: EONET_COLORS[h.category] ?? "#a1adba",
       },
     })),
   };

@@ -13,7 +13,7 @@ import {
   type Layers,
 } from "@/lib/layers";
 import { FACILITY_COLORS, FACILITY_LEGEND } from "@/lib/facilities";
-import { EONET_COLORS, QUAKE_COLOR } from "@/lib/hazards";
+import { EONET_COLORS } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
 
 /** Presentational only — the whole row is the button (a button inside a
@@ -80,15 +80,6 @@ export function LayerPanel({
     facilities: (
       <Legend
         items={FACILITY_LEGEND.map((k) => ({ color: FACILITY_COLORS[k] ?? "#71808f", label: k }))}
-      />
-    ),
-    quakes: (
-      <Legend
-        items={[
-          { color: QUAKE_COLOR.recent, label: "Past 24 hours" },
-          { color: QUAKE_COLOR.day3, label: "Past 3 days" },
-          { color: QUAKE_COLOR.older, label: "Past week" },
-        ]}
       />
     ),
     eonet: (

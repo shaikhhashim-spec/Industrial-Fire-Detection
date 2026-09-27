@@ -45,6 +45,5 @@ The globe itself follows OSIRIS's approach: [MapLibre GL JS](https://maplibre.or
 | Globe basemap | [CARTO Basemaps](https://carto.com/basemaps) (Dark Matter GL style) on [OpenStreetMap](https://www.openstreetmap.org/copyright) data | Attribution required (shown on the map); free tier covers non-commercial and low-volume use |
 | Satellite imagery | [Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) | Attribution required (shown when the layer is on); review Esri's terms before any commercial deployment |
 | Fire satellites | [CelesTrak](https://celestrak.org) GP element sets, propagated with [satellite.js](https://github.com/shashwatak/satellite-js) (MIT) | Public; please keep the 6 h browser cache — CelesTrak asks clients not to re-download the same data more than once every 2 h |
-| Earthquakes | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php) M2.5+ past-week GeoJSON feed | U.S. public domain |
 | Natural events | [NASA EONET v3](https://eonet.gsfc.nasa.gov/docs/v3) open events | NASA open data |
 | Dashboard basemap | [Esri World Dark Gray / Light Gray Canvas](https://www.arcgis.com/home/group.html?id=702026e41f6641fb85da88efe79dc166) | Attribution required (shown on the map); used in place of CARTO's raster tiles, which now watermark keyless requests |

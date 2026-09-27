@@ -1,55 +1,31 @@
 /*
- * Hazard context: recent earthquakes (USGS) and open natural events (NASA
- * EONET). Both are keyless public feeds.
+ * Hazard context: open natural events from NASA EONET (wildfires, storms,
+ * volcanoes and the like), a keyless public feed.
  *
- * They earn their place on a thermal globe because they change how a detection
- * reads. A hotspot inside an active EONET wildfire perimeter is not an
- * industrial anomaly, and a cluster of new heat hours after a significant
- * earthquake near a refinery is worth looking at differently from the same
- * cluster on a quiet day. The layers are context for the thermal data, not
+ * They earn their place on a thermal globe because they change how a
+ * detection reads. A hotspot inside an active EONET wildfire perimeter is
+ * not an industrial anomaly — that is context for the thermal data, not
  * decoration.
  */
 
-export type HazardKind = "earthquake" | "eonet";
-
 export interface Hazard {
   id: string;
-  kind: HazardKind;
   title: string;
   lat: number;
   lon: number;
   /** Epoch milliseconds. */
   time: number;
   url: string;
-  /** Earthquakes only. */
-  magnitude?: number | undefined;
-  depthKm?: number | undefined;
-  /** EONET only: the category id and its display label. */
+  /** The EONET category id and its display label. */
   category: string;
   categoryLabel: string;
   /** EONET storm-style events carry a track of [lat, lon] points. */
   track?: [number, number][] | undefined;
 }
 
-/** M2.5+ in the past week: small enough to stay current, big enough to matter. */
-const USGS_FEED = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson";
 const EONET_FEED = "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=250";
 
 const FETCH_TIMEOUT_MS = 12_000;
-
-/** Age is the thing an analyst reads first, so it gets the colour. */
-export const QUAKE_COLOR = {
-  recent: "#e5484d",
-  day3: "#e07a3c",
-  older: "#8b95a1",
-} as const;
-
-export function quakeColor(time: number, now = Date.now()): string {
-  const ageH = (now - time) / 3_600_000;
-  if (ageH <= 24) return QUAKE_COLOR.recent;
-  if (ageH <= 72) return QUAKE_COLOR.day3;
-  return QUAKE_COLOR.older;
-}
 
 /** EONET category ids to the validated categorical palette, in fixed order. */
 export const EONET_COLORS: Record<string, string> = {
@@ -78,39 +54,6 @@ async function getJson(url: string): Promise<unknown> {
   } finally {
     clearTimeout(timer);
   }
-}
-
-interface QuakeFeature {
-  id?: string;
-  properties?: { mag?: number; place?: string; time?: number; url?: string };
-  geometry?: { coordinates?: number[] };
-}
-
-export async function fetchEarthquakes(): Promise<Hazard[]> {
-  const data = (await getJson(USGS_FEED)) as { features?: QuakeFeature[] };
-  const features = data.features ?? [];
-  return features.flatMap((f): Hazard[] => {
-    const coords = f.geometry?.coordinates ?? [];
-    const lon = coords[0];
-    const lat = coords[1];
-    const depth = coords[2];
-    if (typeof lon !== "number" || typeof lat !== "number") return [];
-    return [
-      {
-        id: String(f.id ?? `${lon},${lat},${f.properties?.time}`),
-        kind: "earthquake",
-        title: f.properties?.place ?? "Earthquake",
-        lat,
-        lon,
-        time: Number(f.properties?.time ?? Date.now()),
-        url: f.properties?.url ?? "",
-        magnitude: typeof f.properties?.mag === "number" ? f.properties.mag : undefined,
-        depthKm: typeof depth === "number" ? depth : undefined,
-        category: "earthquakes",
-        categoryLabel: "Earthquake",
-      },
-    ];
-  });
 }
 
 interface EonetGeometry {
@@ -163,7 +106,6 @@ export async function fetchEonet(): Promise<Hazard[]> {
     return [
       {
         id: String(e.id ?? `${lon},${lat}`),
-        kind: "eonet",
         title: e.title ?? "Natural event",
         lat,
         lon,

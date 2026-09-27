@@ -106,14 +106,13 @@ function Clocks() {
 
 export interface StatusBarProps {
   pipeline: { mode: "live" | "none"; count: number; loading: boolean };
-  usgs: FeedState;
   eonet: FeedState;
   tle: FeedState;
   sats: FireSat[];
   onShowHelp: () => void;
 }
 
-export function StatusBar({ pipeline, usgs, eonet, tle, sats, onShowHelp }: StatusBarProps) {
+export function StatusBar({ pipeline, eonet, tle, sats, onShowHelp }: StatusBarProps) {
   return (
     <footer className="-mx-4 mt-3 flex h-8 shrink-0 items-center gap-x-5 overflow-x-auto border-t border-border bg-card px-4 text-[0.68rem] whitespace-nowrap">
       <Chip
@@ -128,7 +127,6 @@ export function StatusBar({ pipeline, usgs, eonet, tle, sats, onShowHelp }: Stat
             : "No live pipeline export found. Run the pipeline from the dashboard."
         }
       />
-      <FeedChip label="Quakes" feed={usgs} />
       <FeedChip label="Events" feed={eonet} />
       <Chip
         label="Orbits"

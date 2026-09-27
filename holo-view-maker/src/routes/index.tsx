@@ -18,7 +18,7 @@ import { ShortcutsHelp } from "@/components/ShortcutsHelp";
 import { HazardCard } from "@/components/HazardCard";
 import { useFireSats, usePolledFeed } from "@/hooks/use-live-feeds";
 import { DEFAULT_LAYERS, SHORTCUT_TO_LAYER, type LayerKey, type Layers } from "@/lib/layers";
-import { fetchEarthquakes, fetchEonet, type Hazard } from "@/lib/hazards";
+import { fetchEonet, type Hazard } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
 import { viewFromUrl } from "@/lib/view-params";
 import { parentPath } from "@/lib/asset-url";
@@ -115,7 +115,6 @@ function Index() {
   const [helpOpen, setHelpOpen] = useState(false);
 
   const { set: satSet, feed: tleFeed } = useFireSats();
-  const { data: quakes, feed: usgsFeed } = usePolledFeed(fetchEarthquakes, 10 * 60_000);
   const { data: naturalEvents, feed: eonetFeed } = usePolledFeed(fetchEonet, 30 * 60_000);
   const sats = satSet?.sats ?? NO_SATS;
 
@@ -191,12 +190,7 @@ function Index() {
   );
 
   // The card closes with its layer rather than pointing at a hidden marker.
-  const shownHazard =
-    selectedHazard &&
-    ((selectedHazard.kind === "earthquake" && layers.quakes) ||
-      (selectedHazard.kind === "eonet" && layers.eonet))
-      ? selectedHazard
-      : null;
+  const shownHazard = selectedHazard && layers.eonet ? selectedHazard : null;
 
   const eonetCategories = useMemo(() => {
     const byId = new Map<string, { id: string; label: string; count: number }>();
@@ -287,11 +281,10 @@ function Index() {
               detections: events.length,
               sats: sats.length,
               // no number until a feed has answered: "0" would read as "none happening"
-              quakes: usgsFeed.updatedAt ? quakes.length : undefined,
               eonet: eonetFeed.updatedAt ? naturalEvents.length : undefined,
               plumes: events.filter((e) => e.plume).length,
             }}
-            feeds={{ sats: tleFeed, quakes: usgsFeed, eonet: eonetFeed }}
+            feeds={{ sats: tleFeed, eonet: eonetFeed }}
             sats={sats}
             satDetections={satDetections}
             eonetCategories={eonetCategories}
@@ -407,7 +400,6 @@ function Index() {
               onSelect={selectEvent}
               layers={layers}
               sats={sats}
-              quakes={quakes}
               naturalEvents={naturalEvents}
               selectedHazard={shownHazard}
               onSelectHazard={selectHazard}
@@ -435,7 +427,7 @@ function Index() {
         {/* Detail + queue */}
         <aside className="flex min-h-0 flex-col gap-4">
           <div className="min-h-[18rem] flex-1">
-            <EventDetail event={selected} sats={sats} hazards={[...quakes, ...naturalEvents]} />
+            <EventDetail event={selected} sats={sats} hazards={naturalEvents} />
           </div>
           <div className="panel max-h-64 overflow-y-auto p-2">
             <p className="field-label px-2 py-1">Priority queue</p>
@@ -462,7 +454,6 @@ function Index() {
 
       <StatusBar
         pipeline={{ mode: dataSource, count: allEvents.length, loading }}
-        usgs={usgsFeed}
         eonet={eonetFeed}
         tle={tleFeed}
         sats={sats}

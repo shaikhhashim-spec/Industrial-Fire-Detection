@@ -5,7 +5,6 @@ export type LayerKey =
   | "facilities"
   | "sats"
   | "swath"
-  | "quakes"
   | "eonet"
   | "plumes"
   | "daynight"
@@ -20,7 +19,6 @@ export const DEFAULT_LAYERS: Layers = {
   facilities: true,
   sats: true,
   swath: false,
-  quakes: true,
   eonet: true,
   plumes: true,
   daynight: true,
@@ -106,12 +104,6 @@ export const LAYER_GROUPS: LayerGroupDef[] = [
   {
     label: "Hazard context",
     layers: [
-      {
-        key: "quakes",
-        label: "Earthquakes",
-        description: "USGS, magnitude 2.5 and above, past 7 days",
-        shortcut: "E",
-      },
       {
         key: "eonet",
         label: "Natural events",
