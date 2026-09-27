@@ -8,6 +8,23 @@ export const RISK_COLORS = { LOW: "#0ca30c", MODERATE: "#fab219", HIGH: "#ec835a
 export const PERSISTENT_COLOR = "#fab219";
 export const ACCENT = "#5cb8dc";
 export const MUTED = "#71808f";
+// Single-series charts (a bar chart ranking states, satellites, FRP bins): the
+// accent above is reserved for actions and selection, so those charts reuse
+// this hue instead — the same one the dashboard's own charts use.
+export const SERIES = "#3987e5";
+
+// Fixed order, shared with the dashboard (app.py) and the globe
+// (holo-view-maker/src/lib/thermal.ts) — never reassigned or cycled.
+export const CATEGORY_COLORS = {
+  "Likely Industrial Fire": "#3987e5",
+  "Persistent Non-Industrial Thermal Source": "#d95926",
+  "Transient Industrial Flare": "#199e70",
+  "Likely Agricultural Burning": "#c98500",
+  "Sun Glint / False Positive": "#d55181",
+  "Likely Wildfire": "#008300",
+  "Persistent Industrial Activity": "#9085e9",
+  "Requires Verification": "#e66767",
+};
 
 // The dashboard counts a source as persistent from this many distinct days
 // (config.NATIONAL_PERSISTENCE_MIN_DAYS_HISTORY). Only used when the data file
@@ -66,6 +83,7 @@ export function alertsFrom(events) {
       title: `${titleCase(e.riskLevel)} thermal activity in ${e.state || "an untagged area"}`,
       severity: e.riskLevel,
       riskScore: e.riskScore,
+      priority: typeof e.priority === "number" ? e.priority : null,
       latitude: e.latitude,
       longitude: e.longitude,
       days: e.persistenceDays ?? 0,

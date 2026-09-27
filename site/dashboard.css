@@ -181,6 +181,12 @@ p {
   align-items: start;
 }
 
+/* Pages with no page-level search or action button (Analytics, Investigations,
+   Settings): brand, region and freshness only. */
+.topbar.plain {
+  grid-template-columns: 2.5fr 1.5fr 1.8fr;
+}
+
 .topbar-brand h1 {
   margin: 0 0 0.25rem;
   font-size: 1.5rem;
@@ -632,6 +638,139 @@ details.explain[open] > summary::before {
   margin-top: 0.6rem;
 }
 
+/* Analytics: one ranked measure per row (a bar chart drawn as text rows,
+   value at the tip, tabular numerals) — reuses the same thin/rounded .bar the
+   risk explainer already draws. */
+.metric {
+  padding: 0.4rem 0;
+}
+
+.metric-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.metric-head .val {
+  margin-left: auto;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink2);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: start;
+}
+
+/* Settings / Investigations: a static key–value list. */
+.kv {
+  display: flex;
+  flex-direction: column;
+}
+
+.kv .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.84rem;
+}
+
+.kv .row:last-child {
+  border-bottom: none;
+}
+
+.kv .k {
+  color: var(--ink2);
+}
+
+.kv .v {
+  color: var(--ink);
+  text-align: right;
+}
+
+/* Events: a scrollable, sortable table. */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  text-align: left;
+  padding: 0;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+th button {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: none;
+  background: none;
+  color: var(--ink2);
+  font: 600 0.78rem "IBM Plex Sans", system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+th button:hover {
+  color: var(--ink);
+}
+
+th button .dir {
+  color: var(--accent);
+}
+
+tbody td {
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink2);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+td.num {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+td.id {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--ink);
+}
+
+.rowcount {
+  margin: 0.7rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .empty,
 .loading,
 .footnote {
@@ -666,18 +805,24 @@ details.explain[open] > summary::before {
 
   .nav {
     flex-direction: row;
+    flex-wrap: wrap;
   }
 
   .navbtn {
     width: auto;
-    flex: 1;
+    flex: 1 1 45%;
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr;
   }
 
   .main {
     padding-top: 1.5rem;
   }
 
-  .topbar {
+  .topbar,
+  .topbar.plain {
     grid-template-columns: 1fr 1fr;
   }
 

@@ -3,11 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Thermal Intelligence</title>
-    <meta
-      name="description"
-      content="Satellite thermal monitoring and industrial risk analysis for India, from live NASA FIRMS data: every alert ranked and explained, with a 3D globe."
-    />
+    <title>Alerts — Thermal Intelligence</title>
+    <meta name="description" content="Every high and critical thermal event from the live NASA FIRMS run, ranked by risk and explained." />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" href="globe/favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -34,8 +31,8 @@
       <main class="main">
         <header class="topbar">
           <div class="topbar-brand">
-            <h1>Thermal Intelligence</h1>
-            <p class="sub">Satellite thermal monitoring and industrial risk analysis for India.</p>
+            <h1>Alerts</h1>
+            <p class="sub">Every high and critical thermal event, ranked by risk.</p>
           </div>
           <label class="field">
             <span class="field-label">Region</span>
@@ -46,12 +43,12 @@
             <span class="sr-only">Search</span>
             <input id="search" type="search" placeholder="Search event ID, state, district" autocomplete="off" />
           </label>
-          <button class="btn" id="alerts-btn" type="button">
+          <a class="btn" id="settings-link" href="settings.html#alerts">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4l2-2zM10 21h4" />
             </svg>
-            <span id="alerts-count">Alerts</span>
-          </button>
+            Dispatch settings
+          </a>
         </header>
         <hr class="topbar-rule" />
 
@@ -61,6 +58,6 @@
         </div>
       </main>
     </div>
-    <script type="module" src="dashboard.js"></script>
+    <script type="module" src="alerts.js"></script>
   </body>
 </html>

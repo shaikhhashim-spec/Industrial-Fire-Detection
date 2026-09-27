@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Settings — Thermal Intelligence</title>
+    <meta name="description" content="The data window, risk weights and alert-dispatch configuration behind this run, read-only." />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="globe/favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    />
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">Thermal Intelligence</div>
+        <div class="brand-sub">Satellite thermal monitoring for India</div>
+        <nav class="nav" id="nav" aria-label="Sections"></nav>
+        <p class="side-note">
+          A read-only public mirror of the dashboard, from live NASA FIRMS data, refreshed every six
+          hours. Actions that change something — running the pipeline, dispatching alerts, editing
+          settings — need the full app locally at http://localhost:8085 (python start_all.py).
+        </p>
+      </aside>
+
+      <main class="main">
+        <header class="topbar plain">
+          <div class="topbar-brand">
+            <h1>Settings</h1>
+            <p class="sub">The data window, risk weights and alert configuration behind this run.</p>
+          </div>
+          <label class="field">
+            <span class="field-label">Region</span>
+            <span class="select" aria-label="Region">India</span>
+          </label>
+          <div class="topbar-meta" id="meta">Live NASA FIRMS<br />Loading</div>
+        </header>
+        <hr class="topbar-rule" />
+
+        <section class="panel">
+          <div class="sec-head"><div class="sec-hdr">Pipeline</div></div>
+          <p class="risk-lead">
+            This public site re-pulls live NASA FIRMS data for India and re-runs the pipeline every six
+            hours (GitHub Actions, using a repository secret for the FIRMS key — never entered in a
+            browser). The local app refreshes the same way on every start if its data is more than six
+            hours old, or on demand from this page's local equivalent.
+          </p>
+        </section>
+
+        <section class="panel" style="margin-top: 1rem">
+          <div class="sec-head"><div class="sec-hdr">Data window</div></div>
+          <div class="kv">
+            <div class="row"><span class="k">Live pull, each run</span><span class="v">latest 48 hours</span></div>
+            <div class="row"><span class="k">Persistence judged over</span><span class="v">up to a 30-day rolling window</span></div>
+            <div class="row"><span class="k">Counts as persistent</span><span class="v">5 or more active days in that window</span></div>
+            <div class="row"><span class="k">Before history accumulates</span><span class="v">2 or more active days in the fresh batch</span></div>
+          </div>
+          <p class="risk-lead" style="margin-top: 0.9rem">Risk score weights</p>
+          <div class="kv">
+            <div class="row"><span class="k">Persistence</span><span class="v">40%</span></div>
+            <div class="row"><span class="k">Fire radiative power (FRP)</span><span class="v">35%</span></div>
+            <div class="row"><span class="k">Detection confidence</span><span class="v">25%</span></div>
+          </div>
+        </section>
+
+        <section class="panel" id="alerts" style="margin-top: 1rem">
+          <div class="sec-head"><div class="sec-hdr">Critical alert dispatch</div></div>
+          <div class="kv">
+            <div class="row"><span class="k">Dispatch trigger</span><span class="v">risk score 76 or above (critical)</span></div>
+            <div class="row"><span class="k">High-priority threshold</span><span class="v">risk score 51 or above</span></div>
+            <div class="row"><span class="k">Escalate to a voice call after</span><span class="v">15 minutes unacknowledged (configurable)</span></div>
+            <div class="row"><span class="k">Channels supported</span><span class="v">Twilio SMS / voice, Telegram, a generic webhook</span></div>
+          </div>
+          <p class="risk-lead" style="margin-top: 0.9rem">
+            The recipient number and channel credentials live in the local app's own <code>.env</code> and
+            session settings — never in a browser, and not shown here. With no credentials configured, a
+            dispatch is simulated and written to the local log rather than failing outright.
+          </p>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="settings.js"></script>
+  </body>
+</html>

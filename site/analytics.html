@@ -3,11 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Thermal Intelligence</title>
-    <meta
-      name="description"
-      content="Satellite thermal monitoring and industrial risk analysis for India, from live NASA FIRMS data: every alert ranked and explained, with a 3D globe."
-    />
+    <title>Analytics — Thermal Intelligence</title>
+    <meta name="description" content="Classification, risk, FRP, persistence, state and satellite breakdowns of the live NASA FIRMS run over India." />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" href="globe/favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -32,26 +29,16 @@
       </aside>
 
       <main class="main">
-        <header class="topbar">
+        <header class="topbar plain">
           <div class="topbar-brand">
-            <h1>Thermal Intelligence</h1>
-            <p class="sub">Satellite thermal monitoring and industrial risk analysis for India.</p>
+            <h1>Analytics</h1>
+            <p class="sub">How this run breaks down by category, risk, intensity, persistence, state and satellite.</p>
           </div>
           <label class="field">
             <span class="field-label">Region</span>
             <span class="select" aria-label="Region">India</span>
           </label>
           <div class="topbar-meta" id="meta">Live NASA FIRMS<br />Loading</div>
-          <label class="field search">
-            <span class="sr-only">Search</span>
-            <input id="search" type="search" placeholder="Search event ID, state, district" autocomplete="off" />
-          </label>
-          <button class="btn" id="alerts-btn" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4l2-2zM10 21h4" />
-            </svg>
-            <span id="alerts-count">Alerts</span>
-          </button>
         </header>
         <hr class="topbar-rule" />
 
@@ -61,6 +48,6 @@
         </div>
       </main>
     </div>
-    <script type="module" src="dashboard.js"></script>
+    <script type="module" src="analytics-page.js"></script>
   </body>
 </html>

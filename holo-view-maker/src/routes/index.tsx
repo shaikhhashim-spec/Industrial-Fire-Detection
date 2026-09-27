@@ -20,7 +20,7 @@ import { useFireSats, usePolledFeed } from "@/hooks/use-live-feeds";
 import { DEFAULT_LAYERS, SHORTCUT_TO_LAYER, type LayerKey, type Layers } from "@/lib/layers";
 import { fetchEonet, type Hazard } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
-import { viewFromUrl } from "@/lib/view-params";
+import { flatFromUrl, viewFromUrl } from "@/lib/view-params";
 import { parentPath } from "@/lib/asset-url";
 
 const NO_SATS: FireSat[] = [];
@@ -102,7 +102,7 @@ function Index() {
   // Eight classification hues exceed what a scatter can be read by, so risk
   // (four ordered states) is the default colouring, as on the dashboard map.
   const [colorBy, setColorBy] = useState<"category" | "risk">("risk");
-  const [spin, setSpin] = useState(() => viewFromUrl() === null);
+  const [spin, setSpin] = useState(() => viewFromUrl() === null && !flatFromUrl());
   const [minRisk, setMinRisk] = useState(0);
   const [showAllDetections, setShowAllDetections] = useState(false);
   const [active, setActive] = useState<Set<Category>>(new Set(CATEGORIES));
@@ -230,7 +230,9 @@ function Index() {
         className="mb-4 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-3"
       >
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Thermal Intelligence globe</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {flatFromUrl() ? "Live Map" : "Thermal Intelligence globe"}
+          </h1>
           <p className="mt-1 flex items-center gap-2 text-[0.76rem] text-muted-foreground">
             <span
               className="size-2 rounded-[2px]"

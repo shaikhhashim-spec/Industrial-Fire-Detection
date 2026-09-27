@@ -37,7 +37,7 @@ import {
   swathGeoJSON,
 } from "@/lib/geo-layers";
 import { assetUrl } from "@/lib/asset-url";
-import { viewFromUrl } from "@/lib/view-params";
+import { flatFromUrl, viewFromUrl } from "@/lib/view-params";
 import { NIGHT_COORDS, paintNight } from "@/lib/night-raster";
 import { FACILITY_COLOR_EXPR } from "@/lib/facilities";
 
@@ -422,7 +422,7 @@ export function GlobeMap(props: GlobeMapProps) {
     mapRef.current = map;
 
     map.on("style.load", () => {
-      map.setProjection({ type: "globe" });
+      map.setProjection({ type: flatFromUrl() ? "mercator" : "globe" });
       map.setSky({
         "sky-color": "#02060d",
         "horizon-color": "#0c2d4a",

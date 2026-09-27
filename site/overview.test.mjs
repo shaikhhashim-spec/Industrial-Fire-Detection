@@ -63,6 +63,7 @@ test("alerts are the HIGH and CRITICAL events, highest risk first, with the dash
   assert.equal(alerts[0].title, "Critical thermal activity in Gujarat");
   assert.equal(alerts[2].title, "High thermal activity in Karnataka");
   assert.equal(alerts[3].title, "High thermal activity in an untagged area");
+  assert.deepEqual(alerts.map((a) => a.priority), [1, 2, null, null]);
 });
 
 test("equal risk keeps the pipeline's own priority order, and missing lists become empty", () => {
