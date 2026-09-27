@@ -6,6 +6,7 @@
  */
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
+import { ICON } from "./icons.mjs";
 import { boot } from "./page.mjs";
 import {
   categoryCounts,
@@ -18,12 +19,21 @@ import {
 
 mountNav("analytics.html");
 
-function metricPanel(title, items, caption) {
+function metricPanel(icon, title, items, caption) {
   const max = Math.max(1, ...items.map((i) => i.count));
   const panel = h(
     "section",
     { class: "panel" },
-    h("div", { class: "sec-head" }, h("div", { class: "sec-hdr" }, title)),
+    h(
+      "div",
+      { class: "sec-head" },
+      h(
+        "div",
+        { class: "sec-head-left" },
+        h("i", { class: "sec-icon" }, ICON[icon]()),
+        h("div", { class: "sec-hdr" }, title),
+      ),
+    ),
     caption && h("p", { class: "count-note" }, caption),
   );
   if (!items.length || items.every((i) => i.count === 0)) {
@@ -55,20 +65,20 @@ function main(data) {
     h(
       "div",
       { class: "grid-2" },
-      metricPanel("Classification distribution", categoryCounts(events)),
-      metricPanel("Risk distribution", riskCounts(events)),
+      metricPanel("tag", "Classification distribution", categoryCounts(events)),
+      metricPanel("warning", "Risk distribution", riskCounts(events)),
     ),
     h(
       "div",
       { class: "grid-2" },
-      metricPanel("FRP distribution (MW)", frpHistogram(events)),
-      metricPanel("Persistence distribution (days active)", persistenceCounts(events)),
+      metricPanel("pulse", "FRP distribution (MW)", frpHistogram(events)),
+      metricPanel("calendar", "Persistence distribution (days active)", persistenceCounts(events)),
     ),
     h(
       "div",
       { class: "grid-2" },
-      metricPanel("Top states by thermal activity", topStates(events, 10)),
-      metricPanel("Detections by satellite", satelliteCounts(events)),
+      metricPanel("pin", "Top states by thermal activity", topStates(events, 10)),
+      metricPanel("signal", "Detections by satellite", satelliteCounts(events)),
     ),
     h(
       "p",

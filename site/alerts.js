@@ -6,9 +6,12 @@
  */
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
+import { ICON } from "./icons.mjs";
 import { boot } from "./page.mjs";
 import { alertCard } from "./alerts-view.mjs";
-import { alertsFrom, matchAlerts } from "./overview.mjs";
+import { RISK_COLORS, alertsFrom, matchAlerts } from "./overview.mjs";
+
+const TIER_TINT = { CRITICAL: RISK_COLORS.CRITICAL, HIGH: RISK_COLORS.HIGH };
 
 const GROUP_PAGE = 50;
 const SEARCH_PAGE = 25;
@@ -32,7 +35,12 @@ function main(data) {
       h(
         "div",
         { class: "sec-head" },
-        h("div", { class: "sec-hdr" }, "Matching alerts"),
+        h(
+          "div",
+          { class: "sec-head-left" },
+          h("i", { class: "sec-icon" }, ICON.search()),
+          h("div", { class: "sec-hdr" }, "Matching alerts"),
+        ),
         h("span", { class: "count-note" }, `${num(matches.length)} of ${num(alerts.length)}`),
       ),
     );
@@ -69,7 +77,16 @@ function main(data) {
       const panel = h(
         "section",
         { class: "panel", style: "margin-bottom:1rem" },
-        h("div", { class: "sec-head" }, h("div", { class: "sec-hdr" }, `${tier.charAt(0) + tier.slice(1).toLowerCase()} (${num(group.length)})`)),
+        h(
+          "div",
+          { class: "sec-head" },
+          h(
+            "div",
+            { class: "sec-head-left" },
+            h("i", { class: "sec-icon", style: `--tint:${TIER_TINT[tier]}` }, ICON.warning()),
+            h("div", { class: "sec-hdr" }, `${tier.charAt(0) + tier.slice(1).toLowerCase()} (${num(group.length)})`),
+          ),
+        ),
       );
       if (!group.length) {
         panel.append(h("p", { class: "empty" }, `No ${tier.toLowerCase()} alerts in this run.`));

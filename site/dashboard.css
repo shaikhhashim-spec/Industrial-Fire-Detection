@@ -14,6 +14,12 @@
   --muted: #71808f;
   --accent: #5cb8dc;
   --on-accent: #061018;
+  /* The dashboard's own risk palette (RISK_COLORS in overview.mjs) — reserved
+     for risk and severity, never reused as a plain "series 4" hue. */
+  --ok: #0ca30c;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --crit: #d03b3b;
   --radius: 6px;
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
   --dur: 160ms;
@@ -188,10 +194,62 @@ p {
 }
 
 .topbar-brand h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   margin: 0 0 0.25rem;
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+}
+
+/* A small tinted chip in front of a heading — an icon, never color alone, so
+   the same shape reads the same way beside a page title or a panel title. */
+.page-icon,
+.sec-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--tint, var(--muted)) 16%, transparent);
+  color: var(--tint, var(--ink2));
+}
+
+.page-icon {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+
+.sec-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+}
+
+.page-icon svg,
+.sec-icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.page-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.sec-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sec-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .topbar-brand .sub {

@@ -31,7 +31,12 @@
       <main class="main">
         <header class="topbar plain">
           <div class="topbar-brand">
-            <h1>Investigations</h1>
+            <h1>
+              <span class="page-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" /><path d="M20 20l-5.2-5.2" /></svg>
+              </span>
+              Investigations
+            </h1>
             <p class="sub">The detailed, OpenStreetMap-joined analyst view.</p>
           </div>
           <label class="field">
@@ -43,7 +48,14 @@
         <hr class="topbar-rule" />
 
         <section class="panel">
-          <div class="sec-head"><div class="sec-hdr">Not available for all of India</div></div>
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <span class="sec-icon" style="--tint: var(--warn)" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z" /><path d="M12 9.5v4.5" /><path d="M12 17h.01" /></svg>
+              </span>
+              <div class="sec-hdr">Not available for all of India</div>
+            </div>
+          </div>
           <p class="risk-lead">
             Investigations needs a full OpenStreetMap join and rule classification. In the dashboard itself
             these only run for the detailed <b>Jharkhand and Odisha belt</b> — running them for the whole
@@ -58,7 +70,14 @@
         </section>
 
         <section class="panel" style="margin-top: 1rem">
-          <div class="sec-head"><div class="sec-hdr">What it shows, once open</div></div>
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <span class="sec-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M5 6h.01" /><path d="M9 6h11" /><path d="M5 12h.01" /><path d="M9 12h11" /><path d="M5 18h.01" /><path d="M9 18h11" /></svg>
+              </span>
+              <div class="sec-hdr">What it shows, once open</div>
+            </div>
+          </div>
           <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.84rem; line-height: 1.8; color: var(--ink2)">
             <li>Persistent clusters ranked by days active, with detection counts, mean and peak FRP</li>
             <li>Why the classification rule fired, and whether the ML model's second opinion agrees</li>

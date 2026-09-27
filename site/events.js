@@ -6,6 +6,7 @@
  */
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
+import { ICON } from "./icons.mjs";
 import { boot } from "./page.mjs";
 import { COLUMNS, filterEventRows, formatCell, sortRows, toCsv, toRows } from "./events.mjs";
 import { RISK_COLORS } from "./overview.mjs";
@@ -92,7 +93,16 @@ function main(data) {
     h(
       "section",
       { class: "panel" },
-      h("div", { class: "sec-head" }, h("div", { class: "sec-hdr" }, `${num(allRows.length)} events`)),
+      h(
+        "div",
+        { class: "sec-head" },
+        h(
+          "div",
+          { class: "sec-head-left" },
+          h("i", { class: "sec-icon" }, ICON.events()),
+          h("div", { class: "sec-hdr" }, `${num(allRows.length)} events`),
+        ),
+      ),
       h("div", { class: "table-wrap" }, table),
       rowcount,
       more,

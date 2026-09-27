@@ -6,6 +6,7 @@
  */
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
+import { ICON } from "./icons.mjs";
 import { boot } from "./page.mjs";
 import { alertCard } from "./alerts-view.mjs";
 import { ACCENT, PERSISTENT_COLOR, RISK_COLORS, alertsFrom, matchAlerts, summarize } from "./overview.mjs";
@@ -44,7 +45,12 @@ function main(data) {
     const head = h(
       "div",
       { class: "sec-head" },
-      h("div", { class: "sec-hdr" }, searching ? "Matching alerts" : "Top alerts"),
+      h(
+        "div",
+        { class: "sec-head-left" },
+        h("i", { class: "sec-icon", style: summary.critical ? `--tint:${RISK_COLORS.CRITICAL}` : null }, ICON.bell()),
+        h("div", { class: "sec-hdr" }, searching ? "Matching alerts" : "Top alerts"),
+      ),
       h("a", { class: "btn", href: "alerts.html" }, `All ${num(alerts.length)} alerts →`),
     );
 

@@ -31,7 +31,12 @@
       <main class="main">
         <header class="topbar plain">
           <div class="topbar-brand">
-            <h1>Settings</h1>
+            <h1>
+              <span class="page-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h4M12 12h8M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></svg>
+              </span>
+              Settings
+            </h1>
             <p class="sub">The data window, risk weights and alert configuration behind this run.</p>
           </div>
           <label class="field">
@@ -43,7 +48,14 @@
         <hr class="topbar-rule" />
 
         <section class="panel">
-          <div class="sec-head"><div class="sec-hdr">Pipeline</div></div>
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <span class="sec-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3" /><path d="M20 12a8 8 0 0 1-14 5.3" /><path d="M18 3.5V8h-4" /><path d="M6 20.5V16h4" /></svg>
+              </span>
+              <div class="sec-hdr">Pipeline</div>
+            </div>
+          </div>
           <p class="risk-lead">
             This public site re-pulls live NASA FIRMS data for India and re-runs the pipeline every six
             hours (GitHub Actions, using a repository secret for the FIRMS key — never entered in a
@@ -53,7 +65,14 @@
         </section>
 
         <section class="panel" style="margin-top: 1rem">
-          <div class="sec-head"><div class="sec-hdr">Data window</div></div>
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <span class="sec-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l4 2" /></svg>
+              </span>
+              <div class="sec-hdr">Data window</div>
+            </div>
+          </div>
           <div class="kv">
             <div class="row"><span class="k">Live pull, each run</span><span class="v">latest 48 hours</span></div>
             <div class="row"><span class="k">Persistence judged over</span><span class="v">up to a 30-day rolling window</span></div>
@@ -69,7 +88,14 @@
         </section>
 
         <section class="panel" id="alerts" style="margin-top: 1rem">
-          <div class="sec-head"><div class="sec-hdr">Critical alert dispatch</div></div>
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <span class="sec-icon" style="--tint: var(--crit)" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4l2-2zM10 21h4" /></svg>
+              </span>
+              <div class="sec-hdr">Critical alert dispatch</div>
+            </div>
+          </div>
           <div class="kv">
             <div class="row"><span class="k">Dispatch trigger</span><span class="v">risk score 76 or above (critical)</span></div>
             <div class="row"><span class="k">High-priority threshold</span><span class="v">risk score 51 or above</span></div>
