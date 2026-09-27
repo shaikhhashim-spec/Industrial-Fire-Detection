@@ -8,6 +8,7 @@ import pandas as pd
 
 import config
 from src.risk.anomaly import compute_frp_anomaly
+from src.utils.status import STATUS_INACTIVE
 
 ALERT_TITLES = {
     "critical_risk": "CRITICAL THERMAL EVENT",
@@ -80,10 +81,14 @@ def generate_alerts(detail_df: pd.DataFrame, cluster_df: pd.DataFrame) -> list[d
         }
 
         risk = row.get("risk_score", 0)
-        if risk >= config.ALERT_CRITICAL_RISK_MIN:
-            alerts.append({**base, "type": "critical_risk", "title": ALERT_TITLES["critical_risk"], "severity": "CRITICAL"})
-        elif risk >= config.ALERT_HIGH_RISK_MIN and row.get("is_persistent"):
-            alerts.append({**base, "type": "high_risk_persistent", "title": ALERT_TITLES["high_risk_persistent"], "severity": "HIGH"})
+        # A source stopped firing weeks ago (status.py already checked recency
+        # to reach this status) should not keep re-dispatching CRITICAL SMS and
+        # voice calls off a risk_score that reflects its history, not its present.
+        if row.get("status") != STATUS_INACTIVE:
+            if risk >= config.ALERT_CRITICAL_RISK_MIN:
+                alerts.append({**base, "type": "critical_risk", "title": ALERT_TITLES["critical_risk"], "severity": "CRITICAL"})
+            elif risk >= config.ALERT_HIGH_RISK_MIN and row.get("is_persistent"):
+                alerts.append({**base, "type": "high_risk_persistent", "title": ALERT_TITLES["high_risk_persistent"], "severity": "HIGH"})
 
         max_frp, avg_frp = row.get("max_frp", 0), row.get("avg_frp", 0)
         if avg_frp > 0 and max_frp >= avg_frp * config.ALERT_FRP_SPIKE_MULTIPLIER and max_frp >= config.FRP_INDUSTRIAL_MIN:

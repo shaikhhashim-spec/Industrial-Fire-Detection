@@ -98,6 +98,16 @@ def build_globe(npm: str) -> bool:
     env = {k: v for k, v in os.environ.items() if k not in {"GITHUB_ACTIONS", "GITHUB_REPOSITORY"}}
     env["BASE_PATH"] = GLOBE_BASE
     if not run([npm, "run", "build"], GLOBE_DIR, env):
+        if os.name == "nt":
+            print(
+                "  This build step is known to fail on some Windows machines with a "
+                "libuv assertion during prerendering — an upstream issue in the beta "
+                "build tooling triggered only by a non-root BASE_PATH (what this gateway "
+                "always uses), not by anything in this project. It does not affect the "
+                "public site, which GitHub Actions builds the same way on Linux without "
+                "issue. Retrying sometimes succeeds; otherwise building under WSL "
+                "(`wsl npm run build` from holo-view-maker) is the known workaround."
+            )
         return False
     GLOBE_STAMP.write_text(json.dumps({"base": GLOBE_BASE, "builtAt": time.time()}), encoding="utf-8")
     return True

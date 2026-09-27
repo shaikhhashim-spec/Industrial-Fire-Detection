@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/sitemap.xml

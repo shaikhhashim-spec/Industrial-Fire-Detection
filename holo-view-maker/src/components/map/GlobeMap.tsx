@@ -514,10 +514,11 @@ export function GlobeMap(props: GlobeMapProps) {
       if (html) tip.setLngLat(e.lngLat).setHTML(html).addTo(map);
       else tip.remove();
     });
-    map.getCanvas().addEventListener("mouseleave", () => {
+    const onCanvasMouseLeave = () => {
       cursorStore.set(null);
       tip.remove();
-    });
+    };
+    map.getCanvas().addEventListener("mouseleave", onCanvasMouseLeave);
 
     map.on("click", (e) => {
       const f = pick(e.point);
@@ -538,6 +539,7 @@ export function GlobeMap(props: GlobeMapProps) {
     map.on("wheel", stopSpin);
 
     return () => {
+      map.getCanvas().removeEventListener("mouseleave", onCanvasMouseLeave);
       tip.remove();
       map.remove();
       mapRef.current = null;

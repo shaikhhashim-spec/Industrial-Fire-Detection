@@ -41,11 +41,15 @@ def send_sms(body: str) -> dict:
     if not sms_configured():
         return {"ok": False, "detail": "Twilio not configured — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
                                         "TWILIO_FROM_NUMBER, and ALERT_SMS_TO_NUMBER in .env."}
+    # Deferred import: messages.py imports this module, so this stays local to
+    # avoid a circular import (same pattern as src/alerts/escalation.py).
+    from src.alerts.messages import normalize_phone_number
+    to_number, _ = normalize_phone_number(config.ALERT_SMS_TO_NUMBER)
     url = TWILIO_SEND_URL.format(sid=config.TWILIO_ACCOUNT_SID)
     try:
         resp = requests.post(
             url, auth=(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN),
-            data={"To": config.ALERT_SMS_TO_NUMBER, "From": config.TWILIO_FROM_NUMBER, "Body": body},
+            data={"To": to_number, "From": config.TWILIO_FROM_NUMBER, "Body": body},
             timeout=REQUEST_TIMEOUT_S,
         )
         if resp.ok:

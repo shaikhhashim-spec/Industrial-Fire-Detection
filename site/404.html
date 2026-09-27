@@ -15,8 +15,16 @@
   <body>
     <div>
       <h1 style="font-size:1.25rem;margin:0 0 .4rem">Page not found</h1>
-      <p>That page does not exist. The Overview and the 3D globe are the two pages here.</p>
-      <a href="/Industrial-Fire-Detection/">Go to the Overview</a>
+      <p>That page does not exist.</p>
+      <a id="home-link" href="/">Go to the Overview</a>
     </div>
+    <script>
+      // This file has no build step and is served as-is at whatever path 404'd,
+      // so it cannot know the repo name at build time the way every other page
+      // does (BASE_PATH). Take it from the URL that got here instead, so this
+      // keeps working if the repo is ever renamed.
+      var seg = location.pathname.split("/")[1];
+      if (seg) document.getElementById("home-link").href = "/" + seg + "/";
+    </script>
   </body>
 </html>

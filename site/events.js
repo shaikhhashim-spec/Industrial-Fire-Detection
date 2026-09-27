@@ -19,7 +19,7 @@ function headerCell(col, sort, onSort) {
   const active = sort.key === col.key;
   return h(
     "th",
-    {},
+    { "aria-sort": active ? (sort.dir === "asc" ? "ascending" : "descending") : "none" },
     h(
       "button",
       { type: "button", onclick: () => onSort(col.key) },
@@ -34,12 +34,16 @@ function bodyCell(col, row) {
   if (col.key === "riskLevel") {
     return h(
       "td",
-      {},
+      { "data-label": col.label },
       h("i", { class: "mark", style: `--mark:${RISK_COLORS[value] ?? "#71808f"}` }),
       ` ${value}`,
     );
   }
-  return h("td", { class: col.numeric ? "num" : col.key === "id" ? "id" : null }, formatCell(col, value));
+  return h(
+    "td",
+    { class: col.numeric ? "num" : col.key === "id" ? "id" : null, "data-label": col.label },
+    formatCell(col, value),
+  );
 }
 
 function main(data) {

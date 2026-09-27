@@ -47,6 +47,14 @@ def test_frp_spike_detected():
     assert any(a["type"] == "frp_spike" for a in alerts)
 
 
+def test_inactive_status_suppresses_critical_and_high_risk_alerts():
+    """A source with a high historical risk_score that has gone quiet (status
+    already computed as RESOLVED/INACTIVE) must not keep re-dispatching alerts."""
+    cluster_df = pd.DataFrame([_cluster_row(risk_score=90, risk_level="CRITICAL", status="RESOLVED/INACTIVE")])
+    alerts = generate_alerts(_detail_df(), cluster_df)
+    assert not any(a["type"] in ("critical_risk", "high_risk_persistent") for a in alerts)
+
+
 def test_alerts_sorted_most_severe_first():
     cluster_df = pd.DataFrame([
         _cluster_row(grid_cell="a", risk_score=60, risk_level="HIGH", is_persistent=True),

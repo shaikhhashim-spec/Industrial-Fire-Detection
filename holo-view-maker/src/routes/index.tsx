@@ -159,6 +159,11 @@ function Index() {
       setAllEvents(res.events);
       setDataSource(res.source);
       setDataMeta(res.meta);
+    } catch (err) {
+      // fetchThermalEvents never rejects today (it catches internally and
+      // falls back to cached/demo data), but this is called from a bare
+      // useEffect and a button onClick with nothing else to catch a regression.
+      console.error("Failed to load thermal event data:", err);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
+import config
 from src.alerts.messages import (
     format_critical_alert_message,
     is_critical_alert,
@@ -85,6 +88,36 @@ def test_send_critical_alert_force_bypass():
     low_alert = _sample_alert(risk_score=40.0, severity="LOW", risk_level="LOW")
     res = send_critical_alert(low_alert, phone="9812345678", force=True)
     assert res["status"] in ("simulated", "delivered")
+
+
+def test_send_critical_alert_channels_are_independent(monkeypatch):
+    """One channel failing must not block or corrupt another channel that
+    succeeds — a down Telegram bot must not stop the Twilio SMS from sending,
+    and the result must still report the SMS as delivered."""
+    monkeypatch.setattr(config, "TWILIO_ACCOUNT_SID", "AC123")
+    monkeypatch.setattr(config, "TWILIO_AUTH_TOKEN", "authtoken")
+    monkeypatch.setattr(config, "TWILIO_FROM_NUMBER", "+10000000000")
+    monkeypatch.setattr(config, "TELEGRAM_BOT_TOKEN", "bottoken")
+    monkeypatch.setattr(config, "TELEGRAM_CHAT_ID", "12345")
+
+    def fake_post(url, **kwargs):
+        if "twilio.com" in url:
+            resp = MagicMock(ok=True)
+            resp.json.return_value = {"sid": "SM999"}
+            return resp
+        resp = MagicMock(ok=False, status_code=500, text="Telegram is down")
+        resp.headers = {"content-type": "application/json"}
+        resp.json.return_value = {"ok": False, "description": "Telegram is down"}
+        return resp
+
+    with patch("requests.post", side_effect=fake_post):
+        res = send_critical_alert(_sample_alert(risk_score=90.0), phone="9812345678")
+
+    assert res["status"] == "delivered"
+    assert "sms" in res["channel"]
+    assert "telegram" not in res["channel"]
+    assert "SM999" in res["detail"]
+    assert "Telegram" in res["detail"]
 
 
 def test_send_batch_critical_alerts_only_sends_critical():

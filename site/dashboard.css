@@ -11,7 +11,7 @@
   --line-strong: #2a3848;
   --ink: #e4eaf0;
   --ink2: #a1adba;
-  --muted: #71808f;
+  --muted: #728190; /* #71808f nudged +1/ch: was 4.49:1 on --surface, just under WCAG AA 4.5:1 */
   --accent: #5cb8dc;
   --on-accent: #061018;
   /* The dashboard's own risk palette (RISK_COLORS in overview.mjs) — reserved
@@ -908,6 +908,52 @@ td.id {
   .alertbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Phone widths: the Events table's 15 columns have nowhere to reflow to, so
+   below this it stops being a table and becomes one card per row instead —
+   each cell on its own line, labelled from the column header it came from. */
+@media (max-width: 40rem) {
+  .table-wrap {
+    overflow-x: visible;
+    border: none;
+  }
+
+  table,
+  tbody,
+  tr {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    width: 100%;
+    white-space: normal;
+    text-align: right;
+  }
+
+  tbody td::before {
+    content: attr(data-label);
+    flex: none;
+    color: var(--muted);
+    font: 500 0.72rem "IBM Plex Sans", system-ui, sans-serif;
+    text-align: left;
   }
 }
 

@@ -27,13 +27,16 @@ def _status_for_row(row, now: pd.Timestamp) -> str:
     days_since_first = (now - row["first_detected"]).days if pd.notna(row.get("first_detected")) else 0
     detections = row.get("detection_count", 1)
 
-    # Priority: CRITICAL > HIGH RISK > INACTIVE > PERSISTENT > RECURRING > NEW
+    # Priority: INACTIVE > CRITICAL > HIGH RISK > PERSISTENT > RECURRING > NEW.
+    # INACTIVE comes first: risk_score reflects the cell's history and does not
+    # decay to zero on its own, so without this a source that stopped firing
+    # weeks ago would still read CRITICAL forever instead of RESOLVED/INACTIVE.
+    if days_since_last > config.STATUS_INACTIVE_AFTER_DAYS:
+        return STATUS_INACTIVE
     if risk >= config.ALERT_CRITICAL_RISK_MIN:
         return STATUS_CRITICAL
     if risk >= config.ALERT_HIGH_RISK_MIN:
         return STATUS_HIGH_RISK
-    if days_since_last > config.STATUS_INACTIVE_AFTER_DAYS:
-        return STATUS_INACTIVE
     if persistent:
         return STATUS_PERSISTENT
     if detections > 1:

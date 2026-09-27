@@ -39,6 +39,17 @@ def test_sudden_spike_is_anomalous():
     assert row["frp_change_pct"] > 0
 
 
+def test_ignition_on_zero_baseline_is_anomalous():
+    """A cell with no thermal signal at all (baseline FRP genuinely 0.0, e.g.
+    backfilled by upstream cleaning) that suddenly ignites must still be
+    flagged: ratio must not fall back to a neutral 1.0 just because mean == 0."""
+    out = compute_frp_anomaly(_history([0.0, 0.0, 0.0, 0.0, 15.0]))
+    row = out.iloc[0]
+    assert row["has_baseline"]
+    assert row["is_anomalous"]
+    assert row["frp_zscore"] == float("inf")
+
+
 def test_two_cells_scored_independently():
     a = _history([5.0, 5.0, 5.0, 40.0], cell="a")
     b = _history([2.0, 2.1, 1.9, 2.0], cell="b")

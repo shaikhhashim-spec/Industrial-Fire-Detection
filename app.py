@@ -1123,7 +1123,7 @@ def _handle_global_search(query: str, region: str):
         if cluster_df.empty:
             st.caption("No data loaded yet.")
             return
-        matches = cluster_df[cluster_df["grid_cell"].str.lower().str.contains(query_norm, na=False)]
+        matches = cluster_df[cluster_df["grid_cell"].str.lower().str.contains(query_norm, na=False, regex=False)]
         if matches.empty:
             st.caption(f"No match for '{query}'.")
         else:
@@ -1388,7 +1388,7 @@ def _render_events_table(df: pd.DataFrame, region_key: str):
         search = st.text_input("Search grid cell / state / classification", key=f"events_search_{region_key}")
         table = _readable_event_columns(df)
         if search:
-            m = table.astype(str).apply(lambda col: col.str.contains(search, case=False, na=False)).any(axis=1)
+            m = table.astype(str).apply(lambda col: col.str.contains(search, case=False, na=False, regex=False)).any(axis=1)
             table = table[m]
         st.dataframe(_style_severity(table), hide_index=True, width="stretch")
         st.download_button("Export CSV", table.to_csv(index=False), f"events_{region_key}.csv", "text/csv",
@@ -1435,20 +1435,25 @@ def _render_alert_gateway_settings(suffix: str):
             )
 
         with st.expander("Channel credentials"):
-            st.caption("Optional. Twilio, Telegram and a plain webhook are supported.")
+            st.caption("Optional. Twilio, Telegram and a plain webhook are supported. Leave a field blank "
+                       "to keep using the value already set in .env — dispatch falls back to that either "
+                       "way, so nothing here needs to show the real value to confirm it's configured.")
+
+            def _cred_input(label: str, configured: object, key: str, password: bool = True) -> str | None:
+                placeholder = "Already set in .env" if configured else "Not configured"
+                kwargs = {"type": "password"} if password else {}
+                return st.text_input(label, value="", placeholder=placeholder, key=key, **kwargs) or None
+
             creds = dict(
-                twilio_sid=st.text_input("Twilio account SID", value=config.TWILIO_ACCOUNT_SID,
-                                         type="password", key=f"msg_t_sid_{suffix}") or None,
-                twilio_token=st.text_input("Twilio auth token", value=config.TWILIO_AUTH_TOKEN,
-                                           type="password", key=f"msg_t_tok_{suffix}") or None,
-                twilio_from=st.text_input("Twilio sender number", value=config.TWILIO_FROM_NUMBER,
-                                          key=f"msg_t_from_{suffix}") or None,
-                telegram_token=st.text_input("Telegram bot token", value=config.TELEGRAM_BOT_TOKEN,
-                                             type="password", key=f"msg_tg_tok_{suffix}") or None,
-                telegram_chat_id=st.text_input("Telegram chat ID", value=config.TELEGRAM_CHAT_ID,
-                                               key=f"msg_tg_cid_{suffix}") or None,
-                webhook_url=st.text_input("Webhook URL", value=config.ALERT_WEBHOOK_URL,
-                                          key=f"msg_wb_url_{suffix}") or None,
+                twilio_sid=_cred_input("Twilio account SID", config.TWILIO_ACCOUNT_SID, f"msg_t_sid_{suffix}"),
+                twilio_token=_cred_input("Twilio auth token", config.TWILIO_AUTH_TOKEN, f"msg_t_tok_{suffix}"),
+                twilio_from=_cred_input("Twilio sender number", config.TWILIO_FROM_NUMBER,
+                                        f"msg_t_from_{suffix}", password=False),
+                telegram_token=_cred_input("Telegram bot token", config.TELEGRAM_BOT_TOKEN, f"msg_tg_tok_{suffix}"),
+                telegram_chat_id=_cred_input("Telegram chat ID", config.TELEGRAM_CHAT_ID,
+                                             f"msg_tg_cid_{suffix}", password=False),
+                webhook_url=_cred_input("Webhook URL", config.ALERT_WEBHOOK_URL,
+                                        f"msg_wb_url_{suffix}", password=False),
             )
 
         e1, e2 = st.columns(2)

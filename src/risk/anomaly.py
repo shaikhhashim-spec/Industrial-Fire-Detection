@@ -140,7 +140,12 @@ def compute_frp_anomaly(detail_df: pd.DataFrame) -> pd.DataFrame:
         mean, std = float(baseline.mean()), float(baseline.std(ddof=0))
         change_pct = ((latest_frp - mean) / mean * 100) if mean > 0 else 0.0
         zscore = ((latest_frp - mean) / std) if std > 1e-6 else float("inf") if latest_frp > mean else 0.0
-        ratio = (latest_frp / mean) if mean > 0 else 1.0
+        # A zero baseline (plausible: missing FRP is filled with 0.0 upstream)
+        # forced ratio to 1.0 regardless of latest_frp, so a fresh ignition on
+        # a previously all-zero cell never cleared ANOMALY_RATIO_MIN even
+        # though its zscore was already infinite. Any positive reading against
+        # a true zero baseline is the ratio going to infinity, not staying at 1.
+        ratio = (latest_frp / mean) if mean > 0 else (float("inf") if latest_frp > 0 else 1.0)
 
         is_anomalous = zscore >= ANOMALY_ZSCORE_MIN and ratio >= ANOMALY_RATIO_MIN
         rows.append({

@@ -14,10 +14,6 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,14 +39,24 @@ jobs:
           cache-dependency-path: requirements.txt
 
       # Live data only: if FIRMS is unreachable or the run fails, keep the last
-      # committed live snapshot rather than publishing nothing.
+      # committed live snapshot rather than publishing nothing. continue-on-error
+      # is deliberate — a flag on this step so the deploy still visibly says so,
+      # rather than a green run silently shipping stale data with no signal.
       - name: Refresh live FIRMS data
+        id: refresh
         if: env.FIRMS_API_KEY != ''
         continue-on-error: true
         timeout-minutes: 25
         run: |
           pip install -r requirements.txt
           python scripts/refresh_national_globe.py
+
+      - name: Flag a stale refresh
+        if: env.FIRMS_API_KEY != '' && steps.refresh.outcome == 'failure'
+        run: |
+          echo "::warning::Live FIRMS refresh failed — deploying with the last committed snapshot instead of fresh data."
+          echo "### :warning: Live FIRMS refresh failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deploying with the last committed \`events.json\` snapshot instead of a fresh pull." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -88,6 +94,13 @@ jobs:
 
     runs-on: ubuntu-latest
     needs: build
+    # Only the actual publish step needs to serialize (an in-flight deploy
+    # cancelled mid-upload can leave Pages half-updated) — the build job above
+    # is unconstrained, so an urgent push-triggered build no longer has to
+    # queue for up to 40 minutes behind a slow scheduled refresh's build.
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
 
     steps:
       - name: Deploy
