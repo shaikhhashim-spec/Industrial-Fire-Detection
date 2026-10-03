@@ -30,6 +30,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Decide whether data needs refreshing
+        id: refresh_policy
+        run: python3 scripts/pages_refresh_policy.py >> "$GITHUB_OUTPUT"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -57,6 +61,7 @@ jobs:
 
       - name: Refresh public global FIRMS data
         id: global_refresh
+        if: steps.refresh_policy.outputs.global_needed == 'true'
         continue-on-error: true
         timeout-minutes: 10
         run: python scripts/refresh_global_globe.py --max-events 12000 --weather-limit 40 --refresh-references
@@ -73,7 +78,7 @@ jobs:
       # rather than a green run silently shipping stale data with no signal.
       - name: Refresh live FIRMS data
         id: refresh
-        if: env.FIRMS_API_KEY != ''
+        if: env.FIRMS_API_KEY != '' && steps.refresh_policy.outputs.national_needed == 'true'
         continue-on-error: true
         timeout-minutes: 25
         run: |

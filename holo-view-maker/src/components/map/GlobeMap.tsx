@@ -597,8 +597,8 @@ export function GlobeMap(props: GlobeMapProps) {
         if (controller.signal.aborted) return;
         const seen = new Set<string>();
         const features = collections.flat().filter((feature) => {
-        const key = feature.properties?.["ref"]
-          ? String(feature.properties["ref"])
+          const key = feature.properties?.["ref"]
+            ? String(feature.properties["ref"])
             : JSON.stringify(feature.geometry);
           if (seen.has(key)) return false;
           seen.add(key);
