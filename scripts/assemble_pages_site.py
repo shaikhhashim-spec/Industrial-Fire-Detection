@@ -25,7 +25,7 @@ def assemble(site_dir: Path, globe_dir: Path, out_dir: Path) -> Path:
             raise FileNotFoundError(f"{needed} is missing: build the globe first, and run from the repository")
     if out_dir.exists():
         shutil.rmtree(out_dir)
-    shutil.copytree(site_dir, out_dir, ignore=shutil.ignore_patterns("*.test.mjs"))
+    shutil.copytree(site_dir, out_dir, ignore=shutil.ignore_patterns("*.test.mjs", "*.py", "*.pyc", "*.d.mts", "__pycache__"))
     shutil.copytree(globe_dir, out_dir / "globe", ignore=shutil.ignore_patterns(".gateway-build"))
     # Before the Overview took over the root, the globe was the root page and asked for
     # /data and /vendor there. A browser's cached copy of that page, or a tab left open,

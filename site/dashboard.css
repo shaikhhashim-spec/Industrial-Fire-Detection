@@ -2,13 +2,14 @@
    token set across every part of the product. One accent, used only for actions,
    selection and focus; risk keeps its own status palette. */
 :root {
-  --page: #0a0e13;
-  --sidebar: #0c1117;
-  --surface: #10161d;
-  --surface-2: #151d26;
-  --surface-3: #1b2531;
-  --line: #1d2733;
-  --line-strong: #2a3848;
+  --page: #0c0e10;
+  --sidebar: #101214;
+  --surface: #15191c;
+  --surface-2: #1b2024;
+  --surface-3: #242a30;
+  --line: #2b3136;
+  --line-strong: #414b54;
+  --glass: rgba(23, 28, 32, 0.88);
   --ink: #e4eaf0;
   --ink2: #a1adba;
   --muted: #728190; /* #71808f nudged +1/ch: was 4.49:1 on --surface, just under WCAG AA 4.5:1 */
@@ -115,12 +116,15 @@ p {
   align-items: center;
   gap: 0.5rem;
   min-height: 2.5rem;
+  max-width: 100%;
   padding: 0 1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
-  font: 500 0.83rem/1 "IBM Plex Sans", system-ui, sans-serif;
+  font: 500 0.83rem/1.35 "IBM Plex Sans", system-ui, sans-serif;
+  padding-block: 0.5rem;
+  overflow-wrap: anywhere;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -181,8 +185,8 @@ p {
 
 /* Top bar */
 .topbar {
-  display: grid;
-  grid-template-columns: 2.5fr 1.5fr 1.8fr 1.9fr 1.1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   align-items: start;
 }
@@ -190,8 +194,15 @@ p {
 /* Pages with no page-level search or action button (Analytics, Investigations,
    Settings): brand, region and freshness only. */
 .topbar.plain {
-  grid-template-columns: 2.5fr 1.5fr 1.8fr;
+  display: flex;
 }
+
+.topbar-brand { flex: 1 1 21rem; }
+.topbar > .field { flex: 1 1 10rem; }
+.topbar > .topbar-meta { flex: 1 1 12rem; }
+.topbar > .field.search { flex: 2 1 15rem; min-width: min(15rem, 100%); }
+.topbar > .btn { flex: 0 1 auto; align-self: flex-end; }
+.topbar-brand h1, .topbar-brand .sub { overflow-wrap: anywhere; }
 
 .topbar-brand h1 {
   display: flex;
@@ -303,12 +314,12 @@ input[type="search"] {
 
 .topbar-meta .v {
   color: var(--ink);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 #alerts-btn {
   margin-top: 1.3rem;
-  width: 100%;
+  width: auto;
   justify-content: center;
 }
 
@@ -322,22 +333,20 @@ input[type="search"] {
    beside its label, never a full-colour number. */
 .statrow {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
   margin-bottom: 0.9rem;
-  background: var(--surface);
 }
 
 .stat {
   padding: 0.8rem 1rem;
-  border-right: 1px solid var(--line);
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
   border-top: 2px solid var(--stat-accent, transparent);
-}
-
-.stat:last-child {
-  border-right: none;
 }
 
 .stat .lbl {
@@ -361,6 +370,7 @@ input[type="search"] {
   font-size: 1.3rem;
   font-weight: 500;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .pills {
@@ -396,11 +406,12 @@ input[type="search"] {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--surface-2);
+  padding: 0.75rem;
+  border-block: 1px solid var(--line);
+  background: linear-gradient(90deg, #111b1e, #181c20);
 }
+
+.portal-launch { border-color: var(--accent); color: var(--accent); flex-shrink: 0; }
 
 .alertbar .txt {
   font-size: 0.88rem;
@@ -413,10 +424,8 @@ input[type="search"] {
 
 /* Panels and alert cards */
 .panel {
-  padding: 1rem 1.15rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 1rem 0;
+  min-width: 0;
 }
 
 .sec-head {
@@ -424,6 +433,7 @@ input[type="search"] {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
   padding-bottom: 0.5rem;
   margin-bottom: 0.85rem;
   border-bottom: 1px solid var(--line);
@@ -445,21 +455,33 @@ input[type="search"] {
   padding: 0.75rem 1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
+  min-width: 0;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
   transition:
-    border-color var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
+    border-color var(--dur) var(--ease);
 }
 
-.alertcard:hover {
-  border-color: var(--line-strong);
-  transform: translateY(-1px);
+.alertcard[data-severity="CRITICAL"]:hover {
+  border-color: var(--crit);
+}
+
+.alertcard[data-severity="CRITICAL"] .sev {
+  animation: critical-radar 1.8s ease-out infinite;
+}
+
+@keyframes critical-radar {
+  from { box-shadow: 0 0 0 0 rgba(208, 59, 59, 0.4); }
+  to { box-shadow: 0 0 0 6px rgba(208, 59, 59, 0); }
 }
 
 .alertcard .title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
   font-size: 0.88rem;
   font-weight: 600;
 }
@@ -490,6 +512,9 @@ input[type="search"] {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .fact .k {
@@ -506,6 +531,92 @@ input[type="search"] {
   font-size: 0.78rem;
   line-height: 1.6;
   color: var(--ink2);
+  overflow-wrap: anywhere;
+}
+
+/* Index values and role text are supplied by the evidence renderer. */
+.consensus-panel {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.consensus-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  color: var(--ink);
+}
+
+details.consensus-panel > summary, .consensus-panel details > summary {
+  cursor: pointer;
+  padding-block: 0.35rem;
+}
+
+details.consensus-panel > .consensus-summary { display: block; list-style: none; }
+details.consensus-panel > .consensus-summary::-webkit-details-marker { display: none; }
+details.consensus-panel > .consensus-summary::before {
+  content: "\203A";
+  display: inline-block;
+  width: 1.1rem;
+  color: var(--ink2);
+  transition: transform var(--dur) var(--ease);
+}
+details.consensus-panel[open] > .consensus-summary::before { transform: rotate(90deg); }
+.consensus-summary > span { display: block; margin-left: 1.1rem; font-size: 0.76rem; color: var(--ink2); }
+
+.consensus-meter {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin: 0.5rem 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-3);
+  accent-color: var(--accent);
+}
+
+.consensus-meter > span, .consensus-meter > div {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.consensus-meter::-webkit-meter-bar { background: var(--surface-3); border: none; }
+.consensus-meter::-webkit-meter-optimum-value { background: var(--accent); }
+.consensus-meter::-moz-meter-bar { background: var(--accent); }
+
+.consensus-role {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink2);
+}
+
+.consensus-role > p, .consensus-role > ul { grid-column: 1 / -1; }
+.consensus-role h4 { margin: 0; color: var(--ink); font-size: 0.8rem; font-weight: 500; }
+.consensus-role > ul, ul.consensus-limitations { margin-bottom: 0; padding-left: 1.1rem; }
+.consensus-role > ul { margin-top: 0.15rem; }
+.consensus-role:last-child { border-bottom: none; }
+.consensus-limitations { margin-top: 0.6rem; color: var(--ink2); font-size: 0.76rem; line-height: 1.6; }
+.plume-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--accent);
+  background: rgba(92, 184, 220, 0.06);
+  font-size: 0.72rem;
+  font-weight: 400;
 }
 
 /* "Why it is risky and what to do" */
@@ -883,13 +994,8 @@ td.id {
     padding-top: 1.5rem;
   }
 
-  .topbar,
-  .topbar.plain {
-    grid-template-columns: 1fr 1fr;
-  }
-
   .topbar-brand {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
   }
 
   input[type="search"],
@@ -898,15 +1004,7 @@ td.id {
   }
 
   .statrow {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .stat:nth-child(2) {
-    border-right: none;
-  }
-
-  .stat:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .alertbar {
@@ -919,6 +1017,10 @@ td.id {
    below this it stops being a table and becomes one card per row instead —
    each cell on its own line, labelled from the column header it came from. */
 @media (max-width: 40rem) {
+  .topbar > .field.search { flex-basis: 100%; }
+  .sec-head-left { min-width: 0; }
+  .consensus-role { grid-template-columns: minmax(0, 1fr); }
+  .consensus-role > p, .consensus-role > ul { grid-column: auto; }
   .table-wrap {
     overflow-x: visible;
     border: none;
@@ -965,6 +1067,7 @@ td.id {
   *,
   *::before,
   *::after {
+    animation: none !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

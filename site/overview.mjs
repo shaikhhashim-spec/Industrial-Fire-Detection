@@ -3,6 +3,7 @@
  * events.json the 3D globe reads. Pure functions, so they can be tested with
  * `node --test "site/*.test.mjs"` and produce the same figures as the dashboard's Overview.
  */
+import { compactPlume, evaluateConsensus, validCoordinates } from "./consensus.mjs";
 
 export const RISK_COLORS = { LOW: "#0ca30c", MODERATE: "#fab219", HIGH: "#ec835a", CRITICAL: "#d03b3b" };
 export const PERSISTENT_COLOR = "#fab219";
@@ -59,6 +60,7 @@ export function summarize(data) {
     atSites: events.filter((e) => e.facility).length,
     critical: events.filter((e) => e.riskLevel === "CRITICAL").length,
     high: events.filter((e) => e.riskLevel === "HIGH").length,
+    activePlumes: events.filter((e) => validCoordinates(e.latitude, e.longitude) && compactPlume(e.plume)).length,
     states: meta.statesWithActivity ?? states.size,
     satellites: [...(meta.satellites ?? satellites)].sort(),
   };
@@ -66,6 +68,37 @@ export function summarize(data) {
 
 function titleCase(word) {
   return word.charAt(0) + word.slice(1).toLowerCase();
+}
+
+const placeText = (v) => typeof v === "string" ? v.trim() : "";
+
+/** Supplied named context precedes approximate display extents and coordinates.
+ * Extents are never promoted to country or district facts. */
+export function formatLocation(event = {}) {
+  const e = event ?? {};
+  const place = typeof e.place === "string" ? e.place : e.place?.name;
+  const names = [e.district, e.state, place, e.country || e.place?.country].map(placeText).filter(Boolean);
+  if (names.length) return [...new Set(names)].join(", ");
+  const coords = validCoordinates(e.latitude, e.longitude)
+    ? `${e.latitude.toFixed(3)}, ${e.longitude.toFixed(3)}` : "";
+  const region = placeText(e.region);
+  // Broad pipeline boxes can cross borders. Prefer coordinates for those labels.
+  const generic = /untagged|unknown|unmapped/i.test(region) || /^(global|worldwide|other|brazil|canada|australia|pilbara|south america|north america|africa|asia|europe|oceania)(\b|$)/i.test(region);
+  if (region && !generic) return `${region} (approximate region)${coords ? `; ${coords}` : ""}`;
+  if (coords) {
+    const windows = [
+      ["Amazon Basin", -76, -16, -44, 6],
+      ["Persian Gulf Energy Corridor", 38, 18, 62, 34],
+      ["US Gulf Coast / Permian", -106, 25, -88, 37],
+      ["Pilbara Mining Corridor", 114, -25, 122, -19],
+      ["North American Boreal Belt", -130, 45, -60, 68],
+      ["Southeast Asian Peatland Region", 95, -10, 142, 8],
+    ];
+    const window = windows.find(([, west, south, east, north]) =>
+      e.longitude >= west && e.longitude <= east && e.latitude >= south && e.latitude <= north);
+    if (window) return `${window[0]} (approximate region); ${coords}`;
+  }
+  return coords || "Location unavailable";
 }
 
 /** Every HIGH and CRITICAL event, highest risk first, worded as the dashboard words it. */
@@ -80,7 +113,7 @@ export function alertsFrom(events) {
     )
     .map((e) => ({
       id: e.id,
-      title: `${titleCase(e.riskLevel)} thermal activity in ${e.state || "an untagged area"}`,
+      title: `${titleCase(e.riskLevel)} thermal activity in ${formatLocation(e)}`,
       severity: e.riskLevel,
       riskScore: e.riskScore,
       priority: typeof e.priority === "number" ? e.priority : null,
@@ -92,6 +125,11 @@ export function alertsFrom(events) {
       region: e.region ?? "",
       state: e.state ?? "",
       district: e.district ?? "",
+      country: e.country ?? "",
+      place: e.place ?? null,
+      location: formatLocation(e),
+      plume: validCoordinates(e.latitude, e.longitude) && compactPlume(e.plume) ? e.plume : null,
+      consensus: evaluateConsensus(e),
       riskSummary: e.riskSummary ?? null,
       riskFactors: Array.isArray(e.riskFactors) ? e.riskFactors : [],
       actions: Array.isArray(e.actions) ? e.actions : [],
@@ -105,7 +143,7 @@ export function matchAlerts(alerts, query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   return alerts.filter((a) =>
-    [a.id, a.region, a.state, a.district, a.classification].some((v) => String(v).toLowerCase().includes(q)),
+    [a.id, a.region, a.state, a.district, a.country, a.place?.name, a.place?.country, a.location, formatLocation(a), a.classification].some((v) => String(v ?? "").toLowerCase().includes(q)),
   );
 }
 

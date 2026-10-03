@@ -5,6 +5,9 @@
  */
 import { h } from "./dom.mjs";
 import { fmtAge, fmtUpdated } from "./overview.mjs";
+import { applyRegionBranding } from "./branding.mjs";
+
+export { applyRegionBranding as renderBranding } from "./branding.mjs";
 
 export const DATA_URL = "globe/data/events.json";
 
@@ -43,6 +46,10 @@ export async function boot(main, containerSelector = "#content") {
   const container = document.querySelector(containerSelector);
   try {
     const data = await loadData();
+    const region = data.meta?.scope === "global" ? "global" : "india";
+    applyRegionBranding(region);
+    const fixedRegion = document.querySelector(".topbar span.select[aria-label='Region']");
+    if (fixedRegion) fixedRegion.textContent = region === "global" ? "Global" : "India";
     renderMeta(data.meta ?? {});
     await main(data);
   } catch (err) {

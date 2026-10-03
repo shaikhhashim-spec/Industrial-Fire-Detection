@@ -485,6 +485,15 @@
   }
 }
 
+.arena-section {
+  overflow-wrap: anywhere;
+}
+.arena-meter {
+  transform-origin: left;
+  animation: ti-grow-x 420ms var(--ease) both;
+  transition: width 240ms var(--ease);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

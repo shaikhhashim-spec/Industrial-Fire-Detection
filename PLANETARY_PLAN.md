@@ -64,3 +64,25 @@ horizontal overflow or runtime errors. The Pages build uses the repository's rea
 - Added Persian Gulf, national India, North America and Australia camera positions,
   plus South Asia, Jharkhand/Odisha, Permian, Gulf Coast and Pilbara corridor scopes.
 - Preserved interactive plume metrics, sixteen-point headings and the 42-degree camera.
+
+## Evidence Arena And Global Redesign
+
+| Owner | Delivery | Independent challenge |
+| --- | --- | --- |
+| Evidence agent | Shared Sentinel/Skeptic/Arbiter screening, geographic fallback, plume badges and public alert review | No invented glint probabilities, baseline percentiles, cloud state or source confirmation |
+| Dashboard agent | Regional branding, search, active plume count, responsive glass surfaces and critical radar state | Global scope must never silently present India-only coverage; reduced motion must work |
+| Integration agent | Globe dossier Arena, regional public Alerts, shared module contracts and deployment QA | Both views must use identical evidence arithmetic and preserve plume interactions |
+
+The Arena currently runs deterministic rules, not three independent language models.
+Its evidence index is a heuristic, not a calibrated probability, and never changes
+the underlying risk score or dispatches an alert. Wind supplies dispersion context,
+not proof of industrial origin. Cloud, glint geometry, burn calendars, water masks
+and population exposure are unavailable unless collected as explicit evidence.
+Actual AI debate requires a protected server-side provider integration, evaluation
+against labeled outcomes, and budget/latency controls before operational use.
+
+The user selected rule-based screening for this release. Verification covered
+302 Python tests, shared engine and UI tests, regional branding/search, safe
+location fallbacks, reduced motion, and desktop/mobile browser interactions.
+Plume hover and click remain active. Public assembly excludes tests, Python
+cache files and TypeScript declarations from deployed assets.

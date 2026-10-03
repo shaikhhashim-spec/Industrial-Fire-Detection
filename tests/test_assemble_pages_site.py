@@ -43,9 +43,18 @@ def test_older_copies_of_the_page_still_find_their_data_at_the_root(dirs):
 
 def test_tests_and_local_build_markers_do_not_ship(dirs):
     site, globe, out = dirs
+    (site / "test_routing.py").write_text("tests do not ship")
+    (site / "consensus.d.mts").write_text("declarations do not ship")
+    (site / "__pycache__").mkdir()
+    (site / "__pycache__" / "test_routing.pyc").write_bytes(b"cache")
+    (site / "consensus.mjs").write_text("export {}")
     assemble(site, globe, out)
     assert not (out / "overview.test.mjs").exists()
     assert not (out / "globe" / ".gateway-build").exists()
+    assert not (out / "test_routing.py").exists()
+    assert not (out / "consensus.d.mts").exists()
+    assert not (out / "__pycache__").exists()
+    assert (out / "consensus.mjs").is_file()
 
 
 def test_a_stale_output_folder_is_replaced_not_merged(dirs):

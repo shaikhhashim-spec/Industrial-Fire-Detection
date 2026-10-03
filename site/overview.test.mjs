@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { alertsFrom, fmtAge, fmtUpdated, matchAlerts, satelliteLabel, summarize, urgencyColor } from "./overview.mjs";
+import { alertsFrom, formatLocation, fmtAge, fmtUpdated, matchAlerts, satelliteLabel, summarize, urgencyColor } from "./overview.mjs";
 
 const event = (over = {}) => ({
   id: "TH-1",
@@ -60,9 +60,9 @@ test("summarize copes with a file that has no events", () => {
 test("alerts are the HIGH and CRITICAL events, highest risk first, with the dashboard's wording", () => {
   const alerts = alertsFrom(sample().events);
   assert.deepEqual(alerts.map((a) => a.id), ["A", "B", "C", "D"]);
-  assert.equal(alerts[0].title, "Critical thermal activity in Gujarat");
-  assert.equal(alerts[2].title, "High thermal activity in Karnataka");
-  assert.equal(alerts[3].title, "High thermal activity in an untagged area");
+  assert.equal(alerts[0].title, "Critical thermal activity in Surat, Gujarat");
+  assert.equal(alerts[2].title, "High thermal activity in Surat, Karnataka");
+  assert.equal(alerts[3].title, "High thermal activity in Surat");
   assert.deepEqual(alerts.map((a) => a.priority), [1, 2, null, null]);
 });
 
@@ -106,4 +106,50 @@ test("the age of the data", () => {
   assert.equal(fmtAge("2026-09-25T13:00:00Z", t), "5 h ago");
   assert.equal(fmtAge("2026-09-20T18:00:00Z", t), "5 d ago");
   assert.equal(fmtAge("2026-09-26T18:00:00Z", t), "under an hour ago"); // a clock ahead is not negative
+});
+
+test("unnamed hotspots receive approximate corridor context without invented countries", () => {
+  const amazon = { latitude: -3, longitude: -60, region: "Global", riskLevel: "HIGH", riskScore: 70 };
+  assert.match(formatLocation(amazon), /^Amazon Basin \(approximate region\);/);
+  assert.doesNotMatch(formatLocation(amazon), /Brazil/);
+  assert.match(alertsFrom([amazon])[0].title, /Amazon Basin/);
+  assert.doesNotMatch(formatLocation({ ...amazon, region: "an untagged area" }), /untagged/i);
+  assert.match(formatLocation({ latitude: -22, longitude: 118 }), /^Pilbara/);
+  assert.doesNotMatch(formatLocation({ latitude: -33, longitude: 151 }), /Pilbara/);
+  assert.equal(formatLocation({ latitude: NaN, longitude: null }), "Location unavailable");
+});
+
+test("alerts carry consensus, plume, country and place; search includes formatted location", () => {
+  const plume = { windSpeedKmh: 15, coneLengthKm: 8, downwindBearingDeg: 270 };
+  const [alert] = alertsFrom([event({ riskLevel: "HIGH", country: "India", place: { name: "Hazira", country: "India" }, plume })]);
+  assert.equal(alert.plume, plume);
+  assert.equal(alert.consensus.mode, "rule-based");
+  assert.equal(alert.consensus.verdict, "Verification required");
+  assert.equal(alert.riskScore, 40);
+  assert.equal(matchAlerts([alert], "india").length, 1);
+  assert.equal(matchAlerts([alert], "hazira").length, 1);
+  assert.equal(matchAlerts([alert], "surat, gujarat").length, 1);
+});
+
+test("Active Plumes counts valid positive finite context and coordinates only", () => {
+  const plume = { windSpeedKmh: 15, coneLengthKm: 8, downwindBearingDeg: 0 };
+  const events = [event({ plume }), event({ plume, latitude: null }), event({ plume, longitude: 181 }),
+    event({ plume: { ...plume, coneLengthKm: 0 } }), event({ plume: { ...plume, windSpeedKmh: Infinity } })];
+  assert.equal(summarize({ events, meta: { plumeEvents: 99 } }).activePlumes, 1);
+  assert.equal(alertsFrom([event({ riskLevel: "HIGH", plume, latitude: null })])[0].plume, null);
+});
+
+test("named places precede generic extents and country from place is accepted", () => {
+  assert.equal(formatLocation({ district: "Surat", state: "Gujarat", country: "India", region: "Asia" }), "Surat, Gujarat, India");
+  assert.equal(formatLocation({ place: { name: "Perth", country: "Australia" }, region: "Pilbara" }), "Perth, Australia");
+  assert.equal(formatLocation({ country: "Chile", region: "South America" }), "Chile");
+  assert.equal(formatLocation({ region: "Named extent", latitude: 20, longitude: 30 }), "Named extent (approximate region); 20.000, 30.000");
+});
+
+test("coordinate fallback cannot assign country from Brazil Canada or Australia boxes", () => {
+  for (const region of ["Brazil", "Canada", "Australia", "Pilbara", "Global"])
+    assert.equal(formatLocation({ region, latitude: -33.9, longitude: 151.2 }), "-33.900, 151.200");
+  assert.equal(formatLocation({ latitude: null, longitude: Infinity }), "Location unavailable");
+  assert.equal(formatLocation({ latitude: "0", longitude: 0 }), "Location unavailable");
+  assert.equal(formatLocation({ latitude: 0, longitude: 0 }), "0.000, 0.000");
 });

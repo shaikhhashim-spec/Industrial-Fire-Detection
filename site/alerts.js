@@ -7,7 +7,8 @@
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
 import { ICON } from "./icons.mjs";
-import { boot } from "./page.mjs";
+import { boot, loadData, renderMeta, renderBranding } from "./page.mjs";
+import { REGIONS, inRegion, regionById } from "./regions.mjs";
 import { alertCard } from "./alerts-view.mjs";
 import { RISK_COLORS, alertsFrom, matchAlerts } from "./overview.mjs";
 
@@ -125,11 +126,39 @@ function main(data) {
   render();
 
   document.querySelector("#content").replaceChildren(content);
-  document.querySelector("#search").addEventListener("input", (e) => {
+  document.querySelector("#search").oninput = (e) => {
     state.query = e.target.value;
     state.searchPageSize = SEARCH_PAGE;
     render();
-  });
+  };
 }
 
-boot(main);
+boot(async (national) => {
+  let global = null;
+  try {
+    const candidate = await loadData("globe/data/global-events.json");
+    if (candidate.meta?.scope === "global" && Array.isArray(candidate.events)) global = candidate;
+  } catch { /* National data remains available, with its actual coverage displayed. */ }
+  const selector = document.querySelector("#region");
+  selector.replaceChildren(...REGIONS.map((region) => h("option", { value: region.id }, region.label)));
+  selector.value = regionById(new URLSearchParams(location.search).get("region") ?? (global ? "global" : "india")).id;
+  const render = () => {
+    const region = regionById(selector.value);
+    const source = region.id === "india" || !global ? national : global;
+    const url = new URL(location.href);
+    url.searchParams.set("region", region.id);
+    history.replaceState(null, "", url);
+    renderBranding(region.id);
+    renderMeta(source.meta ?? {});
+    main({ ...source, events: (source.events ?? []).filter((event) => inRegion(event, region.id)) });
+    const generated = Date.parse(source.meta?.generatedAt ?? "");
+    const scope = source.meta?.scope === "global" ? "Global export" : "India export";
+    document.querySelector("#content").prepend(h("p", { class: "scope-note", role: "status" },
+      `${region.label} geographic window / ${scope}${source.meta?.partial ? " / partial export" : ""}${Number.isFinite(generated) && Date.now() - generated > 12 * 3600000 ? " / stale dataset" : ""}. Satellite detections require verification.`,
+    ));
+    const search = document.querySelector("#search");
+    if (search.value) search.oninput({ target: search });
+  };
+  selector.onchange = render;
+  render();
+});

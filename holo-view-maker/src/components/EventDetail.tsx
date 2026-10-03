@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { ConsensusArena } from "@/components/ConsensusArena";
+import { formatLocation } from "../../../site/overview.mjs";
 import { Compass, ExternalLink, Factory, Moon, Sun, Wind, X } from "lucide-react";
 import { compass16 } from "@/lib/geo-layers";
 import {
@@ -357,7 +359,7 @@ export function EventDetail({
             {event.status}
           </span>
         </div>
-        <h2 className="mt-1 text-lg leading-tight font-semibold">{event.region}</h2>
+        <h2 className="mt-1 text-lg leading-tight font-semibold">{formatLocation(event)}</h2>
         {event.district && (
           <p className="mt-0.5 text-[0.7rem] text-muted-foreground">{event.district} district</p>
         )}
@@ -371,6 +373,8 @@ export function EventDetail({
       </div>
 
       {event.plume && <PlumeHazardInfo plume={event.plume} frp={event.frp} />}
+
+      <ConsensusArena event={event} />
 
       {event.spreadPotential && (
         <section className="border-y border-border/80 py-3">

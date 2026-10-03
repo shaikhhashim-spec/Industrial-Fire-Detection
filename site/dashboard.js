@@ -8,6 +8,7 @@ import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
 import { ICON } from "./icons.mjs";
 import { boot, loadData, renderMeta } from "./page.mjs";
+import { applyRegionBranding } from "./branding.mjs";
 import { alertCard } from "./alerts-view.mjs";
 import { ACCENT, PERSISTENT_COLOR, RISK_COLORS, alertsFrom, matchAlerts, summarize } from "./overview.mjs";
 import { REGIONS, inRegion, regionById } from "./regions.mjs";
@@ -20,7 +21,8 @@ mountNav("./");
 function tile(label, value, color) {
   return h(
     "div",
-    { class: "stat", style: color ? `--stat-accent:${color}` : null },
+    { class: "stat", style: color ? `--stat-accent:${color}` : null,
+      title: label === "Active Plumes" ? "Events with valid estimated wind-plume context; not confirmed smoke." : null },
     h("div", { class: "lbl" }, color && h("i", { class: "mark", style: `--mark:${color}` }), label),
     h("div", { class: "val" }, value),
   );
@@ -52,7 +54,7 @@ function renderOverview(data, region, coverage) {
         h("i", { class: "sec-icon", style: summary.critical ? `--tint:${RISK_COLORS.CRITICAL}` : null }, ICON.bell()),
         h("div", { class: "sec-hdr" }, searching ? "Matching alerts" : "Top alerts"),
       ),
-      h("a", { class: "btn", href: region.id === "india" ? "alerts.html" : `globe/?region=${region.id}` }, `All ${num(alerts.length)} alerts →`),
+      h("a", { class: "btn", href: `alerts.html?region=${region.id}` }, `All ${num(alerts.length)} alerts →`),
     );
 
     const list = h("div", {});
@@ -97,7 +99,7 @@ function renderOverview(data, region, coverage) {
       { class: "statrow" },
       tile("Shown hotspots", num(summary.events)),
       tile("Critical industrial", num(data.events.filter((e) => e.riskLevel === "CRITICAL" && (e.facility || e.category?.includes("Industrial")) && !e.category?.includes("Non-Industrial")).length), RISK_COLORS.CRITICAL),
-      tile("High-risk wildfire", num(data.events.filter((e) => e.category === "Likely Wildfire" && ["HIGH", "CRITICAL"].includes(e.riskLevel)).length), PERSISTENT_COLOR),
+      tile("Active Plumes", Number.isFinite(summary.activePlumes) ? num(summary.activePlumes) : "Unavailable", PERSISTENT_COLOR),
       tile("Cell peak FRP sum", `${(data.events.reduce((sum, e) => sum + (Number.isFinite(e.frp) ? e.frp : 0), 0) / 1000).toLocaleString("en-US", { maximumFractionDigits: 3 })} GW`, ACCENT),
     ),
     h(
@@ -111,6 +113,7 @@ function renderOverview(data, region, coverage) {
       ),
       h("span", {}, region.id === "india" ? `${summary.states} states with activity` : `${data.events.filter((e) => e.facility).length} nearby mapped facilities`),
       h("span", {}, `Satellites: ${summary.satellites.join(", ") || "none"}`),
+      h("span", {}, `${num(data.events.filter((e) => e.category === "Likely Wildfire" && ["HIGH", "CRITICAL"].includes(e.riskLevel)).length)} high-risk wildfire hotspots`),
     ),
     h(
       "div",
@@ -123,13 +126,13 @@ function renderOverview(data, region, coverage) {
         h("b", {}, num(summary.high)),
         " high-priority thermal events are waiting for review.",
       ),
-      h("a", { class: "btn", href: `globe/?region=${region.id}` }, "Open the 3D globe"),
+      h("a", { class: "btn portal-launch", href: `globe/?region=${region.id}` }, ICON.globe(), "Launch 3D Globe Model"),
     ),
     alertsPanel,
     h(
       "p",
       { class: "footnote" },
-      "Satellite detection is not ground truth. Risk and category are AI-assisted prioritization signals and require field verification before any operational response.",
+      "Satellite detection is not ground truth. Risk and category are rule-based prioritization signals and require field verification before any operational response.",
       hasAttribution && h("br"),
       hasAttribution && `Data: ${meta.attribution.join("; ")}.`,
     ),
@@ -160,6 +163,7 @@ boot(async (data) => {
   selector.value = regionById(queryRegion ?? (global ? "global" : "india")).id;
   const render = () => {
     const region = regionById(selector.value);
+    applyRegionBranding(region);
     const url = new URL(location.href);
     url.searchParams.set("region", region.id);
     history.replaceState(null, "", url);
