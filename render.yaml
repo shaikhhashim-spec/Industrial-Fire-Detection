@@ -1,0 +1,36 @@
+# Free demonstration only. Owner must manually apply this Blueprint.
+# SQLite/runtime files are ephemeral; no disk, database, worker, or cron.
+previews:
+  generation: "off"
+services:
+  - type: web
+    name: thermal-demo
+    runtime: docker
+    region: singapore
+    plan: free
+    autoDeployTrigger: "off"
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python cloud_launcher.py
+    healthCheckPath: /__gateway/health
+    envVars:
+      - key: CLOUD_MODE
+        value: "true"
+      - key: THERMAL_DEMO_MODE
+        value: "true"
+      - key: JOBS_ENABLED
+        value: "false"
+      - key: GLOBE_URL
+        value: /globe
+      - key: THERMAL_DATA_DIR
+        value: /var/lib/thermal/data
+      - key: THERMAL_OUTPUT_DIR
+        value: /var/lib/thermal/output
+      - key: THERMAL_ADMIN_USERNAME
+        value: admin
+      - key: THERMAL_ADMIN_PASSWORD
+        sync: false
+      - key: ALERT_AUTO_DISPATCH_CRITICAL
+        value: "false"
+      - key: ALERT_AUTO_ESCALATE_CALL
+        value: "false"

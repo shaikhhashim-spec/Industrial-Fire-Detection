@@ -1,98 +1,55 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Investigations — Thermal Intelligence</title>
-    <meta name="description" content="Why the detailed, OpenStreetMap-joined investigation view is a local, Jharkhand and Odisha belt feature." />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Thermal Intelligence" />
-    <meta property="og:title" content="Investigations — Thermal Intelligence" />
-    <meta property="og:description" content="Why the detailed, OpenStreetMap-joined investigation view is a local, Jharkhand and Odisha belt feature." />
-    <meta property="og:url" content="https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/investigations.html" />
-    <meta name="color-scheme" content="dark" />
-    <link rel="icon" href="globe/favicon.ico" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-    />
-    <link rel="stylesheet" href="dashboard.css" />
-  </head>
-  <body>
-    <div class="shell">
-      <aside class="side">
-        <div class="brand">Thermal Intelligence</div>
-        <div class="brand-sub">Satellite thermal monitoring for India</div>
-        <nav class="nav" id="nav" aria-label="Sections"></nav>
-        <p class="side-note">
-          A read-only public mirror of the dashboard, from live NASA FIRMS data, refreshed every six
-          hours. Actions that change something — running the pipeline, dispatching alerts, editing
-          settings — need the full app locally at http://localhost:8085 (python start_all.py).
-        </p>
-      </aside>
-
-      <main class="main">
-        <header class="topbar plain">
-          <div class="topbar-brand">
-            <h1>
-              <span class="page-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" /><path d="M20 20l-5.2-5.2" /></svg>
-              </span>
-              Investigations
-            </h1>
-            <p class="sub">The detailed, OpenStreetMap-joined analyst view.</p>
-          </div>
-          <label class="field">
-            <span class="field-label">Region</span>
-            <span class="select" aria-label="Region">India</span>
-          </label>
-          <div class="topbar-meta" id="meta">Live NASA FIRMS<br />Loading</div>
-        </header>
-        <hr class="topbar-rule" />
-
-        <section class="panel">
-          <div class="sec-head">
-            <div class="sec-head-left">
-              <span class="sec-icon" style="--tint: var(--warn)" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z" /><path d="M12 9.5v4.5" /><path d="M12 17h.01" /></svg>
-              </span>
-              <div class="sec-hdr">Not available for all of India</div>
-            </div>
-          </div>
-          <p class="risk-lead">
-            Investigations needs a full OpenStreetMap join and rule classification. In the dashboard itself
-            these only run for the detailed <b>Jharkhand and Odisha belt</b> — running them for the whole
-            country on every load would be far too slow, so the India-wide view you see here does not have
-            them either, on the public site or in the local app.
-          </p>
-          <p class="risk-lead">
-            To open Investigations, run the app locally (<code>python start_all.py</code>, then
-            <a href="http://localhost:8085" target="_blank" rel="noopener noreferrer">http://localhost:8085</a>)
-            and switch <b>Region</b> in the top bar to the Jharkhand and Odisha belt.
-          </p>
-        </section>
-
-        <section class="panel" style="margin-top: 1rem">
-          <div class="sec-head">
-            <div class="sec-head-left">
-              <span class="sec-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M5 6h.01" /><path d="M9 6h11" /><path d="M5 12h.01" /><path d="M9 12h11" /><path d="M5 18h.01" /><path d="M9 18h11" /></svg>
-              </span>
-              <div class="sec-hdr">What it shows, once open</div>
-            </div>
-          </div>
-          <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.84rem; line-height: 1.8; color: var(--ink2)">
-            <li>Persistent clusters ranked by days active, with detection counts, mean and peak FRP</li>
-            <li>Why the classification rule fired, and whether the ML model's second opinion agrees</li>
-            <li>Distance to the nearest mapped industrial site, mine, power plant, forest and water body</li>
-            <li>Whether this run's FRP is anomalous against the cell's own historical baseline, and its FRP history charted over time</li>
-            <li>Analyst Mode: the raw feature values behind the classification, for a second check</li>
-          </ul>
-        </section>
-      </main>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Investigations | Thermal Intelligence</title>
+  <meta name="description" content="Public regional thermal investigations, satellite evidence, screening and browser-local reviews." />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="globe/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="investigations.css" />
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">Thermal Intelligence</div><div class="brand-sub">Satellite thermal monitoring</div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <p class="side-note">Public satellite evidence. Reviews and notes stay in this browser; they are not shared or ground truth. No operational dispatch.</p>
+  </aside>
+  <main class="main investigations">
+    <header class="topbar plain">
+      <div class="topbar-brand"><h1>Investigations</h1><p class="sub">Satellite thermal monitoring</p></div>
+      <label class="field"><span class="field-label">Region</span><select id="region" class="select"></select></label>
+      <div class="topbar-meta" id="meta">Loading feed snapshots</div>
+    </header>
+    <hr class="topbar-rule" />
+    <div id="feed-status" role="status" aria-live="polite"></div>
+    <div id="storage-status" role="status" aria-live="polite"></div>
+    <section class="investigation-toolbar" aria-label="Case filters">
+      <label class="search-field"><span>Search cases</span><input id="search" type="search" maxlength="200" placeholder="Search event ID, state, district" /></label>
+      <label><span>Severity</span><select id="severity"><option value="">All severities</option><option>CRITICAL</option><option>HIGH</option><option>MODERATE</option><option>LOW</option></select></label>
+      <label><span>Category</span><select id="category"><option value="">All categories</option></select></label>
+      <label><span>Persistence</span><select id="persistence"><option value="">Any duration</option><option value="2">2+ days</option><option value="5">5+ days</option><option value="10">10+ days</option><option value="20">20+ days</option></select></label>
+      <label><span>Local status</span><select id="status"><option value="">All reviews</option></select></label>
+      <label><span>Sort</span><select id="sort"><option value="risk">Risk score</option><option value="date">Last seen</option><option value="persistence">Days active</option><option value="frp">Peak FRP</option></select></label>
+      <label><span>Order</span><select id="direction"><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
+      <label class="check"><input id="plumes" type="checkbox" /> Estimated plumes</label>
+      <label class="check"><input id="bookmarks" type="checkbox" /> Bookmarked</label>
+      <button id="reset" class="btn" type="button">Reset filters</button>
+    </section>
+    <div class="workspace-tools" id="workspace-tools"></div>
+    <div class="investigation-workspace" id="workspace">
+      <section class="case-queue" aria-label="Case queue"><div class="queue-heading"><h2>Case queue</h2><span id="case-count" role="status"></span></div><div id="queue">Loading cases...</div><div id="pagination" class="pagination"></div></section>
+      <section class="case-dossier" id="dossier" aria-label="Case dossier"><p class="empty">Select a case to inspect its evidence.</p></section>
     </div>
-    <script type="module" src="investigations.js"></script>
-  </body>
+    <section id="print-report" aria-label="Investigation report"></section>
+    <noscript>JavaScript is required to load the public case feeds and local reviews.</noscript>
+  </main>
+</div>
+<script type="module" src="investigations.js"></script>
+</body>
 </html>

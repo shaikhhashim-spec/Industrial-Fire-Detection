@@ -10,6 +10,7 @@ data/*
 data/reference/global_power_plant_database.csv
 data/reference/cities15000.txt
 .pytest-planetary/
+.pytest-investigations/
 output/
 models/*.pkl
 !models/classifier.pkl

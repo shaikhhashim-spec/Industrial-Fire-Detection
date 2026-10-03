@@ -80,3 +80,14 @@ test("partial sensor export and a valid empty worldwide feed retain honest prove
   assert.equal(result.meta.partial, true);
   assert.equal(result.meta.scope, "global");
 });
+
+test("same-day later observation wins consistently with investigations", async () => {
+  const result = await load(
+    feed([event("india", "2026-10-03", { evidence: { lastSeen: "2026-10-03T01:00:00Z" } })]),
+    feed(
+      [event("global", "2026-10-03", { evidence: { lastSeen: "2026-10-03T02:00:00Z" } })],
+      "global",
+    ),
+  );
+  assert.equal(result.events[0].id, "global");
+});

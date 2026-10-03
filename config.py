@@ -10,14 +10,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv(override=os.getenv("CLOUD_MODE", "").lower() not in {"1", "true", "yes"})
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = Path(os.getenv("THERMAL_DATA_DIR") or BASE_DIR / "data")
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 CACHE_DIR = DATA_DIR / "cache"
-OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR = Path(os.getenv("THERMAL_OUTPUT_DIR") or BASE_DIR / "output")
 MODELS_DIR = BASE_DIR / "models"
 
 for d in (DATA_DIR, RAW_DIR, PROCESSED_DIR, CACHE_DIR, OUTPUT_DIR, MODELS_DIR):
@@ -39,7 +39,7 @@ OVERPASS_BBOX_STR = f"{BBOX['min_lat']},{BBOX['min_lon']},{BBOX['max_lat']},{BBO
 
 
 def get_firms_api_key() -> str:
-    load_dotenv(override=True)
+    load_dotenv(override=os.getenv("CLOUD_MODE", "").lower() not in {"1", "true", "yes"})
     key = (os.getenv("FIRMS_API_KEY") or os.getenv("FIRMS_MAP_KEY") or "").strip()
     if not key:
         try:

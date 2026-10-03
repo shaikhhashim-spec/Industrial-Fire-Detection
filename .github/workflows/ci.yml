@@ -13,10 +13,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  cloud:
+    name: Free demo container smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build cloud image
+        run: docker build -t thermal-demo .
+      - name: Verify startup and public isolation
+        shell: bash
+        run: |
+          PASSWORD=$(openssl rand -hex 24)
+          echo "::add-mask::$PASSWORD"
+          docker run -d --name thermal-demo --memory=512m -p 10000:10000 \
+            -e THERMAL_DEMO_MODE=true -e THERMAL_ADMIN_USERNAME=admin \
+            -e THERMAL_ADMIN_PASSWORD="$PASSWORD" thermal-demo
+          ready=false
+          for attempt in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:10000/__gateway/health; then
+              ready=true
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' thermal-demo)" != true ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          curl -fsS http://127.0.0.1:10000/investigations.html | grep 'Investigations'
+          curl -fsS http://127.0.0.1:10000/globe/data/events.json >/dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/console/)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/.env)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X PUT http://127.0.0.1:10000/api/reviews/test)" = 401
+      - name: Container diagnostics
+        if: always()
+        run: |
+          docker logs thermal-demo 2>&1 || true
+          docker inspect -f '{{json .State}}' thermal-demo || true
+          docker rm -f thermal-demo || true
   python:
     name: Python tests and lint
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: thermal_test
+          POSTGRES_USER: thermal_test
+          POSTGRES_PASSWORD: ci-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U thermal_test -d thermal_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      THERMAL_TEST_DATABASE_URL: postgresql://thermal_test:ci-test-only@localhost:5432/thermal_test
     steps:
       - uses: actions/checkout@v4
 
@@ -24,10 +77,10 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: requirements-server.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt ruff==0.16.5
+        run: pip install -r requirements-server.txt ruff==0.16.5
 
       - name: Lint
         run: ruff check .

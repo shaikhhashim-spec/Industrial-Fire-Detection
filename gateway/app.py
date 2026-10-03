@@ -19,11 +19,14 @@ import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 import websockets
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import (
     FileResponse,
@@ -58,6 +61,9 @@ class Config:
     # globe without rebuilding it.
     globe_data_dir: Path = ROOT / "holo-view-maker" / "public" / "data"
     upstream_host: str = "127.0.0.1"
+    cloud_mode: bool = False
+    site_dir: Path = ROOT / "site"
+    public_origin: str | None = None
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -65,6 +71,9 @@ class Config:
             dashboard_port=int(os.environ["GATEWAY_DASH_PORT"]),
             globe_dir=Path(os.getenv("GATEWAY_GLOBE_DIR") or cls.globe_dir),
             globe_data_dir=Path(os.getenv("GATEWAY_GLOBE_DATA_DIR") or cls.globe_data_dir),
+            cloud_mode=os.getenv("CLOUD_MODE", "").lower() in {"1", "true", "yes"},
+            site_dir=Path(os.getenv("GATEWAY_SITE_DIR") or cls.site_dir),
+            public_origin=os.getenv("PUBLIC_ORIGIN") or os.getenv("RENDER_EXTERNAL_URL") or None,
         )
 
 
@@ -123,11 +132,26 @@ def _globe_response(config: Config, path: str) -> Response:
     return FileResponse(found, headers={"Cache-Control": cache})
 
 
+def _site_response(config: Config, path: str) -> Response:
+    rel = path.lstrip("/") or "index.html"
+    # Only public browser assets, never source, tests, secrets or a SPA fallback.
+    if (Path(rel).suffix not in {".html", ".css", ".js", ".mjs", ".png", ".webp", ".ico", ".svg"}
+            or rel.endswith((".test.mjs", ".d.mts"))):
+        return Response(status_code=404)
+    found = _safe_file(config.site_dir, rel)
+    if found is None:
+        return Response(status_code=404)
+    return FileResponse(found, headers={"Cache-Control": "no-cache"})
+
+
 # ------------------------------------------------------------------- proxy --
 
 
 def _rewrite_location(value: str, upstream_origin: str, request: Request) -> str:
     if value.startswith(upstream_origin):
+        declared = request.app.state.config.public_origin
+        if declared:
+            return declared.rstrip("/") + value[len(upstream_origin):]
         host = request.headers.get("host", "")
         return f"{request.url.scheme}://{host}{value[len(upstream_origin):]}"
     return value
@@ -144,7 +168,7 @@ async def _proxy_http(request: Request) -> Response:
     headers = [
         (k, v)
         for k, v in request.headers.items()
-        if k.lower() not in _HOP_BY_HOP and k.lower() not in {"host", "origin"}
+        if k.lower() not in _HOP_BY_HOP and k.lower() not in {"host", "origin", "authorization"}
     ]
     headers.append(("host", f"{config.upstream_host}:{port}"))
     if "origin" in request.headers:
@@ -238,6 +262,21 @@ def _is_globe(path: str) -> bool:
     return path == GLOBE_PATH or path.startswith(GLOBE_PATH + "/")
 
 
+def _allowed_origin(connection: Request | WebSocket) -> bool:
+    origin = connection.headers.get("origin")
+    if not origin:
+        return True
+    supplied = urlsplit(origin)
+    declared = connection.app.state.config.public_origin
+    if declared:
+        expected = urlsplit(declared)
+        return (expected.scheme in {"http", "https"} and supplied.scheme == expected.scheme
+                and supplied.netloc == expected.netloc == connection.headers.get("host", ""))
+    scheme = connection.url.scheme
+    scheme = {"ws": "http", "wss": "https"}.get(scheme, scheme)
+    return supplied.scheme == scheme and supplied.netloc == connection.headers.get("host", "")
+
+
 async def _http(request: Request) -> Response:
     path = request.url.path
     if path == GLOBE_PATH:
@@ -247,6 +286,19 @@ async def _http(request: Request) -> Response:
         if request.method not in {"GET", "HEAD"}:
             return Response(status_code=405, headers={"Allow": "GET, HEAD"})
         return _globe_response(request.app.state.config, path[len(GLOBE_PATH):])
+    if request.app.state.config.cloud_mode:
+        if path == "/console" or path.startswith("/console/"):
+            if not _allowed_origin(request):
+                return Response(status_code=403)
+            try:
+                await request.app.state.server.authorize_admin_basic(
+                    request.headers.get("authorization", ""), request.client.host if request.client else "unknown")
+            except HTTPException as exc:
+                return Response(status_code=exc.status_code, headers=exc.headers)
+            return await _proxy_http(request)
+        if request.method not in {"GET", "HEAD"}:
+            return Response(status_code=405)
+        return _site_response(request.app.state.config, path)
     return await _proxy_http(request)
 
 
@@ -254,6 +306,20 @@ async def _websocket(websocket: WebSocket) -> None:
     if _is_globe(websocket.url.path):  # the globe has no WebSocket
         await websocket.close(code=1008)
         return
+    if websocket.app.state.config.cloud_mode:
+        path = websocket.url.path
+        if not path.startswith("/console/"):
+            await websocket.close(code=1008)
+            return
+        if not _allowed_origin(websocket):
+            await websocket.close(code=1008)
+            return
+        try:
+            await websocket.app.state.server.authorize_admin_basic(
+                websocket.headers.get("authorization", ""), websocket.client.host if websocket.client else "unknown")
+        except HTTPException:
+            await websocket.close(code=1008)
+            return
     await _proxy_ws(websocket)
 
 
@@ -268,12 +334,36 @@ async def _is_up(host: str, port: int) -> bool:
 
 async def _health(request: Request) -> Response:
     config: Config = request.app.state.config
-    return JSONResponse(
-        {
-            "dashboard": await _is_up(config.upstream_host, config.dashboard_port),
-            "globe": (config.globe_dir / "index.html").is_file(),
-        }
-    )
+    if config.cloud_mode:
+        try:
+            upstream = await request.app.state.client.get(
+                f"http://{config.upstream_host}:{config.dashboard_port}/console/_stcore/health", timeout=2)
+            dashboard_ready = upstream.status_code == 200 and upstream.text.strip() == "ok"
+        except httpx.HTTPError:
+            dashboard_ready = False
+    else:
+        dashboard_ready = await _is_up(config.upstream_host, config.dashboard_port)
+    status = {
+        "dashboard": dashboard_ready,
+        "globe": (config.globe_dir / "index.html").is_file(),
+    }
+    if config.cloud_mode:
+        status["site"] = (config.site_dir / "investigations.html").is_file()
+        try:
+            status["database"] = await run_in_threadpool(request.app.state.server.ready)
+        except Exception:
+            status["database"] = False
+    status["ready"] = all(status.values())
+    return JSONResponse(status, status_code=200 if status["ready"] else 503)
+
+
+async def _capabilities(request: Request) -> Response:
+    server = request.app.state.server
+    return JSONResponse({
+        "reviews": server.enabled,
+        "demo": os.getenv("THERMAL_DEMO_MODE", "").lower() in {"1", "true", "yes"},
+        "jobs": server.jobs_enabled and server.refresh_provider == "firms",
+    }, headers={"Cache-Control": "no-store"})
 
 
 def create_app(config: Config) -> Starlette:
@@ -288,6 +378,8 @@ def create_app(config: Config) -> Starlette:
             yield
         finally:
             await app.state.client.aclose()
+            if config.cloud_mode:
+                await run_in_threadpool(app.state.server.close)
 
     app = Starlette(
         routes=[
@@ -298,6 +390,10 @@ def create_app(config: Config) -> Starlette:
         lifespan=lifespan,
     )
     app.state.config = config
+    if config.cloud_mode:
+        from src.server.backend import install_backend
+        install_backend(app)
+        app.router.routes.insert(0, Route("/api/capabilities", _capabilities, methods=["GET"]))
     return app
 
 

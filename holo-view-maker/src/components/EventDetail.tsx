@@ -14,6 +14,7 @@ import { hazardsNear, type Hazard } from "@/lib/hazards";
 import { nextPasses, type FireSat } from "@/lib/satellites";
 import { fmtIn, fmtIst, fmtUtc } from "@/lib/format";
 import { useNow } from "@/hooks/use-live-feeds";
+import { parentPath } from "@/lib/asset-url";
 
 /** When each FIRMS sensor will next have this hotspot inside its swath — i.e.
  * the next chance of a fresh detection to confirm or clear it. */
@@ -310,11 +311,13 @@ export function EventDetail({
   event,
   sats = [],
   hazards = [],
+  region = "india",
   onClose,
 }: {
   event: ThermalEvent | null;
   sats?: FireSat[];
   hazards?: Hazard[];
+  region?: string;
   onClose?: () => void;
 }) {
   if (!event) {
@@ -360,6 +363,12 @@ export function EventDetail({
           </span>
         </div>
         <h2 className="mt-1 text-lg leading-tight font-semibold">{formatLocation(event)}</h2>
+        <a
+          href={`${parentPath() ?? "/"}investigations.html?${new URLSearchParams({ region, event: event.id })}`}
+          className="mt-2 inline-flex items-center gap-1 text-xs text-primary"
+        >
+          <ExternalLink aria-hidden className="size-3" /> Open investigation workspace
+        </a>
         {event.district && (
           <p className="mt-0.5 text-[0.7rem] text-muted-foreground">{event.district} district</p>
         )}

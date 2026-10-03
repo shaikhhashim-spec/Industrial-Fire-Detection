@@ -103,6 +103,11 @@ function Index() {
     () => !new URLSearchParams(window.location.search).has("region") && viewFromUrl() === null,
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [requestedEvent, setRequestedEvent] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get("event"),
+  );
+  const [requestedView] = useState(() => viewFromUrl());
+  const [linkMessage, setLinkMessage] = useState<string | null>(null);
   // Eight classification hues exceed what a scatter can be read by, so risk
   // (four ordered states) is the default colouring, as on the dashboard map.
   const [colorBy, setColorBy] = useState<"category" | "risk">("risk");
@@ -150,6 +155,7 @@ function Index() {
     const next = regionById(id);
     const url = new URL(window.location.href);
     url.searchParams.set("region", id);
+    url.searchParams.delete("event");
     if (id === "global") {
       for (const key of ["lat", "lon", "z"]) url.searchParams.delete(key);
     } else {
@@ -159,6 +165,8 @@ function Index() {
     }
     window.history.replaceState(null, "", url);
     setSelectedId(null);
+    setRequestedEvent(null);
+    setLinkMessage(null);
     setSelectedHazard(null);
     setSpin(false);
     setShowAllDetections(id !== "india");
@@ -174,6 +182,9 @@ function Index() {
     [],
   );
   const selectEvent = useCallback((id: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("event", id);
+    window.history.replaceState(null, "", url);
     setSelectedId(id);
     setSelectedHazard(null);
     setSpin(false);
@@ -183,6 +194,12 @@ function Index() {
     setSpin(false);
   }, []);
   const stopSpin = useCallback(() => setSpin(false), []);
+  const closeEvent = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("event");
+    window.history.replaceState(null, "", url);
+    setSelectedId(null);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -191,7 +208,7 @@ function Index() {
       if (e.key === "Escape") {
         setHelpOpen(false);
         setSelectedHazard(null);
-        setSelectedId(null);
+        closeEvent();
         return;
       }
       const k = e.key.toLowerCase();
@@ -201,7 +218,7 @@ function Index() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleLayer]);
+  }, [toggleLayer, closeEvent]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -231,6 +248,28 @@ function Index() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (loading || !requestedEvent) return;
+    const exact = allEvents.find((event) => event.id === requestedEvent);
+    const match =
+      exact ??
+      (requestedView &&
+        allEvents.find(
+          (event) =>
+            Math.floor(event.longitude * 100) === Math.floor(requestedView.center[0] * 100) &&
+            Math.floor(event.latitude * 100) === Math.floor(requestedView.center[1] * 100),
+        ));
+    if (match && inRegion(match.latitude, match.longitude, region)) {
+      setShowAllDetections(true);
+      selectEvent(match.id);
+      if (!exact)
+        setLinkMessage("The linked record was replaced by a newer observation in the same cell.");
+    } else {
+      setLinkMessage("The linked event is not available in this regional snapshot.");
+    }
+    setRequestedEvent(null);
+  }, [loading, requestedEvent, requestedView, allEvents, region, selectEvent]);
 
   // "Corroborated" hides one-pixel, one-pass detections with nothing else
   // backing them (no repeat, no mapped facility) and flagged false positives.
@@ -357,6 +396,11 @@ function Index() {
       </header>
 
       <div className="console-scope">
+        {linkMessage && (
+          <span role="status" className="text-xs text-muted-foreground">
+            {linkMessage}
+          </span>
+        )}
         <span className="text-xs text-muted-foreground">
           {coverage} / {timestamp}
           {dataMeta?.partial ? " / partial export" : ""} / {critical.toLocaleString()} critical
@@ -567,9 +611,10 @@ function Index() {
             <div className="console-dossier">
               <EventDetail
                 event={selected}
+                region={region}
                 sats={sats}
                 hazards={regionalHazards}
-                onClose={() => setSelectedId(null)}
+                onClose={closeEvent}
               />
             </div>
           )}

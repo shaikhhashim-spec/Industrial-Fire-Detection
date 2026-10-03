@@ -208,11 +208,13 @@ def test_globe_that_was_never_built_says_how_to_build_it(dashboard_port, tmp_pat
 
 def test_health_reports_each_part(dashboard_port, globe):
     with _client(dashboard_port, globe) as client:
-        assert client.get("/__gateway/health").json() == {"dashboard": True, "globe": True}
+        assert client.get("/__gateway/health").json() == {"dashboard": True, "globe": True, "ready": True}
     build, live = globe
     down = Config(dashboard_port=_free_port(), globe_dir=build, globe_data_dir=live)
     with TestClient(create_app(down)) as client:
-        assert client.get("/__gateway/health").json() == {"dashboard": False, "globe": True}
+        response = client.get("/__gateway/health")
+        assert response.status_code == 503
+        assert response.json() == {"dashboard": False, "globe": True, "ready": False}
 
 
 def test_websockets_pass_through_with_their_subprotocol(dashboard_port, globe):

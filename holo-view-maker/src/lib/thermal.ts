@@ -227,13 +227,18 @@ export async function fetchThermalEvents(): Promise<{
   // the national dossier supplies the deeper history and facility evidence.
   const cell = (e: ThermalEvent) =>
     `${Math.floor(e.longitude * 100)}:${Math.floor(e.latitude * 100)}`;
-  const globalDates = new Map<string, string>();
+  const observed = (e: ThermalEvent) => {
+    const value = Date.parse(e.evidence?.lastSeen ?? "");
+    const fallback = Date.parse(e.acqDate);
+    return Number.isFinite(value) ? value : Number.isFinite(fallback) ? fallback : -Infinity;
+  };
+  const globalDates = new Map<string, number>();
   for (const e of global.events) {
     const key = cell(e);
-    if ((globalDates.get(key) ?? "") < e.acqDate) globalDates.set(key, e.acqDate);
+    if ((globalDates.get(key) ?? -Infinity) < observed(e)) globalDates.set(key, observed(e));
   }
   const nationalEvents = national.events.filter(
-    (e) => (globalDates.get(cell(e)) ?? "") <= e.acqDate,
+    (e) => (globalDates.get(cell(e)) ?? -Infinity) <= observed(e),
   );
   const nationalCells = new Set(nationalEvents.map(cell));
   const events = [...nationalEvents, ...global.events.filter((e) => !nationalCells.has(cell(e)))];
