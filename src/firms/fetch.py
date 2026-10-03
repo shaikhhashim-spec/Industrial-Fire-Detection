@@ -9,6 +9,9 @@ FIRMS_API_KEY is read from the environment (.env), never hard-coded. See
 from __future__ import annotations
 
 import io
+import datetime as dt
+import os
+import tempfile
 import time
 from pathlib import Path
 
@@ -16,6 +19,117 @@ import pandas as pd
 import requests
 
 import config
+
+
+def _parse_global_csv(text: str) -> pd.DataFrame:
+    """Reject HTML/error/truncated schemas before replacing a usable cache."""
+    df = pd.read_csv(io.StringIO(text), dtype={"acq_time": str})
+    required = {"latitude", "longitude", "acq_date", "acq_time", "frp", "confidence", "satellite"}
+    if not required.issubset(df.columns):
+        raise FirmsAPIError("Global FIRMS response lacks required observation columns")
+    if not df.empty:
+        lat = pd.to_numeric(df.latitude, errors="coerce")
+        lon = pd.to_numeric(df.longitude, errors="coerce")
+        frp = pd.to_numeric(df.frp, errors="coerce")
+        date = pd.to_datetime(df.acq_date, errors="coerce", utc=True)
+        valid = lat.between(-90, 90) & lon.between(-180, 180) & frp.between(0, float("inf"), inclusive="left") & date.notna()
+        if not valid.any():
+            raise FirmsAPIError("Global FIRMS response contains no valid observation rows")
+    return df
+
+
+def _download_global_csv(url: str) -> str:
+    # Streaming enforces a bound even for chunked or compressed responses.
+    with requests.get(url, timeout=(10, 90), stream=True) as response:
+        response.raise_for_status()
+        chunks, size = [], 0
+        for chunk in response.iter_content(chunk_size=65536):
+            size += len(chunk)
+            if size > config.GLOBAL_FIRMS_MAX_BYTES:
+                raise FirmsAPIError("Global FIRMS response exceeded the configured byte limit")
+            chunks.append(chunk)
+    return b"".join(chunks).decode("utf-8-sig")
+
+
+def _atomic_cache_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as file:
+            temporary = Path(file.name)
+            file.write(text)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def fetch_global_hotspots(
+    sources: list[str] | None = None, window_hours: int = config.GLOBAL_FIRMS_WINDOW_HOURS,
+    *, force: bool = False,
+) -> pd.DataFrame:
+    """Public VIIRS global 24/48h feeds, with bounded retries/cache age.
+
+    No regional tiling and no key. Failed sensors remain visible in attrs;
+    no usable sensors raises rather than substituting synthetic observations.
+    Cache timestamps describe retrieval, not satellite acquisition freshness.
+    """
+    if window_hours not in (24, 48):
+        raise ValueError("Global FIRMS window must be 24 or 48 hours")
+    sources = list(config.GLOBAL_FIRMS_FEEDS) if sources is None else sources
+    if not sources or any(source not in config.GLOBAL_FIRMS_FEEDS for source in sources):
+        raise ValueError("Select at least one supported global VIIRS source")
+    frames, feeds = [], []
+    for source in dict.fromkeys(sources):
+        directory, prefix = config.GLOBAL_FIRMS_FEEDS[source]
+        url = f"https://firms.modaps.eosdis.nasa.gov/data/active_fire/{directory}/csv/{prefix}_Global_{window_hours}h.csv"
+        cache = config.CACHE_DIR / f"firms_global_{source}_{window_hours}h.csv"
+        cached, age = None, float("inf")
+        if cache.exists():
+            age = max(0, (time.time() - cache.stat().st_mtime) / 3600)
+            if age <= config.GLOBAL_FIRMS_STALE_MAX_HOURS and cache.stat().st_size <= config.GLOBAL_FIRMS_MAX_BYTES:
+                try:
+                    cached = _parse_global_csv(cache.read_text(encoding="utf-8"))
+                except (OSError, ValueError, pd.errors.ParserError, FirmsAPIError):
+                    pass
+        state, error, frame = "unavailable", None, None
+        if cached is not None and age < config.FIRMS_CACHE_TTL_HOURS and not force:
+            frame, state = cached, "cache"
+        else:
+            for attempt in range(2):
+                try:
+                    body = _download_global_csv(url)
+                    candidate = _parse_global_csv(body)
+                    _atomic_cache_text(cache, body)
+                    frame = candidate
+                    state, age = "live", 0.0
+                    break
+                except (requests.RequestException, ValueError, OSError, pd.errors.ParserError, FirmsAPIError) as exc:
+                    error = str(exc)[:300]
+                    if attempt == 0:
+                        time.sleep(config.FIRMS_BACKOFF_FACTOR)
+            if frame is None and cached is not None:
+                frame, state = cached, "stale_cache"
+        record = {"source": source, "url": url, "status": state,
+                  "retrievedAt": dt.datetime.fromtimestamp(cache.stat().st_mtime, dt.timezone.utc).isoformat()
+                  if frame is not None else None,
+                  "cacheAgeHours": round(age, 2) if frame is not None else None,
+                  "observations": len(frame) if frame is not None else 0}
+        if state in ("unavailable", "stale_cache"):
+            record["error"] = error or "No usable recent cache"
+        feeds.append(record)
+        if frame is not None:
+            frame = frame.copy()
+            frame["source"] = source
+            frames.append(frame)
+    if not frames:
+        raise FirmsAPIError("No usable global FIRMS feeds; previous global export was not replaced")
+    result = pd.concat(frames, ignore_index=True).drop_duplicates(
+        subset=["latitude", "longitude", "acq_date", "acq_time", "satellite"])
+    result.attrs.update(feeds=feeds, window_hours=window_hours,
+                        partial=any(feed["status"] in ("unavailable", "stale_cache") for feed in feeds),
+                        source="firms_live" if all(feed["status"] == "live" for feed in feeds) else "local_cache")
+    return result.reset_index(drop=True)
 
 
 class FirmsAuthError(RuntimeError):

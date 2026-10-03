@@ -302,7 +302,7 @@ project/
 │
 ├── models/classifier.pkl
 ├── JUDGE_QA.md                   # 20 honest Q&A on design decisions
-└── tests/                        # pytest — 57 tests across 9 modules
+└── tests/                        # pytest coverage for pipeline, UI assembly, storage, alerts, and geospatial logic
 ```
 
 `src/classify.py`'s `classify_hotspots(df)` is the platform's single most
@@ -315,12 +315,41 @@ layers are ever swapped out.
 
 ## 14. Testing
 
+### Planetary Monitoring
+
+The public overview and globe support Global, India, Middle East, North America,
+South America, Europe, Southeast Asia, Africa and Australia geographic windows.
+The worldwide feed is independent of the richer India investigation export.
+
+Refresh worldwide observations without a NASA MAP_KEY:
+
 ```bash
-pytest tests/ -v
-ruff check .
+.venv\Scripts\python.exe scripts/refresh_global_globe.py --refresh-references
 ```
 
-Over 200 tests across data cleaning, grid assignment, the persistence engine,
+This fetches S-NPP, NOAA-20 and NOAA-21 public 24-hour feeds, joins nearby WRI
+thermal plants and GeoNames cities, and writes `global-events.json`, a gzip copy,
+and `global-facilities.geojson`. The six-hour Pages workflow runs the same refresh.
+Downloaded reference tables are cached rather than committed.
+
+The browser export is capped at 12,000 cells. Metadata reports the complete cell
+count, sampling and missing sensors; displayed totals describe the exported selection.
+Weather enrichment covers at most 40 high-FRP events with a 90-second request-start
+budget. Plumes can be hovered and selected; the dossier shows bearing, wind provenance,
+estimated length and optional spread screening. Neither plume geometry nor spread
+scores are validated exposure boundaries, official FWI, or fire-front forecasts.
+Worldwide cause and administrative boundaries remain unverified.
+
+See [the work plan](PLANETARY_PLAN.md) for agent responsibilities and research limits.
+
+### Verification
+
+```bash
+.venv\Scripts\python.exe -m pytest -q tests test_fetch_firms_data.py --basetemp .pytest-tmp
+.venv\Scripts\python.exe -m ruff check .
+```
+
+The Python suite covers data cleaning, grid assignment, the persistence engine,
 risk scoring, the rule classifier, the alert engine, the national pipeline, and
 FIRMS fetch — including edge cases: empty datasets, missing coordinates,
 missing FRP, invalid API keys, network timeouts, duplicate detections, and
@@ -329,7 +358,9 @@ needed to run them.
 
 The 3D globe has its own checks, run from `holo-view-maker/`:
 `npx tsc --noEmit`, `npm run lint` and `npm run build`. GitHub Actions
-(`.github/workflows/ci.yml`) runs all of the above on every push and pull
+also runs `node --test "src/lib/*.test.mjs"` for compass, dateline geometry and
+national/global feed integration. The CI workflow (`.github/workflows/ci.yml`)
+runs all of the above on every push and pull
 request.
 
 ## 15. Deployment
@@ -444,7 +475,7 @@ than failing outright.
   specifically, these fields are simply absent/False and the rule engine
   transparently falls back to its original burn-season-month approximation
   — never a crash, never fabricated context.
-- 76-test pytest suite with edge-case coverage
+- Pytest suite with edge-case coverage
 
 ## 17. Limitations & Future Improvements
 
@@ -452,9 +483,10 @@ Deliberately **not** implemented now, with the architecture left open to add the
 
 - ~~Forest/water/agricultural-zone booleans via real OSM polygons~~ — **now
   implemented** (`src/geospatial/landcover.py`), see section 16.
-- **A true alert-history store / dismiss-state persistence** — alerts are
-  recomputed fresh each run rather than diffed against a prior run's state
-  (the analyst-review audit trail is persisted; the alert feed itself is not).
+- **A full alert notification center** — alert dismissal storage and the
+  analyst-review audit trail exist in SQLite, but the dashboard still needs a
+  dedicated history view that diff-checks alerts across runs and shows what
+  changed since the last run.
 - **SHAP explanations** — evaluated and deliberately skipped: the rule
   engine's own per-detection evidence list plus the Random Forest's
   `feature_importances_` already give genuine, honest explainability without
@@ -468,8 +500,8 @@ Deliberately **not** implemented now, with the architecture left open to add the
   addition once that dependency trade-off is acceptable.
 - **Event/region side-by-side comparison view** — not built this pass;
   the underlying data (cluster_df, state_summary) already supports it.
-- **Command palette (Ctrl+K), a persistent alert-history/dismiss-state
-  store, role-based auth, i18n, Docker packaging, notification center** —
+- **Command palette (Ctrl+K), role-based auth, i18n, Docker packaging,
+  notification center** —
   still deliberately deferred, per the project's own stated priority
   ("never sacrifice reliability for flashy features"). National-scale OSM
   industrial join, anomaly/baseline detection, audit trail, and model

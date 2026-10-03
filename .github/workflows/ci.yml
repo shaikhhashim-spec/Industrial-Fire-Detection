@@ -58,6 +58,9 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit
 
+      - name: Test globe geometry and feed integration
+        run: node --test "src/lib/*.test.mjs"
+
       - name: Lint
         run: npm run lint
 

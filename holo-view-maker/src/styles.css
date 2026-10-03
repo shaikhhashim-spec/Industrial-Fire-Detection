@@ -70,8 +70,8 @@
  */
 :root {
   --radius: 6px;
-  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
 
   --background: oklch(0.158 0.017 245); /* #0a0e13 */
@@ -164,8 +164,11 @@
   }
 
   button {
-    transition: background-color 160ms var(--ease), color 160ms var(--ease),
-      border-color 160ms var(--ease), transform 160ms var(--ease);
+    transition:
+      background-color 160ms var(--ease),
+      color 160ms var(--ease),
+      border-color 160ms var(--ease),
+      transform 160ms var(--ease);
   }
   button:active {
     transform: scale(0.98);
@@ -204,18 +207,193 @@
 /* deep-space backdrop behind the MapLibre globe: a faint star field over a
    blue-black vignette */
 .globe-map {
-  background:
-    radial-gradient(1px 1px at 8% 14%, rgb(255 255 255 / 0.55), transparent 60%),
-    radial-gradient(1px 1px at 23% 78%, rgb(255 255 255 / 0.35), transparent 60%),
-    radial-gradient(1.2px 1.2px at 37% 9%, rgb(190 225 255 / 0.5), transparent 60%),
-    radial-gradient(1px 1px at 52% 92%, rgb(255 255 255 / 0.3), transparent 60%),
-    radial-gradient(1px 1px at 66% 6%, rgb(255 255 255 / 0.45), transparent 60%),
-    radial-gradient(1.3px 1.3px at 81% 22%, rgb(210 235 255 / 0.55), transparent 60%),
-    radial-gradient(1px 1px at 93% 64%, rgb(255 255 255 / 0.4), transparent 60%),
-    radial-gradient(1px 1px at 4% 58%, rgb(255 255 255 / 0.3), transparent 60%),
-    radial-gradient(1px 1px at 88% 88%, rgb(255 255 255 / 0.35), transparent 60%),
-    radial-gradient(1px 1px at 15% 93%, rgb(200 230 255 / 0.4), transparent 60%),
-    radial-gradient(ellipse at 50% 50%, #0a1a2c 0%, #04080f 55%, #010204 100%);
+  background: oklch(0.12 0 0);
+}
+
+.thermal-console {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  letter-spacing: 0;
+}
+.console-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.console-header[hidden] {
+  display: none;
+}
+.console-header p {
+  flex-wrap: wrap;
+}
+.console-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+.console-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.console-scope select {
+  max-width: 15rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--card);
+  color: var(--foreground);
+}
+.console-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 3px;
+}
+.console-icon:hover {
+  background: var(--muted);
+}
+.console-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+.console-map {
+  position: relative;
+  min-width: 0;
+  min-height: 58dvh;
+  overflow: hidden;
+  grid-row: 1;
+}
+.console-controls {
+  min-width: 0;
+  border-top: 1px solid var(--border);
+}
+.console-controls summary {
+  padding: 0.75rem;
+  cursor: pointer;
+}
+.console-controls .truncate {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.console-investigation {
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+.console-dossier {
+  min-width: 0;
+  overflow: auto;
+}
+.console-dossier > .panel {
+  border: 0;
+  border-radius: 0;
+}
+.console-queue {
+  min-width: 0;
+  overflow: auto;
+}
+.console-queue button {
+  min-height: 2.25rem;
+}
+.queue-id {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.console-stale {
+  padding: 0.2rem 0.5rem;
+  border-left: 3px solid var(--warn);
+  color: var(--warn);
+  font-size: 0.75rem;
+}
+.thermal-console > footer {
+  margin: 0;
+  width: 100%;
+}
+.console-empty {
+  position: absolute;
+  z-index: 10;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  margin: auto;
+  max-width: 24rem;
+  padding: 0.75rem;
+  border-left: 3px solid var(--warn);
+  background: var(--card);
+}
+
+@media (min-width: 1024px) {
+  .thermal-console {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .console-workspace {
+    grid-template-columns: 15rem minmax(0, 1fr) 18rem;
+  }
+  .console-controls {
+    grid-column: 1;
+    grid-row: 1;
+    overflow-y: auto;
+    border-top: 0;
+    border-right: 1px solid var(--border);
+  }
+  .console-map {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 0;
+  }
+  .console-investigation {
+    display: flex;
+    flex-direction: column;
+    grid-column: 3;
+    grid-row: 1;
+    overflow: auto;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+  .console-dossier {
+    flex: 1;
+    min-height: 18rem;
+  }
+  .console-dossier + .console-queue {
+    flex-shrink: 0;
+    max-height: 15rem;
+    border-top: 1px solid var(--border);
+  }
+}
+@media (max-width: 600px) {
+  .console-metrics {
+    width: 100%;
+    gap: 0.75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .console-header,
+  .console-scope {
+    padding: 0.75rem;
+  }
+  .console-header h1 {
+    overflow-wrap: anywhere;
+  }
+  .console-scope select {
+    max-width: 12rem;
+  }
 }
 .globe-map .maplibregl-canvas:focus {
   outline: none;
@@ -266,7 +444,7 @@
   padding: 1px 6px 1px 5px;
   font-family: var(--font-mono);
   font-size: 0.6rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   white-space: nowrap;
   color: var(--sat);
   background: color-mix(in oklab, var(--background) 75%, transparent);

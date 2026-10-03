@@ -7,9 +7,10 @@
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
 import { ICON } from "./icons.mjs";
-import { boot } from "./page.mjs";
+import { boot, loadData, renderMeta } from "./page.mjs";
 import { alertCard } from "./alerts-view.mjs";
 import { ACCENT, PERSISTENT_COLOR, RISK_COLORS, alertsFrom, matchAlerts, summarize } from "./overview.mjs";
+import { REGIONS, inRegion, regionById } from "./regions.mjs";
 
 const TOP = 3;
 const SEARCH_PAGE = 10;
@@ -25,7 +26,7 @@ function tile(label, value, color) {
   );
 }
 
-function main(data) {
+function renderOverview(data, region, coverage) {
   const summary = summarize(data);
   const alerts = alertsFrom(data.events);
   const meta = data.meta ?? {};
@@ -51,7 +52,7 @@ function main(data) {
         h("i", { class: "sec-icon", style: summary.critical ? `--tint:${RISK_COLORS.CRITICAL}` : null }, ICON.bell()),
         h("div", { class: "sec-hdr" }, searching ? "Matching alerts" : "Top alerts"),
       ),
-      h("a", { class: "btn", href: "alerts.html" }, `All ${num(alerts.length)} alerts →`),
+      h("a", { class: "btn", href: region.id === "india" ? "alerts.html" : `globe/?region=${region.id}` }, `All ${num(alerts.length)} alerts →`),
     );
 
     const list = h("div", {});
@@ -87,13 +88,17 @@ function main(data) {
   renderAlerts();
 
   document.querySelector("#content").replaceChildren(
+    h("p", { class: "scope-note", role: "status" },
+      `${region.label} geographic window / ${coverage}. `,
+      data.events.length ? `${num(data.events.length)} exported detections.` : "No exported detections in this region. This does not establish absence of fire.",
+    ),
     h(
       "div",
       { class: "statrow" },
-      tile("Satellite hotspots", summary.observations == null ? "n/a" : num(summary.observations)),
-      tile("Detected events", num(summary.events)),
-      tile("Persistent sources", num(summary.persistent), summary.persistent ? PERSISTENT_COLOR : null),
-      tile("At known industrial sites", num(summary.atSites), summary.atSites ? ACCENT : null),
+      tile("Shown hotspots", num(summary.events)),
+      tile("Critical industrial", num(data.events.filter((e) => e.riskLevel === "CRITICAL" && (e.facility || e.category?.includes("Industrial")) && !e.category?.includes("Non-Industrial")).length), RISK_COLORS.CRITICAL),
+      tile("High-risk wildfire", num(data.events.filter((e) => e.category === "Likely Wildfire" && ["HIGH", "CRITICAL"].includes(e.riskLevel)).length), PERSISTENT_COLOR),
+      tile("Cell peak FRP sum", `${(data.events.reduce((sum, e) => sum + (Number.isFinite(e.frp) ? e.frp : 0), 0) / 1000).toLocaleString("en-US", { maximumFractionDigits: 3 })} GW`, ACCENT),
     ),
     h(
       "p",
@@ -104,7 +109,7 @@ function main(data) {
         h("i", { class: "mark", style: `--mark:${summary.critical ? RISK_COLORS.CRITICAL : "#71808f"}` }),
         `${summary.critical} critical`,
       ),
-      h("span", {}, `${summary.states} states with activity`),
+      h("span", {}, region.id === "india" ? `${summary.states} states with activity` : `${data.events.filter((e) => e.facility).length} nearby mapped facilities`),
       h("span", {}, `Satellites: ${summary.satellites.join(", ") || "none"}`),
     ),
     h(
@@ -118,7 +123,7 @@ function main(data) {
         h("b", {}, num(summary.high)),
         " high-priority thermal events are waiting for review.",
       ),
-      h("a", { class: "btn", href: "globe/" }, "Open the 3D globe"),
+      h("a", { class: "btn", href: `globe/?region=${region.id}` }, "Open the 3D globe"),
     ),
     alertsPanel,
     h(
@@ -131,15 +136,44 @@ function main(data) {
   );
 
   const search = document.querySelector("#search");
-  search.addEventListener("input", () => {
+  search.oninput = () => {
     state.query = search.value;
     state.pageSize = SEARCH_PAGE;
     renderAlerts();
-  });
-  document.querySelector("#alerts-btn").addEventListener("click", () => {
+  };
+  if (search.value) { state.query = search.value; renderAlerts(); }
+  document.querySelector("#alerts-btn").onclick = () => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     alertsPanel.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
-  });
+  };
 }
 
-boot(main);
+boot(async (data) => {
+  let global = null;
+  try {
+    const candidate = await loadData("globe/data/global-events.json");
+    if (candidate.meta?.scope === "global" && Array.isArray(candidate.events)) global = candidate;
+  } catch { /* The national overview remains available when the global feed fails. */ }
+  const selector = document.querySelector("#region");
+  selector.replaceChildren(...REGIONS.map((region) => h("option", { value: region.id }, region.label)));
+  const queryRegion = new URLSearchParams(location.search).get("region");
+  selector.value = regionById(queryRegion ?? (global ? "global" : "india")).id;
+  const render = () => {
+    const region = regionById(selector.value);
+    const url = new URL(location.href);
+    url.searchParams.set("region", region.id);
+    history.replaceState(null, "", url);
+    const scoped = region.id === "india" || !global ? data : global;
+    const stale = scoped.meta?.generatedAt && Date.now() - Date.parse(scoped.meta.generatedAt) > 12 * 3600000;
+    const coverage = `${scoped.meta?.scope === "global" ? "Global export" : "India export"}${scoped.meta?.partial ? " (partial / sampled)" : ""}${stale ? " / stale dataset" : ""}`;
+    renderMeta(scoped.meta ?? {});
+    // Regional totals must not inherit whole-export aggregate counts.
+    renderOverview({
+      ...scoped,
+      events: (scoped.events ?? []).filter((event) => inRegion(event, region.id)),
+      meta: { ...scoped.meta, observations: undefined, persistentSources: undefined, statesWithActivity: undefined, satellites: undefined },
+    }, region, coverage);
+  };
+  selector.onchange = render;
+  render();
+});

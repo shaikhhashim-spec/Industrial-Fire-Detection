@@ -17,8 +17,8 @@ import {
   type MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { GeoJSON } from "geojson";
-import type { ThermalEvent } from "@/lib/thermal";
+import type { FeatureCollection, GeoJSON } from "geojson";
+import { RISK_COLORS, type ThermalEvent } from "@/lib/thermal";
 import type { LayerKey, Layers } from "@/lib/layers";
 import type { FireSat } from "@/lib/satellites";
 import type { Hazard } from "@/lib/hazards";
@@ -26,6 +26,7 @@ import { cursorStore } from "@/lib/globe-store";
 import { fmtAgo } from "@/lib/format";
 import {
   EMPTY_FC,
+  compass16,
   eventsToGeoJSON,
   graticuleGeoJSON,
   hazardsGeoJSON,
@@ -40,6 +41,7 @@ import { assetUrl } from "@/lib/asset-url";
 import { flatFromUrl, viewFromUrl } from "@/lib/view-params";
 import { NIGHT_COORDS, paintNight } from "@/lib/night-raster";
 import { FACILITY_COLOR_EXPR } from "@/lib/facilities";
+import { regionById, type RegionId } from "@/lib/regions";
 
 // Same font stack the CARTO style itself uses, so its glyph server has it.
 const LABEL_FONT = ["Montserrat Regular", "Open Sans Regular", "Noto Sans Regular"];
@@ -51,7 +53,6 @@ setWorkerUrl(assetUrl(`vendor/maplibre/${getVersion()}/maplibre-gl-worker.mjs`))
 const DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const IMAGERY_TILES =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-const START_CENTER: [number, number] = [82.5, 22.5];
 /** Degrees of longitude per second while auto-rotating. */
 const SPIN_DEG_PER_SEC = 2.5;
 
@@ -64,6 +65,7 @@ function fitZoom(el: HTMLElement): number {
 }
 
 export interface GlobeMapProps {
+  scope?: RegionId;
   events: ThermalEvent[];
   selectedId: string | null;
   colorBy: "category" | "risk";
@@ -92,7 +94,7 @@ const LAYER_IDS: Record<Exclude<LayerKey, "borders">, string[]> = {
 };
 
 // topmost first: a hotspot sitting on a plant should pick the hotspot
-const INTERACTIVE = ["sat-core", "thermal", "eonet", "facilities"];
+const INTERACTIVE = ["sat-core", "thermal", "plume-fill", "eonet", "facilities"];
 
 // Transparent at low density on purpose: scattered single detections should read
 // as dots, and only real clusters (steel plants, coalfields) should glow.
@@ -221,12 +223,12 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
   });
 
   // ── known industrial sites (OSM + WRI): the "why" behind hotspot clusters ──
-  map.addSource("facilities", { type: "geojson", data: assetUrl("data/facilities.geojson") });
+  map.addSource("facilities", { type: "geojson", data: EMPTY_FC });
   map.addLayer({
     id: "facilities",
     type: "circle",
     source: "facilities",
-    minzoom: 4.5,
+    minzoom: 5,
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.8, 8, 3.5, 12, 6],
       "circle-color": "#0b1016",
@@ -264,19 +266,20 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
     id: "thermal-heat",
     type: "heatmap",
     source: "thermal",
-    maxzoom: 9,
+    maxzoom: 5,
     paint: {
       "heatmap-weight": ["interpolate", ["linear"], ["get", "risk"], 0, 0.05, 50, 0.3, 100, 1],
       "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 1, 0.35, 4, 0.7, 7, 1.3],
       "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 1, 4, 3, 7, 5, 13, 7, 22],
       "heatmap-color": HEAT_RAMP,
-      "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.9, 7.5, 0],
+      "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.9, 5, 0],
     },
   });
   map.addLayer({
     id: "thermal-glow",
     type: "circle",
     source: "thermal",
+    minzoom: 3,
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3, 6, 9, 11, 18],
       "circle-color": colorExpr(colorBy),
@@ -289,10 +292,11 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
     id: "thermal",
     type: "circle",
     source: "thermal",
+    minzoom: 3,
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.1, 6, 3.2, 11, 7],
       "circle-color": colorExpr(colorBy),
-      "circle-opacity": ["interpolate", ["linear"], ["zoom"], 2, 0.75, 5, 1],
+      "circle-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0, 5, 1],
       "circle-stroke-color": "#05080c",
       "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 4, 0, 7, 0.8],
     },
@@ -316,12 +320,14 @@ function installLayers(map: MLMap, colorBy: "category" | "risk") {
     id: "plume-fill",
     type: "fill",
     source: "plumes",
+    minzoom: 5,
     paint: { "fill-color": ["get", "riskColor"], "fill-opacity": 0.35 },
   });
   map.addLayer({
     id: "plume-outline",
     type: "line",
     source: "plumes",
+    minzoom: 5,
     paint: { "line-color": ["get", "riskColor"], "line-width": 1.5, "line-dasharray": [2, 2] },
   });
 
@@ -408,11 +414,13 @@ export function GlobeMap(props: GlobeMapProps) {
   // ── create the map once ──
   useEffect(() => {
     if (!container.current) return;
+    const region = regionById(latest.current.scope ?? "india");
+    const savedView = viewFromUrl();
     const map = new MLMap({
       container: container.current,
       style: DARK_STYLE,
-      center: viewFromUrl()?.center ?? START_CENTER,
-      zoom: viewFromUrl()?.zoom ?? fitZoom(container.current),
+      center: savedView?.center ?? [region.center[0], region.center[1]],
+      zoom: savedView?.zoom ?? (region.id === "global" ? fitZoom(container.current) : region.zoom),
       minZoom: 1,
       maxZoom: 18,
       maxPitch: 60,
@@ -459,8 +467,8 @@ export function GlobeMap(props: GlobeMapProps) {
         ],
         { layers: layersPresent },
       );
-      // queryRenderedFeatures returns topmost first — satellites, then hotspots
-      return hits[0];
+      // Prefer point targets over broad polygons, regardless of paint order.
+      return INTERACTIVE.map((id) => hits.find((hit) => hit.layer.id === id)).find(Boolean);
     };
     const describe = (f: MapGeoJSONFeature): string | null => {
       const id = String(f.properties["id"]);
@@ -478,6 +486,18 @@ export function GlobeMap(props: GlobeMapProps) {
           `<b>${esc(e.id)}</b> · risk ${e.riskScore}<br>${esc(e.region)}<br>` +
           `<span>${esc(e.category)} · FRP ${e.frp.toFixed(1)} MW${seen}</span>` +
           (why ? `<br><span>${why}</span>` : "")
+        );
+      }
+      if (f.layer.id === "plume-fill") {
+        const e = p.events.find((x) => x.id === id);
+        if (!e || !e.plume) return null;
+        const compassDir = compass16(e.plume.downwindBearingDeg);
+        return (
+          `<b>${esc(e.id)} · Estimated smoke plume</b><br>` +
+          `<span style="color:${RISK_COLORS[e.riskLevel]}">${esc(e.riskLevel)} · risk ${e.riskScore}/100</span><br>` +
+          `<span>Blowing toward <b>${e.plume.downwindBearingDeg.toFixed(0)}° (${compassDir})</b> at ${e.plume.windSpeedKmh.toFixed(1)} km/h</span><br>` +
+          `<span>Est. hazard range: <b>${e.plume.coneLengthKm.toFixed(1)} km</b> · FRP ${e.frp.toFixed(1)} MW</span><br>` +
+          `<span>Wind/FRP heuristic; exposure boundary unverified.</span>`
         );
       }
       if (f.layer.id === "facilities") {
@@ -525,7 +545,7 @@ export function GlobeMap(props: GlobeMapProps) {
       if (!f) return;
       const id = String(f.properties["id"]);
       const p = latest.current;
-      if (f.layer.id === "thermal") p.onSelect(id);
+      if (f.layer.id === "thermal" || f.layer.id === "plume-fill") p.onSelect(id);
       else if (f.layer.id === "eonet") {
         const h = p.naturalEvents.find((x) => x.id === id);
         if (h) p.onSelectHazard(h);
@@ -555,6 +575,40 @@ export function GlobeMap(props: GlobeMapProps) {
     setData(map, "thermal", eventsToGeoJSON(events));
     setData(map, "plumes", plumesToGeoJSON(events));
   }, [ready, events]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const controller = new AbortController();
+    const read = async (name: string): Promise<FeatureCollection["features"]> => {
+      try {
+        const response = await fetch(assetUrl(`data/${name}`), { signal: controller.signal });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data?.type === "FeatureCollection" && Array.isArray(data.features)
+          ? data.features
+          : [];
+      } catch {
+        return [];
+      }
+    };
+    void Promise.all([read("facilities.geojson"), read("global-facilities.geojson")]).then(
+      (collections) => {
+        if (controller.signal.aborted) return;
+        const seen = new Set<string>();
+        const features = collections.flat().filter((feature) => {
+        const key = feature.properties?.["ref"]
+          ? String(feature.properties["ref"])
+            : JSON.stringify(feature.geometry);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setData(map, "facilities", { type: "FeatureCollection", features });
+      },
+    );
+    return () => controller.abort();
+  }, [ready]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -594,7 +648,10 @@ export function GlobeMap(props: GlobeMapProps) {
     if (e) {
       map.flyTo({
         center: [e.longitude, e.latitude],
-        zoom: Math.max(map.getZoom(), 6),
+        zoom: Math.max(map.getZoom(), 7.2),
+        pitch: e.plume ? 42 : Math.min(map.getPitch(), 25),
+        // Requested upstream-facing orbit view; MapLibre bearing is camera heading.
+        bearing: e.plume ? (e.plume.downwindBearingDeg + 180) % 360 : map.getBearing(),
         speed: 1.4,
         essential: true,
       });

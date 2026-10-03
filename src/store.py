@@ -130,6 +130,20 @@ def dismiss_alert(event_id: str, region: str | None = None) -> None:
         )
 
 
+def restore_alert(event_id: str, region: str | None = None) -> None:
+    """Remove a dismissed-alert marker for a given region or globally."""
+    if not DB_PATH.exists():
+        return
+    with _connect() as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS dismissed_alerts (event_id TEXT, region TEXT, dismissed_at TEXT, PRIMARY KEY (event_id, region))"
+        )
+        conn.execute(
+            "DELETE FROM dismissed_alerts WHERE event_id = ? AND region = ?",
+            (event_id, region or "global"),
+        )
+
+
 def load_dismissed(region: str | None = None) -> set[str]:
     """Return the dismissed alert IDs for a region, or globally if region is None."""
     if not DB_PATH.exists():

@@ -1,8 +1,10 @@
 import { useMemo } from "react";
-import { ExternalLink, Factory, Moon, Sun } from "lucide-react";
+import { Compass, ExternalLink, Factory, Moon, Sun, Wind, X } from "lucide-react";
+import { compass16 } from "@/lib/geo-layers";
 import {
   CATEGORY_COLORS,
   RISK_COLORS,
+  type PlumeData,
   type RecommendedAction,
   type ThermalEvent,
 } from "@/lib/thermal";
@@ -244,14 +246,74 @@ function NearbyHazards({ event, hazards }: { event: ThermalEvent; hazards: Hazar
   );
 }
 
+/** Wind/FRP estimate; it does not establish a measured exposure boundary. */
+function PlumeHazardInfo({ plume, frp }: { plume?: PlumeData; frp: number }) {
+  if (!plume) return null;
+  const compassDir = compass16(plume.downwindBearingDeg);
+  const weatherSource =
+    plume.source === "open-meteo"
+      ? "Open-Meteo weather"
+      : plume.source === "cache"
+        ? "Cached Open-Meteo weather"
+        : plume.source === "stale_cache"
+          ? "Stale weather estimate"
+          : plume.source === "offline_fallback"
+            ? "Fallback wind estimate"
+            : "Weather provenance unavailable";
+
+  return (
+    <div className="rounded-sm border border-border/80 bg-surface-2 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="field-label flex items-center gap-1.5 font-medium text-foreground">
+          <Wind className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+          Estimated smoke plume
+        </span>
+        <span className="font-mono text-[0.68rem] text-muted-foreground">
+          {plume.windSpeedKmh.toFixed(1)} km/h wind
+        </span>
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[0.72rem]">
+        <div className="flex flex-col">
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Compass className="size-3" aria-hidden="true" />
+            Downwind bearing
+          </span>
+          <span className="font-mono font-medium text-foreground">
+            {plume.downwindBearingDeg.toFixed(0)}° ({compassDir})
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">Est. Hazard Length</span>
+          <span className="font-mono font-medium text-foreground">
+            {plume.coneLengthKm.toFixed(1)} km
+          </span>
+        </div>
+      </div>
+
+      <p className="mt-2 break-words font-mono text-[0.65rem] text-muted-foreground">
+        {weatherSource}
+        {plume.observedAt ? ` · ${plume.observedAt} UTC` : ""}
+      </p>
+      <p className="mt-2 text-[0.66rem] leading-snug text-muted-foreground">
+        Wind/FRP heuristic using Open-Meteo weather when available and {frp.toFixed(1)} MW satellite
+        fire radiative power. Smoke may move toward {compassDir}. This range does not establish
+        toxic gas concentrations or a safe perimeter; wind may be cached or a fallback estimate.
+      </p>
+    </div>
+  );
+}
+
 export function EventDetail({
   event,
   sats = [],
   hazards = [],
+  onClose,
 }: {
   event: ThermalEvent | null;
   sats?: FireSat[];
   hazards?: Hazard[];
+  onClose?: () => void;
 }) {
   if (!event) {
     return (
@@ -271,15 +333,25 @@ export function EventDetail({
       className="panel flex h-full flex-col gap-4 overflow-y-auto p-4 animate-[ti-fade-up_160ms_var(--ease)_both]"
     >
       <div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-baseline gap-2">
-            <span className="font-mono text-sm text-foreground">{event.id}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="flex min-w-0 flex-wrap items-baseline gap-2">
+            <span className="break-all font-mono text-sm text-foreground">{event.id}</span>
             {event.priority != null && (
               <span className="font-mono text-[0.7rem] tabular-nums text-muted-foreground">
                 #{event.priority} by risk
               </span>
             )}
           </span>
+          {onClose && (
+            <button
+              onClick={onClose}
+              title="Close investigation"
+              aria-label="Close investigation"
+              className="console-icon shrink-0"
+            >
+              <X aria-hidden className="size-4" />
+            </button>
+          )}
           <span className="flex items-center gap-1.5 rounded-sm border border-border bg-muted px-2 py-0.5 text-[0.68rem]">
             <span className="size-2 rounded-[2px]" style={{ background: risk }} />
             {event.status}
@@ -297,6 +369,42 @@ export function EventDetail({
           {event.category}
         </span>
       </div>
+
+      {event.plume && <PlumeHazardInfo plume={event.plume} frp={event.frp} />}
+
+      {event.spreadPotential && (
+        <section className="border-y border-border/80 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[0.72rem]">
+            <span className="field-label">Spread potential</span>
+            <span className="font-mono">
+              {event.spreadPotential.label} · {event.spreadPotential.score.toFixed(1)}/100
+            </span>
+          </div>
+          {event.spreadPotential.factors && (
+            <dl className="mt-2 grid grid-cols-2 gap-2 text-[0.68rem]">
+              {Object.entries(event.spreadPotential.factors).map(([factor, points]) => (
+                <div key={factor} className="flex flex-wrap justify-between gap-1">
+                  <dt className="text-muted-foreground">
+                    {(
+                      {
+                        wind: "Wind",
+                        dryAir: "Dry air",
+                        heat: "Temperature",
+                        frp: "FRP",
+                      } as Record<string, string>
+                    )[factor] ?? factor}
+                  </dt>
+                  <dd className="font-mono">{points.toFixed(1)} pts</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <p className="mt-2 text-[0.66rem] leading-snug text-muted-foreground">
+            {event.spreadPotential.caveat ??
+              "Weather/FRP screening heuristic, not official FWI or a fire spread forecast."}
+          </p>
+        </section>
+      )}
 
       <WhyRisky event={event} />
 
@@ -333,7 +441,10 @@ export function EventDetail({
       <div>
         <Row k="Coordinates" v={`${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)}`} />
         <Row k="FRP" v={`${event.frp.toFixed(1)} MW`} />
-        <Row k="Brightness" v={`${event.brightness} K`} />
+        <Row
+          k="Brightness"
+          v={event.brightness === null ? "Unavailable" : `${event.brightness} K`}
+        />
         <Row k="Confidence" v={`${event.confidence}`} />
         <Row k="Persistence" v={`${event.persistenceDays} days`} />
         <Row k="Detections" v={`${event.detectionCount}`} />

@@ -94,6 +94,17 @@ export interface PlumeData {
   coneLengthKm: number;
   /** [lon, lat] pairs, apex-first — GeoJSON coordinate order. */
   polygon: [number, number][];
+  source?: string;
+  observedAt?: string | null;
+  estimated?: boolean;
+}
+
+/** A screening heuristic, not the Canadian Fire Weather Index or a forecast. */
+export interface SpreadPotential {
+  score: number;
+  label: string;
+  factors?: Record<string, number>;
+  caveat?: string;
 }
 
 export interface ThermalEvent {
@@ -105,7 +116,7 @@ export interface ThermalEvent {
   riskScore: number;
   riskLevel: RiskLevel;
   frp: number;
-  brightness: number;
+  brightness: number | null;
   confidence: number;
   persistenceDays: number;
   detectionCount: number;
@@ -131,6 +142,8 @@ export interface ThermalEvent {
   actions?: RecommendedAction[];
   model?: ModelCheck | null;
   plume?: PlumeData;
+  country?: string | null;
+  spreadPotential?: SpreadPotential | null;
 }
 
 /** Provenance written by the Python exporter alongside the events. */
@@ -140,6 +153,12 @@ export interface DataMeta {
   events: number;
   windowDays: number;
   attribution: string[];
+  scope?: string;
+  coverage?: string;
+  partial?: boolean;
+  feeds?: (string | { source: string; status: string; observations: number })[];
+  weatherEnrichedEvents?: number;
+  datasets?: { scope: string; generatedAt: string; events: number; source: string }[];
 }
 
 /** "none" means the pipeline has not exported anything the globe can draw. */
@@ -149,7 +168,7 @@ export const CATEGORIES = Object.keys(CATEGORY_COLORS) as Category[];
 
 /**
  * Loads the thermal detections the Python pipeline exported to
- * `/data/events.json`. Live data only: when the file is missing, empty, or not
+ * `/data/events.json` and the optional worldwide feed. Live data only: when a file is missing or not
  * marked as a real FIRMS run, the globe shows an empty state rather than
  * standing in something made up.
  */
@@ -158,23 +177,82 @@ export async function fetchThermalEvents(): Promise<{
   source: DataSource;
   meta: DataMeta | null;
 }> {
-  try {
-    const res = await fetch(assetUrl("data/events.json"), { cache: "no-cache" });
-    if (res.ok) {
-      const data = await res.json();
-      const list: ThermalEvent[] = Array.isArray(data) ? data : (data?.events ?? []);
-      const meta: DataMeta | null = Array.isArray(data) ? null : (data?.meta ?? null);
-      const live = meta ? meta.source === "firms_live" || meta.source === "local_cache" : false;
-      if (live && list.length > 0) {
-        return {
-          events: [...list].sort((a, b) => b.riskScore - a.riskScore),
-          source: "live",
-          meta,
-        };
+  const read = async (
+    filename: string,
+    scope: string,
+  ): Promise<{
+    events: ThermalEvent[];
+    source: DataSource;
+    meta: DataMeta | null;
+  }> => {
+    try {
+      const res = await fetch(assetUrl(`data/${filename}`), { cache: "no-cache" });
+      if (res.ok) {
+        const data = await res.json();
+        const list: ThermalEvent[] = Array.isArray(data) ? data : (data?.events ?? []);
+        const meta: DataMeta | null = Array.isArray(data) ? null : (data?.meta ?? null);
+        const live = meta ? ["firms_live", "local_cache", "mixed"].includes(meta.source) : false;
+        if (live && Array.isArray(list)) {
+          const valid = list.filter(
+            (e) =>
+              e &&
+              typeof e.id === "string" &&
+              Number.isFinite(e.latitude) &&
+              Math.abs(e.latitude) <= 90 &&
+              Number.isFinite(e.longitude) &&
+              Math.abs(e.longitude) <= 180 &&
+              Number.isFinite(e.riskScore) &&
+              Number.isFinite(e.frp) &&
+              CATEGORIES.includes(e.category) &&
+              e.riskLevel in RISK_COLORS,
+          );
+          return {
+            events: valid.sort((a, b) => b.riskScore - a.riskScore),
+            source: "live",
+            meta: meta ? { ...meta, scope: meta.scope ?? scope } : null,
+          };
+        }
       }
+    } catch (err) {
+      console.warn(`Could not read /data/${filename}:`, err);
     }
-  } catch (err) {
-    console.warn("Could not read /data/events.json:", err);
+    return { events: [], source: "none", meta: null };
+  };
+  const [national, global] = await Promise.all([
+    read("events.json", "india"),
+    read("global-events.json", "global"),
+  ]);
+  if (!global.meta) return national;
+  // Match the existing 0.01-degree cell before adding global observations;
+  // the national dossier supplies the deeper history and facility evidence.
+  const cell = (e: ThermalEvent) =>
+    `${Math.floor(e.longitude * 100)}:${Math.floor(e.latitude * 100)}`;
+  const globalDates = new Map<string, string>();
+  for (const e of global.events) {
+    const key = cell(e);
+    if ((globalDates.get(key) ?? "") < e.acqDate) globalDates.set(key, e.acqDate);
   }
-  return { events: [], source: "none", meta: null };
+  const nationalEvents = national.events.filter(
+    (e) => (globalDates.get(cell(e)) ?? "") <= e.acqDate,
+  );
+  const nationalCells = new Set(nationalEvents.map(cell));
+  const events = [...nationalEvents, ...global.events.filter((e) => !nationalCells.has(cell(e)))];
+  events.sort((a, b) => b.riskScore - a.riskScore);
+  const datasets = [national.meta, global.meta].filter((m): m is DataMeta => m !== null);
+  return {
+    events,
+    source: "live",
+    meta: {
+      ...global.meta,
+      events: events.length,
+      partial: global.meta.partial || datasets.some((m) => m.partial),
+      attribution: [...new Set(datasets.flatMap((m) => m.attribution ?? []))],
+      datasets: datasets.map((m) => ({
+        scope: m.scope ?? "india",
+        generatedAt: m.generatedAt,
+        events: m.events,
+        source: m.source,
+      })),
+    },
+  };
 }

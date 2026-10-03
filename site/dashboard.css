@@ -200,7 +200,7 @@ p {
   margin: 0 0 0.25rem;
   font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 /* A small tinted chip in front of a heading — an icon, never color alone, so
@@ -282,6 +282,10 @@ input[type="search"] {
   font: 400 0.9rem "IBM Plex Sans", system-ui, sans-serif;
 }
 
+.scope-note { margin-bottom: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); color: var(--ink2); font-size: 0.8rem; }
+.topbar .field, .topbar-meta, .topbar-brand { min-width: 0; }
+.topbar select { max-width: 100%; }
+
 input[type="search"]::placeholder {
   color: var(--muted);
 }
@@ -356,7 +360,7 @@ input[type="search"] {
 .stat .val {
   font-size: 1.3rem;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pills {

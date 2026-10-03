@@ -8,8 +8,8 @@ import { fmtAge, fmtUpdated } from "./overview.mjs";
 
 export const DATA_URL = "globe/data/events.json";
 
-export async function loadData() {
-  const res = await fetch(DATA_URL, { cache: "no-cache" });
+export async function loadData(url = DATA_URL) {
+  const res = await fetch(url, { cache: "no-cache" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -44,7 +44,7 @@ export async function boot(main, containerSelector = "#content") {
   try {
     const data = await loadData();
     renderMeta(data.meta ?? {});
-    main(data);
+    await main(data);
   } catch (err) {
     console.warn("Could not read the live data:", err);
     renderLoadError(container);

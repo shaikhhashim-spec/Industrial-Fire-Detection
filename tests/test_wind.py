@@ -1,5 +1,8 @@
 
 import pytest
+import json
+import os
+import time
 
 from src.utils import wind
 
@@ -67,3 +70,70 @@ def test_project_roundtrip_distance_is_approximately_correct():
     lat2, lon2 = wind._project(0.0, 0.0, bearing_deg=90.0, dist_km=111.19)  # ~1 degree of longitude at equator
     assert lat2 == pytest.approx(0.0, abs=0.01)
     assert lon2 == pytest.approx(1.0, abs=0.05)
+
+
+def test_global_weather_fields_and_cache(monkeypatch, tmp_path):
+    monkeypatch.setattr(wind.config, "CACHE_DIR", tmp_path / "new")
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"current": {"wind_speed_10m": 25, "wind_direction_10m": 360,
+                "temperature_2m": 34, "relative_humidity_2m": 22,
+                "precipitation": 0.4, "time": "2026-10-03T12:00"}}
+
+    def fetch(url, params, timeout):
+        assert params["latitude"] == -33.8
+        assert "relative_humidity_2m" in params["current"]
+        assert params["timezone"] == "GMT"
+        return Response()
+
+    monkeypatch.setattr(wind.requests, "get", fetch)
+    result = wind.get_wind(-33.8, 151.2)
+    assert result["temperature_c"] == 34
+    assert result["humidity_pct"] == 22
+    assert result["precipitation_mm"] == 0.4
+    assert result["direction_deg"] == 0
+    assert result["observed_at"] == "2026-10-03T12:00"
+    assert wind.get_wind(-33.8, 151.2)["source"] == "cache"
+
+
+def test_invalid_cache_and_api_wind_fall_back(monkeypatch, tmp_path):
+    monkeypatch.setattr(wind.config, "CACHE_DIR", tmp_path)
+    wind._cache_path(0, 0).write_text(json.dumps({"speed_kmh": -1, "direction_deg": 50}))
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"current": {"wind_speed_10m": None, "wind_direction_10m": 0}}
+    monkeypatch.setattr(wind.requests, "get", lambda *a, **k: Response())
+    result = wind.get_wind(0, 0)
+    assert result["source"] == "offline_fallback"
+    assert result["humidity_pct"] is None
+
+
+def test_stale_cache_keeps_provenance(monkeypatch, tmp_path):
+    monkeypatch.setattr(wind.config, "CACHE_DIR", tmp_path)
+    path = wind._cache_path(0, 0)
+    path.write_text('{"speed_kmh": 12, "direction_deg": 90, "observed_at": "2026-10-01T00:00"}')
+    old = time.time() - (wind.config.WIND_CACHE_TTL_HOURS + 1) * 3600
+    os.utime(path, (old, old))
+    def fail(*a, **k):
+        raise ConnectionError("offline")
+    monkeypatch.setattr(wind.requests, "get", fail)
+    assert wind.get_wind(0, 0)["source"] == "stale_cache"
+    assert wind.get_wind(0, 0)["observed_at"] == "2026-10-01T00:00"
+
+
+@pytest.mark.parametrize("lat,lon", [(91, 0), (0, 181), (float("nan"), 0)])
+def test_invalid_global_coordinates_rejected(lat, lon):
+    with pytest.raises(ValueError):
+        wind.get_wind(lat, lon)
+
+
+def test_dateline_projection_normalized():
+    lat, lon = wind._project(0, 179.99, 90, 8)
+    assert -180 <= lon < -179
+    assert lat == pytest.approx(0)

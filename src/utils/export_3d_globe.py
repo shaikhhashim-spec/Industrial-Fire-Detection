@@ -155,6 +155,9 @@ def _attach_plume(event: dict[str, Any]) -> None:
         lat, lon, wind_data["direction_deg"], wind_data["speed_kmh"], frp,
     )
     event["plume"] = {
+        "source": wind_data.get("source", "unknown"),
+        "observedAt": wind_data.get("observed_at"),
+        "estimated": True,
         "windSpeedKmh": round(wind_data["speed_kmh"], 1),
         "windDirectionDeg": round(wind_data["direction_deg"], 0),
         "downwindBearingDeg": round(bearing, 0),
@@ -162,6 +165,11 @@ def _attach_plume(event: dict[str, Any]) -> None:
         # GeoJSON coordinate order (lon, lat) — dispersion_cone_polygon returns (lat, lon).
         "polygon": [[lon_, lat_] for lat_, lon_ in polygon_latlon],
     }
+    from src.utils.spread import calculate_spread_potential
+
+    spread = calculate_spread_potential(wind_data, frp)
+    if spread is not None:
+        event["spreadPotential"] = spread
 
 
 def transform_regional_to_holo_events(
@@ -440,6 +448,7 @@ def export_pipeline_events_for_holo_view(
     payload = _json_safe({
         "meta": {
             "source": source,
+            "scope": "india" if national_live else "jharkhand_odisha",
             "generatedAt": pd.Timestamp.now(tz="UTC").isoformat(),
             "events": len(events),
             "windowDays": config.NATIONAL_HISTORY_DAYS,

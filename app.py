@@ -1850,6 +1850,7 @@ def _render_alerts_tab(alerts):
     phone = st.session_state.get("alert_phone", config.ALERT_RECIPIENT_PHONE)
     auto_active = st.session_state.get("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL)
     window = int(st.session_state.get("escalate_after_min", config.ALERT_ESCALATE_AFTER_MIN))
+    region = st.session_state.get("region", "india")
 
     with st.container(border=True):
         _section_header("Dispatch")
@@ -1894,10 +1895,33 @@ def _render_alerts_tab(alerts):
         st.info("No alerts in the current live data.", icon=":material/info:")
         return
 
-    _section_header(f"{len(alerts):,} open alerts, ranked by risk")
+    dismissed_ids = store.load_dismissed(region)
+    active_alerts = [
+        a for a in alerts if str(a.get("event_id", a.get("grid_cell", "?"))) not in dismissed_ids
+    ]
+    dismissed_alerts = [
+        a for a in alerts if str(a.get("event_id", a.get("grid_cell", "?"))) in dismissed_ids
+    ]
+    show_dismissed = st.toggle(
+        "Show dismissed alerts",
+        value=False,
+        key=f"show_dismissed_alerts_{region}",
+        help="Dismissed alerts stay hidden for this region until restored.",
+    )
+    visible_alerts = active_alerts + dismissed_alerts if show_dismissed else active_alerts
+
+    _section_header(
+        f"{len(active_alerts):,} open alerts, ranked by risk"
+        + (f" ({len(dismissed_alerts):,} dismissed)" if dismissed_alerts else "")
+    )
+    if not visible_alerts:
+        st.info("All current alerts are dismissed. Turn on 'Show dismissed alerts' to restore one.",
+                icon=":material/done_all:")
+        return
+
     i = 0
     for tier in ("CRITICAL", "HIGH", "MODERATE", "LOW"):
-        group = [a for a in alerts[:50] if str(a.get("severity", "MODERATE")).upper() == tier]
+        group = [a for a in visible_alerts[:50] if str(a.get("severity", "MODERATE")).upper() == tier]
         if not group:
             continue
         st.markdown(
@@ -1908,6 +1932,7 @@ def _render_alerts_tab(alerts):
             severity = str(a.get("severity", "MODERATE"))
             color = RISK_COLORS.get(severity, MUTED)
             event_id = str(a.get("event_id", a.get("grid_cell", "?")))
+            dismissed = event_id in dismissed_ids
             days = int(a.get("persistence_days", 0) or 0)
             rank = a.get("priority")
             facts = [
@@ -1927,19 +1952,35 @@ def _render_alerts_tab(alerts):
                 f'{a["title"]}<span class="mono" style="color:var(--ink2);font-weight:400;font-size:.85em;">'
                 f'{event_id}</span></div>'
                 f'<div class="facts">{facts_html}</div>'
-                f'<div class="meta">{severity.capitalize()} severity. {a["classification"]}.</div></div>',
+                f'<div class="meta">{severity.capitalize()} severity. {a["classification"]}.'
+                f'{" Dismissed for this region." if dismissed else ""}</div></div>',
                 unsafe_allow_html=True,
             )
-            if st.button("Dispatch this alert", key=f"alert_crit_send_{i}", icon=":material/sms:",
-                         help=f"Send this alert to {phone} and start the acknowledgement clock"):
-                res = alert_messages.send_critical_alert(a, phone=phone, force=True)
-                if res["status"] in ("delivered", "simulated"):
-                    escalation.record_dispatch(a, phone, channel=res["channel"])
-                    st.toast(f"Dispatched {event_id} to {phone}.", icon=":material/sms:")
+            b1, b2 = st.columns([1.0, 1.0])
+            with b1:
+                if st.button("Dispatch this alert", key=f"alert_crit_send_{i}", icon=":material/sms:",
+                             help=f"Send this alert to {phone} and start the acknowledgement clock",
+                             disabled=dismissed):
+                    res = alert_messages.send_critical_alert(a, phone=phone, force=True)
+                    if res["status"] in ("delivered", "simulated"):
+                        escalation.record_dispatch(a, phone, channel=res["channel"])
+                        st.toast(f"Dispatched {event_id} to {phone}.", icon=":material/sms:")
+                        st.rerun()
+                    else:
+                        st.error(f"Dispatch failed: {res.get('detail') or res.get('reason') or 'Error'}",
+                                 icon=":material/cancel:")
+            with b2:
+                if dismissed:
+                    if st.button("Restore", key=f"alert_restore_{i}", icon=":material/undo:",
+                                 help="Put this alert back in the open queue"):
+                        store.restore_alert(event_id, region)
+                        st.toast(f"Restored {event_id}.", icon=":material/undo:")
+                        st.rerun()
+                elif st.button("Dismiss", key=f"alert_dismiss_{i}", icon=":material/done:",
+                               help="Hide this alert from this region's open queue"):
+                    store.dismiss_alert(event_id, region)
+                    st.toast(f"Dismissed {event_id}.", icon=":material/done:")
                     st.rerun()
-                else:
-                    st.error(f"Dispatch failed: {res.get('detail') or res.get('reason') or 'Error'}",
-                             icon=":material/cancel:")
             with st.expander("Why it is risky and what to do"):
                 _render_risk_explainer(a, key=f"alert_{i}")
             i += 1

@@ -31,12 +31,41 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Setup Python
-        if: env.FIRMS_API_KEY != ''
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: requirements.txt
+
+      - name: Install pipeline dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore bounded global feed and reference cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/cache/firms_global_*.csv
+            data/cache/wind_*.json
+            data/cache/weather_*.json
+            data/reference/global_power_plant_database.csv
+            data/reference/cities15000.txt
+            holo-view-maker/public/data/global-events.json
+            holo-view-maker/public/data/global-events.json.gz
+            holo-view-maker/public/data/global-facilities.geojson
+          key: global-feeds-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: global-feeds-v1-${{ runner.os }}-
+
+      - name: Refresh public global FIRMS data
+        id: global_refresh
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python scripts/refresh_global_globe.py --max-events 12000 --weather-limit 40 --refresh-references
+
+      - name: Flag a failed global refresh
+        if: steps.global_refresh.outcome == 'failure'
+        run: |
+          echo "::warning::Global FIRMS refresh failed; previous global snapshot retained if available."
+          echo "Global FIRMS refresh failed; prior snapshot retained if available. India data is independent." >> "$GITHUB_STEP_SUMMARY"
 
       # Live data only: if FIRMS is unreachable or the run fails, keep the last
       # committed live snapshot rather than publishing nothing. continue-on-error
@@ -48,7 +77,6 @@ jobs:
         continue-on-error: true
         timeout-minutes: 25
         run: |
-          pip install -r requirements.txt
           python scripts/refresh_national_globe.py
 
       - name: Flag a stale refresh

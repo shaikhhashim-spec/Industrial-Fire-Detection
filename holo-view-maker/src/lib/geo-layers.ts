@@ -17,6 +17,48 @@ import { EONET_COLORS, type Hazard } from "@/lib/hazards";
 
 const DEG = Math.PI / 180;
 
+export function compass16(bearing: number): string {
+  const headings = [
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
+  ];
+  return headings[Math.round((((bearing % 360) + 360) % 360) / 22.5) % 16]!;
+}
+
+/** Keep short cones continuous across the dateline in MapLibre's wrapped world. */
+export function unwrapPlumeRing(polygon: [number, number][]): [number, number][] {
+  if (
+    polygon.length < 3 ||
+    polygon.some(
+      ([lon, lat]) => !Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lat) > 90,
+    )
+  )
+    return [];
+  const ring: [number, number][] = [];
+  for (const [lon, lat] of polygon) {
+    const previous = ring.at(-1)?.[0] ?? lon;
+    ring.push([lon + 360 * Math.round((previous - lon) / 360), lat]);
+  }
+  const first = ring[0]!;
+  const last = ring[ring.length - 1]!;
+  if (first[0] !== last[0] || first[1] !== last[1]) ring.push([...first]);
+  return ring;
+}
+
 export const EMPTY_FC: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 export function eventsToGeoJSON(events: ThermalEvent[]): FeatureCollection<Point> {
@@ -47,9 +89,9 @@ export function plumesToGeoJSON(events: ThermalEvent[]): FeatureCollection<Polyg
     type: "FeatureCollection",
     features: events
       .filter((e): e is ThermalEvent & { plume: PlumeData } => !!e.plume)
-      .map((e) => ({
+      .map<Feature<Polygon>>((e) => ({
         type: "Feature",
-        geometry: { type: "Polygon", coordinates: [e.plume.polygon] },
+        geometry: { type: "Polygon", coordinates: [unwrapPlumeRing(e.plume.polygon)] },
         properties: {
           id: e.id,
           frp: e.frp,
@@ -57,8 +99,11 @@ export function plumesToGeoJSON(events: ThermalEvent[]): FeatureCollection<Polyg
           riskColor: RISK_COLORS[e.riskLevel],
           windSpeedKmh: e.plume.windSpeedKmh,
           downwindBearingDeg: e.plume.downwindBearingDeg,
+          coneLengthKm: e.plume.coneLengthKm,
+          region: e.region,
         },
-      })),
+      }))
+      .filter((feature) => feature.geometry.coordinates[0]!.length >= 4),
   };
 }
 

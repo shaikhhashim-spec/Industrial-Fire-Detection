@@ -6,14 +6,14 @@
     <title>Thermal Intelligence</title>
     <meta
       name="description"
-      content="Satellite thermal monitoring and industrial risk analysis for India, from live NASA FIRMS data: every alert ranked and explained, with a 3D globe."
+      content="Worldwide NASA FIRMS thermal observations, industrial context and estimated smoke plumes, with detailed India investigations and an interactive 3D globe."
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Thermal Intelligence" />
     <meta property="og:title" content="Thermal Intelligence" />
     <meta
       property="og:description"
-      content="Satellite thermal monitoring and industrial risk analysis for India, from live NASA FIRMS data: every alert ranked and explained, with a 3D globe."
+      content="Worldwide NASA FIRMS thermal observations, industrial context and estimated smoke plumes, with detailed India investigations and an interactive 3D globe."
     />
     <meta property="og:url" content="https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/" />
     <meta name="color-scheme" content="dark" />
@@ -30,12 +30,12 @@
     <div class="shell">
       <aside class="side">
         <div class="brand">Thermal Intelligence</div>
-        <div class="brand-sub">Satellite thermal monitoring for India</div>
+        <div class="brand-sub">Planetary thermal monitoring</div>
         <nav class="nav" id="nav" aria-label="Sections"></nav>
         <p class="side-note">
-          A read-only public mirror of the dashboard, from live NASA FIRMS data, refreshed every six
-          hours. Actions that change something — running the pipeline, dispatching alerts, editing
-          settings — need the full app locally at http://localhost:8085 (python start_all.py).
+          Public satellite observations, refreshed every six hours. Worldwide screening is
+          complemented by detailed India investigations. Operational dispatch is available
+          in the local command center.
         </p>
       </aside>
 
@@ -52,7 +52,7 @@
           </div>
           <label class="field">
             <span class="field-label">Region</span>
-            <span class="select" aria-label="Region">India</span>
+            <select class="select" id="region" aria-label="Region"></select>
           </label>
           <div class="topbar-meta" id="meta">Live NASA FIRMS<br />Loading</div>
           <label class="field search">

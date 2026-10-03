@@ -28,6 +28,16 @@ def test_dismiss_is_idempotent():
     assert store.load_dismissed("jharkhand_odisha") == {"TH-000001"}
 
 
+def test_restore_alert_removes_only_that_region():
+    store.dismiss_alert("TH-000001", "jharkhand_odisha")
+    store.dismiss_alert("TH-000001", "india")
+
+    store.restore_alert("TH-000001", "jharkhand_odisha")
+
+    assert store.load_dismissed("jharkhand_odisha") == set()
+    assert store.load_dismissed("india") == {"TH-000001"}
+
+
 def test_empty_store_has_no_dismissed():
     assert store.load_dismissed() == set()
     assert store.load_dismissed("jharkhand_odisha") == set()

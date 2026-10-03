@@ -74,6 +74,35 @@ FIRMS_MAX_RETRIES = 4
 FIRMS_BACKOFF_FACTOR = 1.5
 FIRMS_COUNTRY_BASE_URL = "https://firms.modaps.eosdis.nasa.gov/api/country/csv"
 
+# Public rolling global tables: one download per sensor, no MAP_KEY quota.
+GLOBAL_FIRMS_FEEDS = {
+    "VIIRS_SNPP_NRT": ("suomi-npp-viirs-c2", "SUOMI_VIIRS_C2"),
+    "VIIRS_NOAA20_NRT": ("noaa-20-viirs-c2", "J1_VIIRS_C2"),
+    "VIIRS_NOAA21_NRT": ("noaa-21-viirs-c2", "J2_VIIRS_C2"),
+}
+GLOBAL_FIRMS_WINDOW_HOURS = 24
+GLOBAL_FIRMS_MAX_BYTES = 64 * 1024 * 1024  # per sensor, decoded response bytes
+GLOBAL_FIRMS_STALE_MAX_HOURS = 24
+GLOBAL_MAX_EVENTS = 12000
+GLOBAL_WEATHER_MAX_EVENTS = 40
+GLOBAL_WEATHER_BUDGET_SECONDS = 90.0
+GLOBAL_PLUME_FRP_MIN_MW = 10.0
+GLOBAL_WRI_PATH = DATA_DIR / "reference" / "global_power_plant_database.csv"
+GLOBAL_PLACES_PATH = DATA_DIR / "reference" / "cities15000.txt"
+
+# Display/filter extents only: these are not country boundaries or classifiers.
+GLOBAL_REGIONS = {
+    "global": {"name": "Entire Earth", "bbox": {"min_lat": -90, "max_lat": 90, "min_lon": -180, "max_lon": 180}},
+    "india": {"name": "India extent", "bbox": {"min_lat": 6, "max_lat": 37.5, "min_lon": 68, "max_lon": 97.5}},
+    "middle_east": {"name": "Middle East", "bbox": {"min_lat": 12, "max_lat": 42, "min_lon": 32, "max_lon": 63}},
+    "north_america": {"name": "North America", "bbox": {"min_lat": 7, "max_lat": 84, "min_lon": -170, "max_lon": -52}},
+    "south_america": {"name": "South America", "bbox": {"min_lat": -57, "max_lat": 13, "min_lon": -82, "max_lon": -34}},
+    "europe": {"name": "Europe and Mediterranean", "bbox": {"min_lat": 30, "max_lat": 72, "min_lon": -25, "max_lon": 45}},
+    "southeast_asia": {"name": "Southeast Asia", "bbox": {"min_lat": -11, "max_lat": 29, "min_lon": 92, "max_lon": 142}},
+    "africa": {"name": "Africa", "bbox": {"min_lat": -35, "max_lat": 38, "min_lon": -18, "max_lon": 52}},
+    "australia": {"name": "Australia", "bbox": {"min_lat": -45, "max_lat": -10, "min_lon": 112, "max_lon": 155}},
+}
+
 # --- National (India-wide) mode ---------------------------------------------
 # Deliberately shallow: "latest observations", not a 60-day history pull, per
 # the platform's own staged-architecture requirement (don't repeatedly
