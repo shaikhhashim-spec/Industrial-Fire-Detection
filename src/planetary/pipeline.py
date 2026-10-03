@@ -135,6 +135,9 @@ def build_global_payload(raw: pd.DataFrame, *, max_events: int | None = None,
         valid_raw = raw[valid].copy()
         valid_raw["acq_time"] = times[valid]
         valid_raw["acq_date"] = pd.to_datetime(valid_raw.acq_date, errors="coerce", utc=True).dt.tz_localize(None)
+        # Public CSVs spell out VIIRS confidence; the area API uses l/n/h.
+        valid_raw["confidence"] = valid_raw.confidence.astype(str).str.strip().str.lower().replace(
+            {"low": "l", "nominal": "n", "high": "h"})
         if "source" not in valid_raw or not valid_raw.source.isin(SATELLITES).all():
             raise ValueError("Global observations require a supported sensor source")
     clean, report = clean_hotspots(valid_raw, bbox={})

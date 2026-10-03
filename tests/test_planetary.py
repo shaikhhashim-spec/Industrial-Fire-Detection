@@ -39,6 +39,15 @@ def observations():
     return frame
 
 
+@pytest.mark.parametrize("label,expected", [("low", 30), ("nominal", 60), (" HIGH ", 90)])
+def test_public_feed_confidence_words_drive_the_priority_score(label, expected):
+    frame = observations()
+    frame["confidence"] = label
+    event = build_global_payload(frame, weather_limit=0)["events"][0]
+    assert event["confidence"] == expected
+    assert event["riskScore"] == round(35 + 30 * expected / 100)
+
+
 def test_global_no_key_and_one_public_download_per_sensor(monkeypatch):
     monkeypatch.setattr(config, "FIRMS_API_KEY", "")
     with patch.object(fetch, "_download_global_csv", return_value=csv_body()) as download:
