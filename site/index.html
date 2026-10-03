@@ -74,6 +74,11 @@
         </div>
       </main>
     </div>
-    <script type="module" src="dashboard.js"></script>
+    <script type="module">
+      import { redirectRootToGlobe } from "./routing.mjs";
+      if (!redirectRootToGlobe(window.location)) {
+        import("./dashboard.js");
+      }
+    </script>
   </body>
 </html>

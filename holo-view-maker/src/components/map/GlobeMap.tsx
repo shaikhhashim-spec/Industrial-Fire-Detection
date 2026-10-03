@@ -38,7 +38,7 @@ import {
   swathGeoJSON,
 } from "@/lib/geo-layers";
 import { assetUrl } from "@/lib/asset-url";
-import { flatFromUrl, viewFromUrl } from "@/lib/view-params";
+import { viewFromUrl } from "@/lib/view-params";
 import { NIGHT_COORDS, paintNight } from "@/lib/night-raster";
 import { FACILITY_COLOR_EXPR } from "@/lib/facilities";
 import { regionById, type RegionId } from "@/lib/regions";
@@ -405,6 +405,7 @@ export function GlobeMap(props: GlobeMapProps) {
   const { events, selectedId, colorBy, spin, layers, sats, naturalEvents, selectedHazard } = props;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
+  const appliedScope = useRef(props.scope ?? "india");
   const [ready, setReady] = useState(false);
   // Latest props for map event handlers registered once at creation.
   const latest = useRef(props);
@@ -421,6 +422,7 @@ export function GlobeMap(props: GlobeMapProps) {
       style: DARK_STYLE,
       center: savedView?.center ?? [region.center[0], region.center[1]],
       zoom: savedView?.zoom ?? (region.id === "global" ? fitZoom(container.current) : region.zoom),
+      pitch: region.pitch,
       minZoom: 1,
       maxZoom: 18,
       maxPitch: 60,
@@ -430,7 +432,7 @@ export function GlobeMap(props: GlobeMapProps) {
     mapRef.current = map;
 
     map.on("style.load", () => {
-      map.setProjection({ type: flatFromUrl() ? "mercator" : "globe" });
+      map.setProjection({ type: "globe" });
       map.setSky({
         "sky-color": "#02060d",
         "horizon-color": "#0c2d4a",
@@ -567,6 +569,21 @@ export function GlobeMap(props: GlobeMapProps) {
       cursorStore.set(null);
     };
   }, []);
+
+  useEffect(() => {
+    const scope = props.scope ?? "india";
+    const map = mapRef.current;
+    if (!ready || !map || !container.current || appliedScope.current === scope) return;
+    appliedScope.current = scope;
+    const region = regionById(scope);
+    map.flyTo({
+      center: [region.center[0], region.center[1]],
+      zoom: scope === "global" ? fitZoom(container.current) : region.zoom,
+      pitch: region.pitch,
+      bearing: 0,
+      duration: 2400,
+    });
+  }, [ready, props.scope]);
 
   // ── data ──
   useEffect(() => {

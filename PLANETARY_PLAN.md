@@ -52,3 +52,15 @@ Desktop (1440 x 900) and mobile (390 x 844) browser checks verified region switc
 investigation selection, plume hover/click, rendered map pixels and motion without
 horizontal overflow or runtime errors. The Pages build uses the repository's real
 `/Industrial-Fire-Detection/globe/` base path.
+
+## Pure 3D Refactor
+
+- Main integration agent: fixed globe projection, clean model header, left-panel scopes,
+  single-instance cinematic camera transitions, preset regression tests and browser QA.
+- Navigation agent: remove flat destinations, migrate local saved navigation, and route
+  root regional deep links to the globe while retaining Overview for unscoped visits.
+- Review decision: geographic presets filter real exports, not synthetic detections.
+  Keep export freshness and uncertainty visible outside the model subtitle.
+- Added Persian Gulf, national India, North America and Australia camera positions,
+  plus South Asia, Jharkhand/Odisha, Permian, Gulf Coast and Pilbara corridor scopes.
+- Preserved interactive plume metrics, sixteen-point headings and the 42-degree camera.

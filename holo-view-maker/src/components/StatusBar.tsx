@@ -119,11 +119,11 @@ export function StatusBar({ pipeline, eonet, tle, sats, onShowHelp }: StatusBarP
         label="Pipeline"
         status={pipeline.loading ? "loading" : pipeline.mode === "live" ? "ok" : "error"}
         value={
-          pipeline.mode === "live" ? `live, ${pipeline.count.toLocaleString()} events` : "no export"
+          pipeline.mode === "live" ? `${pipeline.count.toLocaleString()} detections` : "no export"
         }
         title={
           pipeline.mode === "live"
-            ? "Live NASA FIRMS detections inside India (/data/events.json)"
+            ? "NASA FIRMS export detections in the selected regional scope"
             : "No live pipeline export found. Run the pipeline from the dashboard."
         }
       />

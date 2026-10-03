@@ -37,7 +37,7 @@ TIMELAPSE_MAX_POINTS = 600
 # /globe (see gateway/app.py). Empty when the dashboard is started on its own,
 # and the globe then falls back to the published copy.
 GLOBE_URL = os.getenv("GLOBE_URL", "").rstrip("/")
-LIVE_GLOBE_URL = "https://shaikhhashim-spec.github.io/Industrial-Fire-Detection"
+LIVE_GLOBE_URL = "https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/globe"
 
 st.set_page_config(page_title="Thermal Intelligence", layout="wide", page_icon=":material/local_fire_department:", initial_sidebar_state="expanded")
 
@@ -901,7 +901,7 @@ def render_investigation_panel(cluster_row: pd.Series, detail_rows: pd.DataFrame
         b1.caption(f"Recorded: {existing_review.iloc[0]['decision']}")
     b2.button("Open 3D globe", key=f"inv_jump_3d_{cluster_row['grid_cell']}", width="stretch", icon=":material/public:",
               help="Inspect this thermal event on the 3D globe",
-              on_click=_navigate(page="3D Globe"))
+              on_click=_navigate(page="3D Globe Model"))
 
 
     r1, r2 = st.columns(2)
@@ -1032,10 +1032,10 @@ Generated: {pd.Timestamp.now().isoformat()}
 
 # ------------------------------------------------------------------ nav --
 
-NAV_PAGES = ["Overview", "Live Map", "3D Globe", "Events", "Alerts", "Analytics",
+NAV_PAGES = ["Overview", "3D Globe Model", "Events", "Alerts", "Analytics",
              "Investigations", "Settings"]
 NAV_ICONS = {
-    "Overview": "space_dashboard", "Live Map": "map", "3D Globe": "public",
+    "Overview": "space_dashboard", "3D Globe Model": "public",
     "Events": "flare", "Alerts": "notifications_active",
     "Analytics": "monitoring", "Investigations": "manage_search", "Settings": "settings",
 }
@@ -1044,6 +1044,12 @@ NAV_ICONS = {
 # One label for the belt region, so the selector, the session key and every
 # caption spell it the same way.
 BELT_LABEL = "Jharkhand and Odisha belt"
+
+
+def _normalize_page(page: str) -> str:
+    if page in ("Live Map", "3D Globe"):
+        return "3D Globe Model"
+    return page if page in NAV_PAGES else "Overview"
 
 
 def _navigate(page: str | None = None, region: str | None = None, selected_cell: str | None = None):
@@ -1060,7 +1066,7 @@ def _navigate(page: str | None = None, region: str | None = None, selected_cell:
         if selected_cell is not None:
             st.session_state["selected_cell"] = selected_cell
         if page is not None:
-            st.session_state["page"] = page
+            st.session_state["page"] = _normalize_page(page)
         if region is not None:
             st.session_state["region"] = region
             st.session_state["topbar_region"] = "India" if region == "india" else BELT_LABEL
@@ -1072,7 +1078,8 @@ def _render_sidebar_nav() -> str:
         st.markdown('<div class="brand">Thermal Intelligence</div>'
                      '<div class="brand-sub">Satellite thermal monitoring for India</div>', unsafe_allow_html=True)
         st.write("")
-        page = st.session_state.get("page", "Overview")
+        page = _normalize_page(st.session_state.get("page", "Overview"))
+        st.session_state["page"] = page
         for p in NAV_PAGES:
             st.button(
                 p, key=f"navbtn_{p}", icon=f":material/{NAV_ICONS[p]}:",
@@ -1212,6 +1219,7 @@ def main():
     st.session_state.setdefault("selected_cell", None)
     st.session_state.setdefault("region", config.DEFAULT_REGION)
     st.session_state.setdefault("page", "Overview")
+    st.session_state["page"] = _normalize_page(st.session_state["page"])
     st.session_state.setdefault("alert_phone", config.ALERT_RECIPIENT_PHONE)
     st.session_state.setdefault("alert_auto_dispatch", config.ALERT_AUTO_DISPATCH_CRITICAL)
     st.session_state.setdefault("escalate_after_min", config.ALERT_ESCALATE_AFTER_MIN)
@@ -1244,9 +1252,9 @@ def main():
 
 # ----------------------------------------------------- regional (belt) routing --
 
-# Pages that are allowed to render the Filters panel. Every other page reuses
-# whatever the analyst last selected here (or the defaults) without showing the UI.
-FILTER_PAGES = ("Live Map",)
+# Legacy flat-map filters are no longer exposed. Retain saved selections for
+# reports and investigations; the globe owns its interactive controls.
+FILTER_PAGES = ()
 
 
 def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, page: str):
@@ -1254,8 +1262,7 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
     min_date, max_date = gdf["acq_date"].min().date(), gdf["acq_date"].max().date()
     frp_max_val = float(gdf["frp"].max()) if not gdf.empty else 50.0
 
-    # Shared (page-independent) widget keys so filters set on the Live Map page
-    # stay applied when the analyst moves to other pages.
+    # Preserve page-independent selections from earlier sessions.
     defaults = {
         "flt_date": (min_date, max_date),
         "flt_cls": list(CATEGORY_COLORS.keys()),
@@ -1302,8 +1309,7 @@ def _apply_regional_filters(gdf: gpd.GeoDataFrame, cluster_df: pd.DataFrame, pag
                     st.session_state.pop(k, None)
                 st.rerun()
     else:
-        # No filter UI on this page, so fall back to the last values chosen on the
-        # Live Map page, or to the wide-open defaults.
+        # Reuse saved selections, or the wide-open defaults.
         get = lambda k: st.session_state.get(k, defaults[k])
         date_range = get("flt_date")
         classifications, risk_levels = get("flt_cls"), get("flt_risk")
@@ -1550,6 +1556,7 @@ def _render_settings_belt():
 
 
 def _route_regional_page(page: str):
+    page = _normalize_page(page)
     gdf = _load_cached_detail()
     cluster_df = _load_cached_clusters()
     alerts = _load_cached_alerts()
@@ -1571,9 +1578,7 @@ def _route_regional_page(page: str):
         _render_alert_banner(alerts)
         _render_top_alerts_panel(alerts, key="belt")
         _render_overview(filtered, filtered_clusters, label_field, color_by)
-    elif page == "Live Map":
-        _render_live_map(filtered, label_field, color_by, show_wind_plumes)
-    elif page == "3D Globe":
+    elif page == "3D Globe Model":
         _render_3d_globe_page(filtered, filtered_clusters, is_regional=True)
     elif page == "Events":
         _render_events_table(filtered_clusters, "belt")
@@ -2226,7 +2231,7 @@ def build_national_map(points: pd.DataFrame, mode: str, show_heatmap: bool) -> f
 
 
 def _apply_national_filters(detail_df: pd.DataFrame, page: str):
-    show_ui = page == "Live Map"
+    show_ui = page in FILTER_PAGES
     states_available = sorted(s for s in detail_df["state"].dropna().unique())
     satellites_available = sorted(detail_df["satellite"].dropna().unique().astype(str))
     frp_max_n = float(detail_df["frp"].max()) if not detail_df.empty else 20.0
@@ -2571,6 +2576,7 @@ def _render_settings_national():
 
 
 def _route_national_page(page: str):
+    page = _normalize_page(page)
     if page == "Settings":
         _render_settings_national()
         return
@@ -2599,9 +2605,7 @@ def _route_national_page(page: str):
             _render_national_top_states_chart(state_summary, state_filter)
         with oc2:
             _render_risk_donut(filtered_events, key="national")
-    elif page == "Live Map":
-        _render_national_map_panel(filtered_detail, filtered_events, map_mode, show_heatmap, key="map_national_livemap")
-    elif page == "3D Globe":
+    elif page == "3D Globe Model":
         _render_3d_globe_page(filtered_detail, filtered_events, is_regional=False)
     elif page == "Events":
         _render_events_table(filtered_events, "india")

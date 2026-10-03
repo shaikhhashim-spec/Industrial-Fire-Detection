@@ -20,9 +20,8 @@ import { useFireSats, usePolledFeed } from "@/hooks/use-live-feeds";
 import { DEFAULT_LAYERS, SHORTCUT_TO_LAYER, type LayerKey, type Layers } from "@/lib/layers";
 import { fetchEonet, type Hazard } from "@/lib/hazards";
 import type { FireSat } from "@/lib/satellites";
-import { flatFromUrl, viewFromUrl } from "@/lib/view-params";
+import { viewFromUrl } from "@/lib/view-params";
 import { parentPath } from "@/lib/asset-url";
-import { RefreshCw } from "lucide-react";
 import { REGIONS, coverageLabel, inRegion, regionById, type RegionId } from "@/lib/regions";
 
 const NO_SATS: FireSat[] = [];
@@ -107,7 +106,7 @@ function Index() {
   // Eight classification hues exceed what a scatter can be read by, so risk
   // (four ordered states) is the default colouring, as on the dashboard map.
   const [colorBy, setColorBy] = useState<"category" | "risk">("risk");
-  const [spin, setSpin] = useState(() => viewFromUrl() === null && !flatFromUrl());
+  const [spin, setSpin] = useState(() => viewFromUrl() === null);
   const [minRisk, setMinRisk] = useState(0);
   const [showAllDetections, setShowAllDetections] = useState(
     () => regionById(new URLSearchParams(window.location.search).get("region")).id !== "india",
@@ -122,6 +121,8 @@ function Index() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [region, setRegion] = useState<RegionId>(() => {
     const url = new URL(window.location.href);
+    url.searchParams.delete("flat");
+    window.history.replaceState(null, "", url);
     const initial = regionById(url.searchParams.get("region"));
     if (url.searchParams.has("region") && initial.id !== "global" && !viewFromUrl()) {
       url.searchParams.set("lat", String(initial.center[1]));
@@ -323,28 +324,10 @@ function Index() {
           title, stats and export button, so don't show them twice. */}
       <header hidden={embedded} className="console-header">
         <div>
-          <h1 className="text-lg font-semibold">
-            {flatFromUrl() ? "Live Map" : "Thermal Intelligence globe"}
-          </h1>
+          <h1 className="text-xl font-semibold">Thermal Intelligence — 3D Planetary Model</h1>
           <p className="mt-1 flex items-center gap-2 text-[0.76rem] text-muted-foreground">
-            <span
-              className="size-2 rounded-[2px]"
-              style={{ background: dataSource === "live" ? "var(--ok)" : "var(--critical)" }}
-            />
-            {loading
-              ? "Loading NASA FIRMS export"
-              : dataSource === "live"
-                ? `${(scopedDataset?.source ?? dataMeta?.source) === "local_cache" ? "Stored NASA FIRMS run" : "NASA FIRMS"} / ${coverage}`
-                : "No pipeline export found"}
-            <button
-              onClick={loadData}
-              disabled={loading}
-              title="Reload dataset"
-              aria-label="Reload dataset"
-              className="console-icon"
-            >
-              <RefreshCw aria-hidden className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-            </button>
+            <span className="size-2 shrink-0 rounded-[2px] bg-accent" />
+            Orbital 3D Thermal Detection & Plume Dispersion Engine
             {parentPath() && (
               <a
                 href={parentPath() ?? "/"}
@@ -374,20 +357,6 @@ function Index() {
       </header>
 
       <div className="console-scope">
-        <label className="flex items-center gap-2 text-xs">
-          <span className="field-label">Region</span>
-          <select
-            aria-label="Region"
-            value={region}
-            onChange={(e) => changeRegion(e.target.value as RegionId)}
-          >
-            {REGIONS.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </label>
         <span className="text-xs text-muted-foreground">
           {coverage} / {timestamp}
           {dataMeta?.partial ? " / partial export" : ""} / {critical.toLocaleString()} critical
@@ -407,6 +376,21 @@ function Index() {
         <details className="console-controls" open={window.innerWidth >= 1024}>
           <summary className="text-xs font-semibold">Layers & filters</summary>
           <div className="flex flex-col gap-3 p-3">
+            <label className="flex flex-col gap-2 text-xs">
+              <span className="field-label">Scope / Region</span>
+              <select
+                aria-label="Region"
+                value={region}
+                onChange={(e) => changeRegion(e.target.value as RegionId)}
+                className="w-full min-w-0 rounded-sm border border-border bg-background p-2"
+              >
+                {REGIONS.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <LayerPanel
               layers={layers}
               onToggle={toggleLayer}
@@ -523,7 +507,6 @@ function Index() {
             }
           >
             <GlobeMap
-              key={region}
               scope={region}
               events={events}
               selectedId={selectedId}

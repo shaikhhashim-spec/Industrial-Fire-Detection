@@ -10,9 +10,3 @@ export function viewFromUrl(): { center: [number, number]; zoom: number } | null
   if (Math.abs(lat) > 85 || Math.abs(lon) > 180 || zoom < 1 || zoom > 18) return null;
   return { center: [lon, lat], zoom };
 }
-
-/** `?flat=1` asks for the flat (mercator) reading of the same live globe
- * instead of the spinning sphere — the "Live Map" nav entry links here. */
-export function flatFromUrl(): boolean {
-  return new URLSearchParams(window.location.search).get("flat") === "1";
-}

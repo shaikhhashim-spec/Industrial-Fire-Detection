@@ -1,4 +1,4 @@
-/** The sidebar navigation shared by every page — the same eight sections the
+/** The sidebar navigation shared by every page — the same sections the
  * local dashboard's sidebar has (see app.py NAV_PAGES). */
 import { h } from "./dom.mjs";
 import { ICON } from "./icons.mjs";
@@ -6,8 +6,7 @@ import { ICON } from "./icons.mjs";
 /** href is relative to the site root; every page lives at that root. */
 export const NAV = [
   { href: "./", label: "Overview", icon: "overview" },
-  { href: "globe/?flat=1&lat=22.5&lon=82.5&z=3.6", label: "Live Map", icon: "map" },
-  { href: "globe/", label: "3D Globe", icon: "globe" },
+  { href: "globe/", label: "3D Globe Model", icon: "globe" },
   { href: "events.html", label: "Events", icon: "events" },
   { href: "alerts.html", label: "Alerts", icon: "bell" },
   { href: "analytics.html", label: "Analytics", icon: "analytics" },
