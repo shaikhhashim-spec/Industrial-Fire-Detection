@@ -6,6 +6,7 @@ WORKDIR /build/holo-view-maker
 COPY holo-view-maker/package.json holo-view-maker/package-lock.json ./
 RUN npm ci
 COPY holo-view-maker/ ./
+COPY site/ /build/site/
 ENV BASE_PATH=/globe/
 RUN npm run build
 

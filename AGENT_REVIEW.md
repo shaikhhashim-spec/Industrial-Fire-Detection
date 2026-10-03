@@ -15,6 +15,8 @@ security boundaries and tests, not by a simulated argument or subjective winner.
 | Opening a TCP socket could imply readiness | Cloud probes Streamlit HTTP health plus public assets and secured database. Failed readiness returns 503. |
 | Console Origin checks compared only host | Check both scheme and host for HTTP and WebSocket requests. |
 | Free hosting mistaken for durable shared storage | One free service only; ephemeral server state and browser-local reviews are separately labeled. |
+| Linux container omitted shared frontend imports | Include site modules in the Node build stage, not only in the Python runtime. |
+| Mocked fetch hid a browser-specific receiver error | Preserve the native fetch receiver; test the actual capabilities network request and real API login/save flow. |
 
 ## Verification Boundaries
 
