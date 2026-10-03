@@ -1,5 +1,11 @@
 # Free Render Demonstration
 
+Linux CI for `b667d18` successfully built the image, started it with a 512 MB
+memory limit, passed readiness, and verified public Investigations/globe routes
+and anonymous console/API rejection. PostgreSQL parity also passed in CI.
+This is container verification, not a completed Render deployment or a memory
+guarantee for authenticated geospatial console sessions.
+
 The default `render.yaml` defines exactly one **free web service**. It creates no
 PostgreSQL database, worker, cron job, or persistent disk. Service creation is a
 manual owner action in Render; nothing in this repository provisions resources.

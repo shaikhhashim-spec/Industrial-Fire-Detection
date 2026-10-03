@@ -28,6 +28,12 @@ services are authorized. Authentication in a hosted console may consume more
 memory than idle health checks, so a free-tier smoke test is not a production
 capacity guarantee.
 
+Linux CI for commit `b667d18` passed all three jobs: 352 Python tests including
+PostgreSQL, frontend checks, and the 512 MB Docker startup/public-isolation smoke
+test. A targeted brace-expansion lockfile update subsequently removed the npm
+audit finding without upgrading unrelated packages. Render provisioning and
+authenticated hosted-console capacity testing remain outstanding.
+
 Public screening remains rule-based. Facility proximity, estimated plumes and
 classification rules do not establish a confirmed fire, cause or observed smoke.
 Unavailable exported evidence is not reconstructed or fabricated.
