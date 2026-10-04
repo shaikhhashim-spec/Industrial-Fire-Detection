@@ -4,6 +4,7 @@
  * `node --test "site/*.test.mjs"` and produce the same figures as the dashboard's Overview.
  */
 import { compactPlume, evaluateConsensus, validCoordinates } from "./consensus.mjs";
+import { matchesSearch } from "./search.mjs";
 
 export const RISK_COLORS = { LOW: "#0ca30c", MODERATE: "#fab219", HIGH: "#ec835a", CRITICAL: "#d03b3b" };
 export const PERSISTENT_COLOR = "#fab219";
@@ -143,7 +144,7 @@ export function matchAlerts(alerts, query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   return alerts.filter((a) =>
-    [a.id, a.region, a.state, a.district, a.country, a.place?.name, a.place?.country, a.location, formatLocation(a), a.classification].some((v) => String(v ?? "").toLowerCase().includes(q)),
+    matchesSearch([a.id, a.region, a.state, a.district, a.country, a.place?.name, a.place?.country, a.location, formatLocation(a), a.classification, a.severity], q),
   );
 }
 

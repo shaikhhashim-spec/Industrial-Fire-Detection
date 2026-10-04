@@ -1,4 +1,5 @@
-import { mountNav } from "./nav.mjs";
+import { mountNav, updateNavigationRegion } from "./nav.mjs";
+import { browserPreferences } from "./preferences.mjs";
 import { h } from "./dom.mjs";
 import { ICON } from "./icons.mjs";
 import { REGIONS, regionById } from "./regions.mjs";
@@ -27,7 +28,7 @@ let storageBlocked = !!storageError;
 let events = [], selected = null, activeTab = "Evidence", page = 1, loading = true;
 let filtered = [], dirty = false, draft = null, memoryOnly = false;
 const params = new URLSearchParams(location.search);
-let region = regionById(params.get("region")).id;
+let region = regionById(params.get("region") ?? browserPreferences().region).id;
 let requestedEvent = params.get("event");
 
 mountNav("investigations.html");
@@ -74,6 +75,7 @@ function filters() {
 
 function syncUrl(push = false) {
   const url = new URL(location.href); url.searchParams.set("region", region);
+  updateNavigationRegion(region);
   if (selected) url.searchParams.set("event", selected.id); else url.searchParams.delete("event");
   (push ? history.pushState : history.replaceState).call(history, null, "", url);
 }

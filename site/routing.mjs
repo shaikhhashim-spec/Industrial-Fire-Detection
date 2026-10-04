@@ -1,6 +1,7 @@
 /** Root deep links belong to the globe; an unscoped visit stays on Overview. */
 export function globeRedirectTarget(href) {
   const source = new URL(href);
+  if (source.searchParams.get("view") === "overview" && !source.searchParams.has("flat")) return null;
   if (!source.searchParams.has("region") && !source.searchParams.has("flat")) return null;
 
   const target = new URL("globe/", source);

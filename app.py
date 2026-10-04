@@ -460,7 +460,8 @@ def run_and_cache(api_key: str | None = None):
 
     # The globe is exported from the same run, so both views agree.
     try:
-        exported_3d = export_pipeline_events_for_holo_view(info.get("detail_gdf"), info.get("cluster_df"))
+        exported_3d = export_pipeline_events_for_holo_view(info.get("detail_gdf"), info.get("cluster_df"),
+                                                          hotspot_source=info.get("hotspot_source"))
         st.session_state["holo_events_count"] = len(exported_3d)
         st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
     except Exception as exc:
@@ -549,9 +550,9 @@ def _adopt_latest_national_run() -> None:
         return
     shared = _shared_runs()
     if _run_time(shared.get("national")) < _run_time(snap):
-        shared["national"] = snap
+        shared["national"] = {**snap, "loaded_from_snapshot": True}
     if _run_time(st.session_state.get("national_info")) < _run_time(snap):
-        st.session_state["national_info"] = snap
+        st.session_state["national_info"] = {**snap, "loaded_from_snapshot": True}
 
 
 def run_national_and_cache(api_key: str | None = None):
@@ -572,6 +573,7 @@ def run_national_and_cache(api_key: str | None = None):
         exported_3d = export_pipeline_events_for_holo_view(
             events_df=info.get("events_df"),
             national_detail_df=info.get("detail_df"),
+            hotspot_source=info.get("hotspot_source"),
         )
         st.session_state["holo_events_count"] = len(exported_3d)
         st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1065,6 +1067,8 @@ def _navigate(page: str | None = None, region: str | None = None, selected_cell:
     def _cb():
         if selected_cell is not None:
             st.session_state["selected_cell"] = selected_cell
+            if st.session_state.get("region") == "india":
+                st.session_state["national_inv_choice"] = selected_cell
         if page is not None:
             st.session_state["page"] = _normalize_page(page)
         if region is not None:
@@ -1125,32 +1129,38 @@ def _handle_global_search(query: str, region: str):
     query_norm = query.strip().lower()
     if not query_norm:
         return
-    if region == "jharkhand_odisha":
-        cluster_df = _load_cached_clusters()
-        if cluster_df.empty:
-            st.caption("No data loaded yet.")
-            return
-        matches = cluster_df[cluster_df["grid_cell"].str.lower().str.contains(query_norm, na=False, regex=False)]
-        if matches.empty:
-            st.caption(f"No match for '{query}'.")
-        else:
-            cell = matches.iloc[0]["grid_cell"]
-            st.button(f"Open {cell}", key="search_jump_belt", icon=":material/manage_search:",
-                      on_click=_navigate(page="Investigations", selected_cell=cell))
-    else:
-        info = st.session_state.get("national_info")
-        if not info or info["events_df"].empty:
-            st.caption("No data loaded yet.")
-            return
-        ev = info["events_df"]
-        matches = ev[ev.apply(lambda r: query_norm in str(r.get("grid_cell", "")).lower()
-                               or query_norm in str(r.get("state", "")).lower(), axis=1)]
-        st.caption(f"{len(matches)} matches. Refine them on the Events page." if not matches.empty else f"No match for '{query}'.")
+    from src.processing.search import search_events
+    info = st.session_state.get("national_info")
+    events = _load_cached_clusters() if region == "jharkhand_odisha" else (
+        info["events_df"] if info else pd.DataFrame()
+    )
+    if events.empty:
+        st.caption("No data loaded yet.")
+        return
+    matches = search_events(events, query)
+    if matches.empty:
+        st.caption("No matching events.")
+        return
+    st.caption(f"{len(matches):,} matching events" + ("; showing the first 50" if len(matches) > 50 else ""))
+    options = matches.head(50).reset_index(drop=True)
+    def label(index):
+        row = options.iloc[index]
+        identity = row.get("event_id", row.get("grid_cell", "Event"))
+        place = row.get("state", row.get("category", ""))
+        return f"{identity} | {place}"
+    selected = st.selectbox("Matching events", range(len(options)), format_func=label,
+                            key=f"search_result_{region}")
+    row = options.iloc[selected]
+    cell = row.get("grid_cell")
+    if cell is not None:
+        st.button("Open event", key="search_open_event", icon=":material/manage_search:",
+                  on_click=_navigate(page="Investigations", selected_cell=cell))
 
 
 SOURCE_LABELS = {
     "firms_live": "Live NASA FIRMS",
-    "local_cache": "Stored live history",
+    "local_cache": "Cached NASA FIRMS",
+    "mixed": "Live + cached NASA FIRMS",
     "overpass_live": "Live OpenStreetMap",
 }
 
@@ -1168,6 +1178,8 @@ def _render_topbar():
 
     source_key = (run_info or {}).get("hotspot_source")
     src = SOURCE_LABELS.get(source_key, "Not run yet")
+    if (run_info or {}).get("loaded_from_snapshot"):
+        src = "Saved NASA FIRMS run"
     run_at = (run_info or {}).get("run_at")
 
     # The belt's results live in files, so a session that did not run the
@@ -1177,10 +1189,17 @@ def _render_topbar():
         saved = config.PROCESSED_DIR / "cluster_summary.csv"
         if saved.exists():
             run_at = pd.Timestamp.fromtimestamp(saved.stat().st_mtime)
-            src = "Stored live run"
+            src = "Saved NASA FIRMS run"
 
     n_critical = sum(1 for a in alerts if a.get("severity") == "CRITICAL")
     updated = pd.Timestamp(run_at).strftime("%Y-%m-%d %H:%M") if run_at is not None else "never"
+    observed = (run_info or {}).get("observation_end")
+    if observed is None:
+        observations = info.get("detail_df") if region == "india" and info else _load_cached_detail() if region != "india" else None
+        if observations is not None and not observations.empty and "acq_date" in observations:
+            latest = pd.to_datetime(observations["acq_date"], errors="coerce").max()
+            if pd.notna(latest):
+                observed = latest.date().isoformat()
 
     c1, c2, c3, c4, c5 = st.columns([2.9, 1.7, 1.5, 1.9, 1.1])
     with c1:
@@ -1201,8 +1220,10 @@ def _render_topbar():
     with c3:
         st.markdown(f'<div class="topbar-meta">{src}<br>Updated <span class="v">{updated}</span></div>',
                      unsafe_allow_html=True)
+        if observed:
+            st.caption(f"Last observed {observed}")
     with c4:
-        query = st.text_input("Search", placeholder="Search event ID, state, grid cell",
+        query = st.text_input("Search", placeholder="Event ID, place, category, risk",
                                label_visibility="collapsed", key="global_search")
         if query:
             _handle_global_search(query, region)
@@ -1391,11 +1412,10 @@ def _render_events_table(df: pd.DataFrame, region_key: str):
         if df.empty:
             st.info("No events match the current filters.", icon=":material/search_off:")
             return
-        search = st.text_input("Search grid cell / state / classification", key=f"events_search_{region_key}")
-        table = _readable_event_columns(df)
-        if search:
-            m = table.astype(str).apply(lambda col: col.str.contains(search, case=False, na=False, regex=False)).any(axis=1)
-            table = table[m]
+        from src.processing.search import search_events
+        search = st.text_input("Search events", placeholder="Event ID, place, category, risk", key=f"events_search_{region_key}")
+        table = _readable_event_columns(search_events(df, search))
+        st.caption(f"{len(table):,} of {len(df):,} events")
         st.dataframe(_style_severity(table), hide_index=True, width="stretch")
         st.download_button("Export CSV", table.to_csv(index=False), f"events_{region_key}.csv", "text/csv",
                             key=f"events_export_{region_key}")
@@ -2303,12 +2323,14 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
                      help="Write the current run to the globe's events.json again"):
             with st.spinner("Exporting thermal events..."):
                 if is_regional:
-                    exported = export_pipeline_events_for_holo_view(_load_cached_detail(), _load_cached_clusters())
+                    exported = export_pipeline_events_for_holo_view(_load_cached_detail(), _load_cached_clusters(),
+                                                                    hotspot_source="local_cache")
                 else:
                     info = st.session_state.get("national_info")
                     exported = export_pipeline_events_for_holo_view(
                         events_df=info.get("events_df") if info else None,
                         national_detail_df=info.get("detail_df") if info else None,
+                        hotspot_source=info.get("hotspot_source") if info else "local_cache",
                     )
                 st.session_state["holo_events_count"] = len(exported)
                 st.session_state["holo_last_synced"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2333,7 +2355,17 @@ def _render_3d_globe_page(filtered_data: pd.DataFrame | gpd.GeoDataFrame | None,
         globe_url, is_local = "", False
 
     if globe_url:
-        st.iframe(f"{globe_url}/?embed=1", height=900)
+        from urllib.parse import urlencode
+        params = {"embed": "1", "region": "jharkhand-odisha" if is_regional else "india"}
+        cell = st.session_state.get("selected_cell")
+        candidates = filtered_clusters_or_events
+        if cell is not None and candidates is not None and "grid_cell" in candidates:
+            match = candidates.loc[candidates["grid_cell"] == cell]
+            if not match.empty:
+                row = match.iloc[0]
+                params.update(event=str(row.get("event_id", cell)), lat=str(row["latitude"]),
+                              lon=str(row["longitude"]), z="8")
+        st.iframe(f"{globe_url.rstrip('/')}/?{urlencode(params)}", height=900)
         st.caption("Drag to rotate, scroll to zoom, click a hotspot to see why it is there. "
                    "Press ? inside the globe for shortcuts."
                    + ("" if is_local else " Showing the published globe, since the dashboard was not "
@@ -2547,6 +2579,49 @@ def _render_national_analytics(filtered_detail: pd.DataFrame, filtered_events: p
 
 
 
+def _render_national_investigations(events: pd.DataFrame, detail: pd.DataFrame):
+    from src.incident_report import national_report, report_html
+    if events.empty:
+        st.info("No events match the current filters.", icon=":material/search_off:")
+        return
+    rows = events.sort_values("risk_score", ascending=False).set_index("grid_cell", drop=False)
+    cells = rows.index.tolist()
+    chosen = st.session_state.get("selected_cell")
+    st.session_state.setdefault("national_inv_choice", chosen if chosen in cells else cells[0])
+    if st.session_state["national_inv_choice"] not in cells:
+        st.session_state["national_inv_choice"] = cells[0]
+    cell = st.selectbox("Investigate event", cells, key="national_inv_choice",
+                        format_func=lambda value: f"{rows.loc[value].get('event_id', value)} | {rows.loc[value].get('state', '')}")
+    st.session_state["selected_cell"] = cell
+    event = rows.loc[cell].to_dict()
+    observations = detail.loc[detail["grid_cell"] == cell].sort_values("acq_date")
+    st.markdown(f"#### Thermal event `{event.get('event_id', cell)}`")
+    st.caption(f"{event.get('place_name', '')}, {event.get('district', '')}, {event.get('state', '')}")
+    a, b, c = st.columns(3)
+    a.metric("Risk score", f"{event['risk_score']:.0f}/100")
+    b.metric("Peak FRP", f"{event.get('max_frp', 0):.1f} MW")
+    c.metric("Days active", str(event.get("persistence_days", 0)))
+    st.write(event.get("category", "Requires Verification"))
+    st.caption(f"Coordinates: {event['latitude']:.4f}, {event['longitude']:.4f}")
+    if not observations.empty:
+        dates = pd.to_datetime(observations["acq_date"])
+        st.caption(f"Observed {dates.min().date()} to {dates.max().date()}")
+    st.markdown("**Classification evidence**")
+    for reason in event.get("reasons", []) or []:
+        st.write(reason)
+    _render_risk_explainer(event, key=f"national_inv_{cell}")
+    st.markdown("**Recent observations**")
+    columns = [column for column in ("acq_date", "frp", "confidence_numeric", "satellite", "daynight") if column in observations]
+    st.dataframe(observations[columns].tail(20).iloc[::-1], hide_index=True, width="stretch")
+    st.caption("Satellite screening does not confirm a fire. Human verification required.")
+    source = (st.session_state.get("national_info") or {}).get("hotspot_source", "unknown")
+    report = national_report(event, observations, source)
+    a, b, c = st.columns(3)
+    a.download_button("Report (text)", report, f"incident_{cell}.txt", "text/plain", key="national_report_txt")
+    b.download_button("Report (HTML)", report_html(report), f"incident_{cell}.html", "text/html", key="national_report_html")
+    c.button("Open 3D globe", icon=":material/public:", on_click=_navigate(page="3D Globe Model"))
+
+
 def _render_settings_national():
     info = st.session_state.get("national_info") or {}
     tab_pipeline, tab_window, tab_alerts = st.tabs(["Pipeline", "Data window", "Alerts"])
@@ -2614,11 +2689,7 @@ def _route_national_page(page: str):
     elif page == "Analytics":
         _render_national_analytics(filtered_detail, filtered_events, state_summary, state_filter)
     elif page == "Investigations":
-        st.info("Investigations need the OpenStreetMap join and rule classification, which only run for the "
-                "detailed Jharkhand and Odisha belt. Running them for all of India on every load would be far "
-                "too slow.", icon=":material/info:")
-        st.button("Open the belt view", key="nav_restricted_investigations", icon=":material/map:",
-                  on_click=_navigate(page="Investigations", region="jharkhand_odisha"))
+        _render_national_investigations(filtered_events, filtered_detail)
 
 
 def _render_national_alert_banner(alerts: list[dict]):

@@ -37,7 +37,7 @@ from starlette.responses import (
     StreamingResponse,
 )
 from starlette.routing import Route, WebSocketRoute
-from starlette.websockets import WebSocket
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 # Windows can map .mjs to text/plain, which browsers refuse for module workers,
 # and the globe's map worker is exactly that.
@@ -251,7 +251,7 @@ async def _proxy_ws(websocket: WebSocket) -> None:
     finally:
         try:
             await websocket.close()
-        except RuntimeError:
+        except (RuntimeError, WebSocketDisconnect):
             pass  # already closed
 
 

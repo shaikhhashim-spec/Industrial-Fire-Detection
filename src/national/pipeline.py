@@ -78,7 +78,7 @@ def load_national_hotspots(api_key: str | None = None) -> tuple[pd.DataFrame, st
                 api_key=key, fallback_bbox=config.INDIA_BBOX, total_days=total_days,
             )
             if not df.empty:
-                return df, "firms_live"
+                return df, df.attrs.get("source", "firms_live")
             print("[national.pipeline] FIRMS returned no rows, using stored live history")
         except firms_fetch.FirmsAuthError as exc:
             print(f"[national.pipeline] FIRMS auth error: {exc}")
@@ -177,6 +177,8 @@ def run_national_pipeline(api_key: str | None = None) -> dict:
         .sort_values("hotspots", ascending=False)
     )
 
+    clean_df.attrs["source"] = hotspot_source
+    events.attrs["source"] = hotspot_source
     info = {
         "detail_df": clean_df,
         "events_df": events,
@@ -191,6 +193,8 @@ def run_national_pipeline(api_key: str | None = None) -> dict:
         "persistence_window_days": window_days,
         "model_info": model_info,
         "run_at": pd.Timestamp.now(),
+        "observation_start": clean_df["acq_date"].min().date().isoformat(),
+        "observation_end": clean_df["acq_date"].max().date().isoformat(),
     }
     # One live run feeds everything: the dashboard adopts this snapshot on
     # startup, and the 3D globe is exported from the same run.

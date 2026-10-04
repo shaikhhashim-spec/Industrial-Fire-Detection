@@ -7,11 +7,9 @@
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
 import { ICON } from "./icons.mjs";
-import { boot, loadData, renderMeta } from "./page.mjs";
-import { applyRegionBranding } from "./branding.mjs";
+import { bootWorkspace } from "./page.mjs";
 import { alertCard } from "./alerts-view.mjs";
 import { ACCENT, PERSISTENT_COLOR, RISK_COLORS, alertsFrom, matchAlerts, summarize } from "./overview.mjs";
-import { REGIONS, inRegion, regionById } from "./regions.mjs";
 
 const TOP = 3;
 const SEARCH_PAGE = 10;
@@ -62,7 +60,7 @@ function renderOverview(data, region, coverage) {
     if (!shown.length) {
       list.append(h("p", { class: "empty" }, searching ? "No alert matches that search." : "No high or critical alerts in this run."));
     }
-    for (const alert of shown) list.append(...alertCard(alert));
+    for (const alert of shown) list.append(...alertCard(alert, region.id));
 
     const more = pool.length - shown.length;
     if (searching && more > 0) {
@@ -151,33 +149,4 @@ function renderOverview(data, region, coverage) {
   };
 }
 
-boot(async (data) => {
-  let global = null;
-  try {
-    const candidate = await loadData("globe/data/global-events.json");
-    if (candidate.meta?.scope === "global" && Array.isArray(candidate.events)) global = candidate;
-  } catch { /* The national overview remains available when the global feed fails. */ }
-  const selector = document.querySelector("#region");
-  selector.replaceChildren(...REGIONS.map((region) => h("option", { value: region.id }, region.label)));
-  const queryRegion = new URLSearchParams(location.search).get("region");
-  selector.value = regionById(queryRegion ?? (global ? "global" : "india")).id;
-  const render = () => {
-    const region = regionById(selector.value);
-    applyRegionBranding(region);
-    const url = new URL(location.href);
-    url.searchParams.set("region", region.id);
-    history.replaceState(null, "", url);
-    const scoped = region.id === "india" || !global ? data : global;
-    const stale = scoped.meta?.generatedAt && Date.now() - Date.parse(scoped.meta.generatedAt) > 12 * 3600000;
-    const coverage = `${scoped.meta?.scope === "global" ? "Global export" : "India export"}${scoped.meta?.partial ? " (partial / sampled)" : ""}${stale ? " / stale dataset" : ""}`;
-    renderMeta(scoped.meta ?? {});
-    // Regional totals must not inherit whole-export aggregate counts.
-    renderOverview({
-      ...scoped,
-      events: (scoped.events ?? []).filter((event) => inRegion(event, region.id)),
-      meta: { ...scoped.meta, observations: undefined, persistentSources: undefined, statesWithActivity: undefined, satellites: undefined },
-    }, region, coverage);
-  };
-  selector.onchange = render;
-  render();
-});
+bootWorkspace(renderOverview);

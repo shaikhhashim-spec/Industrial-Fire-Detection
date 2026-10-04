@@ -47,12 +47,16 @@ validation would need a manually verified ground-truth dataset, which is listed
 as a limitation, not glossed over.
 
 **8. What happens when FIRMS is unavailable?**
-A fallback hierarchy: **live API → local cache → demo dataset.** This isn't
-theoretical — during development, the public Overpass (OSM) endpoint returned a
-504 mid-session and the app fell back to its cache automatically with no code
-change needed. Separately, a live 2-day FIRMS pull legitimately returned zero
-rows for the primary region (most likely monsoon cloud cover) — the pipeline
-correctly fell through to demo data rather than showing a broken page.
+The regional fallback is **live FIRMS API -> cached real FIRMS observations ->
+clear error**. There is no synthetic demo dataset. Invalid or empty raw-cache
+files are skipped so an older usable real pull can be used. Cached observations
+retain their acquisition dates; running the pipeline today does not make an old
+observation current. OpenStreetMap has its own separate cache fallback.
+
+For judging, refresh before the session, run the demo preflight, and start with
+`python start_all.py --no-refresh`. Existing results can be inspected without a
+new FIRMS request. Online map tiles and imagery still require connectivity.
+If no real data is available, show the error; never claim invented detections.
 
 **9. Can the system detect every fire?**
 No, and it doesn't claim to. Small fires, fires under cloud cover or smoke, and

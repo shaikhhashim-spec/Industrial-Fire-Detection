@@ -201,7 +201,12 @@ def _fetch_chunk(
     if cache_file.exists():
         age_hours = (time.time() - cache_file.stat().st_mtime) / 3600
         if age_hours < config.FIRMS_CACHE_TTL_HOURS:
-            return pd.read_csv(cache_file)
+            try:
+                df = _parse_global_csv(cache_file.read_text(encoding="utf-8"))
+                df.attrs["source"] = "local_cache"
+                return df
+            except (OSError, ValueError, FirmsAPIError):
+                pass
 
     if country:
         url = f"{config.FIRMS_COUNTRY_BASE_URL}/{api_key}/{source}/{country}/{day_range}/{end_date}"
@@ -217,20 +222,25 @@ def _fetch_chunk(
                 if any(m in error_msg.lower() for m in ("invalid", "unauthorized", "exceed")):
                     raise FirmsAuthError(f"FIRMS rejected the request for {source}: {error_msg}")
                 raise FirmsAPIError(f"FIRMS returned an error payload for {source}: {error_msg}")
-            df = pd.read_csv(io.StringIO(resp.text))
-            df.to_csv(cache_file, index=False)
+            df = _parse_global_csv(resp.text)
+            _atomic_cache_text(cache_file, resp.text)
+            df.attrs["source"] = "firms_live"
             return df
         except FirmsAuthError:
             raise
-        except (requests.exceptions.RequestException, FirmsAPIError, pd.errors.ParserError) as exc:
+        except (requests.exceptions.RequestException, FirmsAPIError, ValueError, OSError) as exc:
             last_error = _redact(str(exc), api_key)
             if attempt < config.FIRMS_MAX_RETRIES:
                 time.sleep(config.FIRMS_BACKOFF_FACTOR ** attempt)
 
     if cache_file.exists():
-        df = pd.read_csv(cache_file)
-        df.attrs["stale_cache_fallback"] = True
-        return df
+        try:
+            df = _parse_global_csv(cache_file.read_text(encoding="utf-8"))
+            df.attrs["stale_cache_fallback"] = True
+            df.attrs["source"] = "local_cache"
+            return df
+        except (OSError, ValueError, FirmsAPIError):
+            pass
     raise FirmsAPIError(f"{source}: all {config.FIRMS_MAX_RETRIES} attempts failed ({last_error}), no cache available")
 
 
@@ -241,7 +251,7 @@ def fetch_hotspots(
 ) -> pd.DataFrame:
     """Pull `total_days` of history across all `sources` for the target
     bbox, deduped. Raises FirmsAuthError if no key/an invalid key is
-    configured — caller should fall back to cache/demo data."""
+    configured; caller should fall back to cached real observations."""
     import datetime as dt
 
     sources = sources or config.FIRMS_SOURCES
@@ -277,6 +287,8 @@ def fetch_hotspots(
     dedupe_keys = [k for k in ["latitude", "longitude", "acq_date", "acq_time", "satellite"] if k in df.columns]
     df = df.drop_duplicates(subset=dedupe_keys)
     df["acq_date"] = pd.to_datetime(df["acq_date"])
+    origins = {frame.attrs.get("source", "firms_live") for frame in frames}
+    df.attrs["source"] = next(iter(origins)) if len(origins) == 1 else "mixed"
 
     raw_path = config.RAW_DIR / f"firms_{today.isoformat()}.csv"
     df.to_csv(raw_path, index=False)
@@ -374,4 +386,6 @@ def fetch_country_hotspots(
     dedupe_keys = [k for k in ["latitude", "longitude", "acq_date", "acq_time", "satellite"] if k in df.columns]
     df = df.drop_duplicates(subset=dedupe_keys)
     df["acq_date"] = pd.to_datetime(df["acq_date"])
+    origins = {frame.attrs.get("source", "firms_live") for frame in frames}
+    df.attrs["source"] = next(iter(origins)) if len(origins) == 1 else "mixed"
     return df.reset_index(drop=True)

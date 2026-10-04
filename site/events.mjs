@@ -6,12 +6,16 @@
  * export reads.
  */
 
+import { matchesSearch } from "./search.mjs";
+
 const int = (v) => Math.round(v).toLocaleString("en-US");
 const mw = (v) => v.toFixed(1);
 const coord = (v) => v.toFixed(4);
 
 export const COLUMNS = [
   { key: "id", label: "Event" },
+  { key: "country", label: "Country" },
+  { key: "region", label: "Region" },
   { key: "state", label: "State" },
   { key: "district", label: "District" },
   { key: "place", label: "Nearest place" },
@@ -53,6 +57,8 @@ function formatFacility(facility) {
 export function toRow(event) {
   return {
     id: event.id,
+    country: event.country ?? "",
+    region: event.region ?? "",
     state: event.state ?? "",
     district: event.district ?? "",
     place: formatPlace(event.place),
@@ -62,7 +68,7 @@ export function toRow(event) {
     frp: event.frp ?? 0,
     persistenceDays: event.persistenceDays ?? 0,
     detectionCount: event.detectionCount ?? 0,
-    corroborated: event.corroborated === false ? "No" : "Yes",
+    corroborated: event.corroborated === true ? "Yes" : event.corroborated === false ? "No" : "Unknown",
     facility: formatFacility(event.facility),
     reasons: Array.isArray(event.reasons) ? event.reasons.join(" ") : "",
     latitude: event.latitude,
@@ -77,13 +83,13 @@ export function toRows(events) {
 /** Every row whose event id, place or classification contains the query.
  * All rows for an empty query — this is a live filter, not a search-results
  * toggle like the Overview/Alerts search. */
-export function filterEventRows(rows, query) {
+export function filterEventRows(rows, query, filters = {}) {
   const q = query.trim().toLowerCase();
-  if (!q) return rows;
+  if (!q && !filters.risk && !filters.category && !filters.minDays) return rows;
   return rows.filter((r) =>
-    [r.id, r.state, r.district, r.category, r.place, r.facility].some((v) =>
-      String(v ?? "").toLowerCase().includes(q),
-    ),
+    matchesSearch([r.id, r.country, r.region, r.state, r.district, r.category, r.riskLevel, r.place, r.facility], q) &&
+    (!filters.risk || r.riskLevel === filters.risk) && (!filters.category || r.category === filters.category) &&
+    (!filters.minDays || r.persistenceDays >= Number(filters.minDays)),
   );
 }
 
@@ -100,8 +106,9 @@ export function sortRows(rows, key, dir = "desc") {
  * quoting — matching the dashboard's own "Export CSV" download. */
 export function toCsv(rows) {
   const esc = (v) => {
-    const s = String(v ?? "");
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    let s = String(v ?? "");
+    if (/^[\s\u0000-\u001f]*[=+@-]/.test(s) || /^[\t\r\n]/.test(s)) s = `'${s}`;
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = COLUMNS.map((c) => esc(c.label)).join(",");
   const lines = rows.map((r) => COLUMNS.map((c) => esc(r[c.key])).join(","));

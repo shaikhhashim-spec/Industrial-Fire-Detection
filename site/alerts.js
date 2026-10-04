@@ -7,8 +7,9 @@
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
 import { ICON } from "./icons.mjs";
-import { boot, loadData, renderMeta, renderBranding } from "./page.mjs";
-import { REGIONS, inRegion, regionById } from "./regions.mjs";
+import { bootWorkspace } from "./page.mjs";
+import { toRows, filterEventRows, toCsv } from "./events.mjs";
+import { downloadText } from "./download.mjs";
 import { alertCard } from "./alerts-view.mjs";
 import { RISK_COLORS, alertsFrom, matchAlerts } from "./overview.mjs";
 
@@ -20,7 +21,7 @@ const TIERS = ["CRITICAL", "HIGH"];
 
 mountNav("alerts.html");
 
-function main(data) {
+function main(data, region) {
   const alerts = alertsFrom(data.events);
   const state = { query: "", pageSize: {}, searchPageSize: SEARCH_PAGE };
   for (const tier of TIERS) state.pageSize[tier] = GROUP_PAGE;
@@ -46,7 +47,7 @@ function main(data) {
       ),
     );
     if (!shown.length) list.append(h("p", { class: "empty" }, "No alert matches that search."));
-    for (const alert of shown) list.append(...alertCard(alert));
+    for (const alert of shown) list.append(...alertCard(alert, region.id));
     if (matches.length > shown.length) {
       list.append(
         h(
@@ -93,7 +94,7 @@ function main(data) {
         panel.append(h("p", { class: "empty" }, `No ${tier.toLowerCase()} alerts in this run.`));
         return panel;
       }
-      for (const alert of shown) panel.append(...alertCard(alert));
+      for (const alert of shown) panel.append(...alertCard(alert, region.id));
       if (group.length > shown.length) {
         panel.append(
           h(
@@ -125,40 +126,20 @@ function main(data) {
   }
   render();
 
-  document.querySelector("#content").replaceChildren(content);
+  const toolbar = h("div", { class: "workspace-tools" },
+    h("a", { class: "btn", href: `investigations.html?${new URLSearchParams({ region: region.id })}` }, ICON.search(), "Investigations"),
+    h("button", { class: "btn", type: "button", onclick: () => {
+      const rows = filterEventRows(toRows(data.events.filter((event) => TIERS.includes(event.riskLevel))), state.query);
+      downloadText(toCsv(rows), `alerts-${region.id}.csv`, "text/csv");
+    } }, ICON.download(), "Export CSV"));
+  document.querySelector("#content").replaceChildren(toolbar, content);
   document.querySelector("#search").oninput = (e) => {
     state.query = e.target.value;
     state.searchPageSize = SEARCH_PAGE;
     render();
   };
+  const search = document.querySelector("#search");
+  if (search.value) search.oninput({ target: search });
 }
 
-boot(async (national) => {
-  let global = null;
-  try {
-    const candidate = await loadData("globe/data/global-events.json");
-    if (candidate.meta?.scope === "global" && Array.isArray(candidate.events)) global = candidate;
-  } catch { /* National data remains available, with its actual coverage displayed. */ }
-  const selector = document.querySelector("#region");
-  selector.replaceChildren(...REGIONS.map((region) => h("option", { value: region.id }, region.label)));
-  selector.value = regionById(new URLSearchParams(location.search).get("region") ?? (global ? "global" : "india")).id;
-  const render = () => {
-    const region = regionById(selector.value);
-    const source = region.id === "india" || !global ? national : global;
-    const url = new URL(location.href);
-    url.searchParams.set("region", region.id);
-    history.replaceState(null, "", url);
-    renderBranding(region.id);
-    renderMeta(source.meta ?? {});
-    main({ ...source, events: (source.events ?? []).filter((event) => inRegion(event, region.id)) });
-    const generated = Date.parse(source.meta?.generatedAt ?? "");
-    const scope = source.meta?.scope === "global" ? "Global export" : "India export";
-    document.querySelector("#content").prepend(h("p", { class: "scope-note", role: "status" },
-      `${region.label} geographic window / ${scope}${source.meta?.partial ? " / partial export" : ""}${Number.isFinite(generated) && Date.now() - generated > 12 * 3600000 ? " / stale dataset" : ""}. Satellite detections require verification.`,
-    ));
-    const search = document.querySelector("#search");
-    if (search.value) search.oninput({ target: search });
-  };
-  selector.onchange = render;
-  render();
-});
+bootWorkspace(main);

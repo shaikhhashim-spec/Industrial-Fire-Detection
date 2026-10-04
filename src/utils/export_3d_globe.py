@@ -518,6 +518,7 @@ def export_pipeline_events_for_holo_view(
     events_df: pd.DataFrame | None = None,
     national_detail_df: pd.DataFrame | None = None,
     destinations: list[Path | str] | None = None,
+    hotspot_source: str | None = None,
 ) -> list[dict[str, Any]]:
     """Main export entrypoint. Transmutes live or cached detections into 3D Holo format
 
@@ -537,20 +538,20 @@ def export_pipeline_events_for_holo_view(
         pass
     elif cluster_df is not None and not cluster_df.empty:
         events.extend(transform_regional_to_holo_events(detail_gdf, cluster_df))
-        sources.add("firms_live")
+        sources.add(hotspot_source or cluster_df.attrs.get("source", "firms_live"))
     elif config.CLASSIFIED_GEOJSON.exists() and (config.PROCESSED_DIR / "cluster_summary.csv").exists():
         try:
             g_df = gpd.read_file(config.CLASSIFIED_GEOJSON)
             c_df = pd.read_csv(config.PROCESSED_DIR / "cluster_summary.csv")
             events.extend(transform_regional_to_holo_events(g_df, c_df))
-            sources.add("firms_live")
+            sources.add("local_cache")
         except Exception as e:
             print(f"[export_3d_globe] failed to read cached regional data: {e}")
 
     # 2. Check national data if available
     if events_df is not None and not events_df.empty:
         nat_events = transform_national_to_holo_events(national_detail_df, events_df)
-        sources.add("firms_live")
+        sources.add(hotspot_source or events_df.attrs.get("source", "firms_live"))
         # Avoid duplicate IDs
         existing_ids = {e["id"] for e in events}
         for ne in nat_events:
@@ -584,6 +585,8 @@ def export_pipeline_events_for_holo_view(
             "scope": "india" if national_live else "jharkhand_odisha",
             "generatedAt": pd.Timestamp.now(tz="UTC").isoformat(),
             "events": len(events),
+            "observationStart": min((e["acqDate"] for e in events if e.get("acqDate")), default=None),
+            "observationEnd": max((e["acqDate"] for e in events if e.get("acqDate")), default=None),
             "windowDays": config.NATIONAL_HISTORY_DAYS,
             **(_national_summary(events_df, national_detail_df) if national_live else {}),
             "attribution": [

@@ -111,7 +111,7 @@ export function explainer(alert) {
 
 /** [card, details] — `details` is the collapsed explainer, built lazily the
  * first time it opens so a long list of alerts stays light. */
-export function alertCard(alert) {
+export function alertCard(alert, region = "india") {
   const days = alert.days;
   const facts = [];
   if (alert.priority != null) facts.push(["Priority", `#${alert.priority}`]);
@@ -132,7 +132,7 @@ export function alertCard(alert) {
       { class: "title" },
       h("i", { class: "sev", style: `--sev:${RISK_COLORS[alert.severity]}` }),
       alert.title,
-      h("span", { class: "id" }, alert.id),
+      h("a", { class: "id", href: `investigations.html?${new URLSearchParams({ region, event: alert.id })}` }, alert.id),
     ),
     h(
       "div",

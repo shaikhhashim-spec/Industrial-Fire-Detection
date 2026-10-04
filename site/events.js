@@ -7,11 +7,12 @@
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
 import { ICON } from "./icons.mjs";
-import { boot } from "./page.mjs";
+import { bootWorkspace } from "./page.mjs";
+import { browserPreferences } from "./preferences.mjs";
 import { COLUMNS, filterEventRows, formatCell, sortRows, toCsv, toRows } from "./events.mjs";
 import { RISK_COLORS } from "./overview.mjs";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = browserPreferences().pageSize;
 
 mountNav("events.html");
 
@@ -29,7 +30,7 @@ function headerCell(col, sort, onSort) {
   );
 }
 
-function bodyCell(col, row) {
+function bodyCell(col, row, region) {
   const value = row[col.key];
   if (col.key === "riskLevel") {
     return h(
@@ -42,15 +43,20 @@ function bodyCell(col, row) {
   return h(
     "td",
     { class: col.numeric ? "num" : col.key === "id" ? "id" : null, "data-label": col.label },
-    formatCell(col, value),
+    col.key === "id"
+      ? h("a", { href: `investigations.html?${new URLSearchParams({ region, event: String(value) })}` }, formatCell(col, value))
+      : formatCell(col, value),
   );
 }
 
-function main(data) {
+function main(data, selectedRegion) {
   const allRows = toRows(data.events);
-  const state = { query: "", sortKey: "riskScore", sortDir: "desc", pageSize: PAGE_SIZE };
+  const region = selectedRegion.id;
+  const search = document.querySelector("#search");
+  search.value = new URLSearchParams(location.search).get("q") ?? search.value;
+  const state = { query: search.value, sortKey: "riskScore", sortDir: "desc", pageSize: PAGE_SIZE, filters: {} };
   const table = h("table", {});
-  const rowcount = h("p", { class: "rowcount" });
+  const rowcount = h("p", { class: "rowcount", role: "status", "aria-live": "polite" });
   const more = h(
     "div",
     { class: "more" },
@@ -78,13 +84,15 @@ function main(data) {
   }
 
   function render() {
-    const filtered = filterEventRows(allRows, state.query);
+    const filtered = filterEventRows(allRows, state.query, state.filters);
     const sorted = sortRows(filtered, state.sortKey, state.sortDir);
     const shown = sorted.slice(0, state.pageSize);
 
     table.replaceChildren(
       h("thead", {}, h("tr", {}, COLUMNS.map((c) => headerCell(c, { key: state.sortKey, dir: state.sortDir }, onSort)))),
-      h("tbody", {}, shown.map((row) => h("tr", {}, COLUMNS.map((c) => bodyCell(c, row))))),
+      h("tbody", {}, shown.length
+        ? shown.map((row) => h("tr", {}, COLUMNS.map((c) => bodyCell(c, row, region))))
+        : h("tr", {}, h("td", { colspan: COLUMNS.length, class: "empty" }, "No matching events."))),
     );
     rowcount.textContent =
       filtered.length === allRows.length
@@ -93,7 +101,21 @@ function main(data) {
     more.hidden = shown.length >= sorted.length;
   }
 
+  const controls = h("div", { class: "workspace-settings", "aria-label": "Event filters" });
+  for (const [id, label, choices] of [
+    ["risk", "Risk", ["LOW", "MODERATE", "HIGH", "CRITICAL"]],
+    ["category", "Category", [...new Set(allRows.map((row) => row.category).filter(Boolean))].sort()],
+    ["minDays", "Days active", ["2", "5", "10", "20"]],
+  ]) {
+    const select = h("select", { class: "select", id: `filter-${id}`, onchange: () => {
+      state.filters[id] = select.value;
+      state.pageSize = PAGE_SIZE;
+      render();
+    } }, h("option", { value: "" }, "All"), choices.map((value) => h("option", { value }, id === "minDays" ? `${value}+ days` : value)));
+    controls.append(h("label", { class: "field" }, h("span", { class: "field-label" }, label), select));
+  }
   document.querySelector("#content").replaceChildren(
+    controls,
     h(
       "section",
       { class: "panel" },
@@ -114,13 +136,13 @@ function main(data) {
   );
   render();
 
-  document.querySelector("#search").addEventListener("input", (e) => {
+  document.querySelector("#search").oninput = (e) => {
     state.query = e.target.value;
     state.pageSize = PAGE_SIZE;
     render();
-  });
-  document.querySelector("#export-btn").addEventListener("click", () => {
-    const rows = sortRows(filterEventRows(allRows, state.query), state.sortKey, state.sortDir);
+  };
+  document.querySelector("#export-btn").onclick = () => {
+    const rows = sortRows(filterEventRows(allRows, state.query, state.filters), state.sortKey, state.sortDir);
     const blob = new Blob([toCsv(rows)], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = h("a", { href: url, download: "events.csv" });
@@ -128,7 +150,7 @@ function main(data) {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  });
+  };
 }
 
-boot(main);
+bootWorkspace(main);

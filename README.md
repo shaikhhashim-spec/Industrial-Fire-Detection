@@ -8,6 +8,10 @@ Ministry: NTRO · Category: Software · Target: Jharkhand–Odisha Iron Ore & St
 
 ## Run it
 
+For judging: [demo runbook](SIH_DEMO_SCRIPT.md). Run
+`python scripts/demo_preflight.py` to audit the saved export and prepare a sample
+incident report and an unresolved independent-review queue without network calls.
+
 ```bash
 python start_all.py
 ```
@@ -18,7 +22,8 @@ inside that one address, so there is nothing else to open (details in
 
 The dashboard is a Python server, so it cannot live on GitHub Pages. A
 [public preview](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/)
-is published there instead: the dashboard's Overview page, with a link into the
+is published there instead: a public workspace with Overview, Events, Alerts,
+Analytics, Investigations, personal Settings, and a link into the
 [3D globe](https://shaikhhashim-spec.github.io/Industrial-Fire-Detection/globe/).
 Both are rebuilt every six hours from live NASA FIRMS data (see
 [Deployment](#15-deployment)).
@@ -365,7 +370,7 @@ request.
 
 ## 15. Deployment
 
-### Public preview on GitHub Pages
+### Public workspace on GitHub Pages
 
 `.github/workflows/pages.yml` publishes to `https://<owner>.github.io/<repo>/` on
 every push to `main`, and again every six hours. The site is two parts, put
@@ -375,8 +380,15 @@ production build under `/globe/`, the same shape the local gateway serves. The
 Overview draws the dashboard's Overview screen (the four tiles, the alert banner,
 the top alerts with their explanations, and search) from the same `events.json`
 the globe reads; its counts are worked out by `site/overview.mjs`, tested with
-`node --test "site/*.test.mjs"`. The other dashboard pages need the Python
-server and run locally. Set the repository secret `FIRMS_API_KEY` (Settings, Secrets and
+`node --test "site/*.test.mjs"`. Events, Alerts, Analytics, Investigations,
+report exports, browser-local reviews and personal preferences all run on Pages.
+Navigation retains the geographic region. Overview navigation uses
+`?view=overview&region=global`; older root map deep links still enter the globe.
+India and global snapshots load independently, so either working feed keeps the
+workspace available with its actual coverage stated. Personal reviews are not
+shared between visitors. Shared accounts/reviews, manual pipeline execution,
+and SMS/voice delivery require a hosted backend; Pages does not execute Python.
+Set the repository secret `FIRMS_API_KEY` (Settings, Secrets and
 variables, Actions) and each run first re-pulls live NASA FIRMS data for India
 with `scripts/refresh_national_globe.py`. If the secret is missing or FIRMS is
 unreachable, the run still publishes, using the last committed

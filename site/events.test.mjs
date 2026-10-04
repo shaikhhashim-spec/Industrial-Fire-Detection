@@ -39,9 +39,10 @@ test("a place under 1 km, or missing, reads as the place name or blank, not a di
   assert.equal(toRow(event({ reasons: undefined })).reasons, "");
 });
 
-test("corroborated is only No when the event says so explicitly", () => {
+test("missing corroboration is unknown rather than positive evidence", () => {
   assert.equal(toRow(event({ corroborated: false })).corroborated, "No");
-  assert.equal(toRow(event({ corroborated: undefined })).corroborated, "Yes");
+  assert.equal(toRow(event({ corroborated: undefined })).corroborated, "Unknown");
+  assert.equal(toRow(event({ corroborated: true })).corroborated, "Yes");
 });
 
 test("toRows maps every event, and every column has a row key", () => {
@@ -82,6 +83,13 @@ test("formatCell rounds risk score, keeps one decimal on FRP, and four on coordi
 test("toCsv quotes values that contain a comma and matches the column labels", () => {
   const rows = toRows([event({ reasons: ["Contains, a comma"] })]);
   const csv = toCsv(rows);
-  assert.ok(csv.startsWith("Event,State,District,Nearest place"));
+  assert.ok(csv.startsWith("Event,Country,Region,State,District,Nearest place"));
   assert.ok(csv.includes('"Contains, a comma"'));
+});
+
+test("CSV treats formula-like context as text and quotes carriage returns", () => {
+  const csv = toCsv(toRows([event({ id: "=1+1", state: "A\rB", category: "  @SUM(1)" })]));
+  assert.ok(csv.includes("'=1+1"));
+  assert.ok(csv.includes('"A\rB"'));
+  assert.ok(csv.includes("'  @SUM(1)"));
 });

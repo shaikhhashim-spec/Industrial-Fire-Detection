@@ -368,12 +368,22 @@ function Index() {
             <span className="size-2 shrink-0 rounded-[2px] bg-accent" />
             Orbital 3D Thermal Detection & Plume Dispersion Engine
             {parentPath() && (
-              <a
-                href={parentPath() ?? "/"}
-                className="rounded-sm border border-border px-1.5 py-0.5 text-[0.7rem] transition-colors duration-150 hover:bg-muted"
-              >
-                Overview
-              </a>
+              <span className="flex flex-wrap gap-2" aria-label="Workspace navigation">
+                {[
+                  ["", "Overview"],
+                  ["events.html", "Events"],
+                  ["alerts.html", "Alerts"],
+                  ["investigations.html", "Investigations"],
+                ].map(([path, label]) => (
+                  <a
+                    key={label}
+                    href={`${parentPath() ?? "/"}${path}?${new URLSearchParams({ region, ...(path ? {} : { view: "overview" }) })}`}
+                    className="rounded-sm border border-border px-1.5 py-0.5 text-[0.7rem] transition-colors duration-150 hover:bg-muted"
+                  >
+                    {label}
+                  </a>
+                ))}
+              </span>
             )}
           </p>
         </div>

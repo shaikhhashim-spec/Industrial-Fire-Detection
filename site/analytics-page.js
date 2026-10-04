@@ -7,7 +7,7 @@
 import { h, num } from "./dom.mjs";
 import { mountNav } from "./nav.mjs";
 import { ICON } from "./icons.mjs";
-import { boot } from "./page.mjs";
+import { bootWorkspace } from "./page.mjs";
 import {
   categoryCounts,
   frpHistogram,
@@ -83,11 +83,9 @@ function main(data) {
     h(
       "p",
       { class: "footnote" },
-      "Counts are every event in this live run, the same set the dashboard's own Analytics page charts. The "
-        + "full page also groups nearby events into candidate sites and flags emerging sources, which need the "
-        + "local pipeline run.",
+      "Counts reflect exported events inside the selected geographic window. Satellite observations require independent verification.",
     ),
   );
 }
 
-boot(main);
+bootWorkspace(main);

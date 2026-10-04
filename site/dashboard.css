@@ -1,6 +1,15 @@
 /* The dashboard's own tokens (app.py CSS, holo-view-maker/src/styles.css): one
    token set across every part of the product. One accent, used only for actions,
    selection and focus; risk keeps its own status palette. */
+[hidden] { display: none !important; }
+td.id a { color: var(--accent); text-underline-offset: 3px; }
+.alertcard a.id { color: var(--accent); text-underline-offset: 3px; }
+.workspace-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.workspace-settings { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin: 16px 0; }
+.workspace-settings .field { flex: 1 1 180px; min-width: 0; }
+.workspace-settings .check { display: flex; gap: 8px; align-items: center; flex: 1 1 220px; }
+#content > section + section { margin-top: 24px; }
+
 :root {
   --page: #0c0e10;
   --sidebar: #101214;

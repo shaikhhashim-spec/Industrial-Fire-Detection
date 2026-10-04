@@ -2,6 +2,7 @@ import { validCoordinates, compactPlume } from "./consensus.mjs";
 import { inRegion } from "./regions.mjs";
 import { formatLocation } from "./overview.mjs";
 import { analyzeThermalChange } from "./thermal-change.mjs";
+import { matchesSearch } from "./search.mjs";
 const computedThermal = new WeakMap();
 
 /** Review ordering only: points are neither probability nor operational severity. */
@@ -133,7 +134,7 @@ export async function fetchInvestigations(fetcher = globalThis.fetch) {
 export function queryCases(events, filters = {}, reviews = new Map()) {
   const q = (filters.search ?? "").trim().toLowerCase();
   const filtered = events.filter((e) => inRegion(e, filters.region ?? "india") &&
-    (!q || [e.id, ...e.aliases ?? [], formatLocation(e), e.category, e.facility?.name].some((v) => String(v ?? "").toLowerCase().includes(q))) &&
+    (!q || matchesSearch([e.id, ...e.aliases ?? [], e.state, e.district, e.country, e.region, e.place?.name, formatLocation(e), e.category, e.riskLevel, e.facility?.name], q)) &&
     (!filters.severity || e.riskLevel === filters.severity) &&
     (!filters.category || e.category === filters.category) &&
     (!filters.persistence || numeric(e.persistenceDays) !== null && e.persistenceDays >= Number(filters.persistence)) &&

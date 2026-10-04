@@ -102,6 +102,9 @@ jobs:
         working-directory: holo-view-maker
         run: npm ci
 
+      - name: Test the public workspace
+        run: node --test "site/*.test.mjs"
+
       - name: Build the 3D globe
         working-directory: holo-view-maker
         env:

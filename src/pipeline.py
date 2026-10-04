@@ -28,7 +28,7 @@ def load_hotspots(api_key: str | None = None) -> tuple[pd.DataFrame, str]:
         try:
             df = firms_fetch.fetch_hotspots(api_key=key)
             if not df.empty:
-                return df, "firms_live"
+                return df, df.attrs.get("source", "firms_live")
             print("[pipeline] FIRMS returned no rows, trying the last live pull")
         except firms_fetch.FirmsAuthError as exc:
             print(f"[pipeline] FIRMS auth error: {exc}")
@@ -38,10 +38,16 @@ def load_hotspots(api_key: str | None = None) -> tuple[pd.DataFrame, str]:
         print("[pipeline] no FIRMS_API_KEY configured")
 
     cached = sorted(config.RAW_DIR.glob("firms_*.csv"))
-    if cached:
+    for path in reversed(cached):
         try:
-            df = pd.read_csv(cached[-1])
+            df = pd.read_csv(path, dtype={"acq_time": str})
+            if not set(cleaning.REQUIRED_COLUMNS).issubset(df.columns):
+                raise ValueError("Missing required FIRMS observation columns")
             df["acq_date"] = pd.to_datetime(df["acq_date"])
+            usable, _ = cleaning.clean_hotspots(df)
+            if usable.empty:
+                raise ValueError("No usable observations inside the target region")
+            df.attrs["source"] = "local_cache"
             return df, "local_cache"
         except Exception as exc:
             print(f"[pipeline] local cache read failed: {exc}")
@@ -71,6 +77,8 @@ def run_pipeline(api_key: str | None = None, use_osm_cache_first: bool = False) 
     df = spatial_join.join_landcover_context(df, landcover_zones)
 
     detail_df, cluster_df, classify_info = classify.classify_hotspots(df)
+    detail_df.attrs["source"] = hotspot_source
+    cluster_df.attrs["source"] = hotspot_source
     alerts = alert_engine.generate_alerts(detail_df, cluster_df)
 
     gdf = gpd.GeoDataFrame(detail_df, geometry=gpd.points_from_xy(detail_df["longitude"], detail_df["latitude"]), crs="EPSG:4326")
@@ -80,11 +88,11 @@ def run_pipeline(api_key: str | None = None, use_osm_cache_first: bool = False) 
     write_geojson(export, config.CLASSIFIED_GEOJSON)
     export.drop(columns="geometry").to_csv(config.CLASSIFIED_CSV, index=False)
 
-    if not cluster_df.empty:
-        cluster_export = cluster_df.copy()
+    cluster_export = cluster_df.copy()
+    if not cluster_export.empty:
         cluster_export["first_detected"] = cluster_export["first_detected"].astype(str)
         cluster_export["last_detected"] = cluster_export["last_detected"].astype(str)
-        cluster_export.to_csv(config.PROCESSED_DIR / "cluster_summary.csv", index=False)
+    cluster_export.to_csv(config.PROCESSED_DIR / "cluster_summary.csv", index=False)
 
     import json
     (config.PROCESSED_DIR / "alerts.json").write_text(json.dumps(alerts, default=str))
@@ -102,6 +110,8 @@ def run_pipeline(api_key: str | None = None, use_osm_cache_first: bool = False) 
         "ml_metrics": classify_info["ml_metrics"],
         "n_stored_total": store.count(),
         "run_at": pd.Timestamp.now(),
+        "observation_start": clean_df["acq_date"].min().date().isoformat(),
+        "observation_end": clean_df["acq_date"].max().date().isoformat(),
     }
 
 

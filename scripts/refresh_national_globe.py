@@ -30,7 +30,8 @@ def main() -> int:
     source = info["hotspot_source"]
     print(f"source: {source}  observations: {info['n_observations']}  events: {info['n_events']}  "
           f"history days: {info['history_days_covered']}  dropped outside India: {info['dropped_outside_india']}")
-    events = export_pipeline_events_for_holo_view(events_df=info["events_df"], national_detail_df=info["detail_df"])
+    events = export_pipeline_events_for_holo_view(events_df=info["events_df"], national_detail_df=info["detail_df"],
+                                                hotspot_source=source)
 
     # sanity: every exported point must sit inside an Indian state/UT polygon
     import geopandas as gpd
