@@ -37,13 +37,21 @@ test("real browser capabilities network, login and optimistic server save", {
     await page.getByRole("button", { name: "Load server version", exact: true }).click();
     const baselineResponse = await load; assert.equal(baselineResponse.status(), 200);
     const baseline = await baselineResponse.json();
-    await page.locator(".server-review textarea").fill("Temporary real-browser QA annotation");
+    await page.getByLabel("Server notes", { exact: true }).fill("Temporary real-browser QA annotation");
+    await page.locator("#server-assessment").selectOption("industrial_heat");
+    await page.locator("#server-supporting-sources").fill("https://example.org/qa-evidence");
+    await page.locator("#server-uncertainty").fill("QA annotation, not independently verified evidence");
     const saved = page.waitForResponse((r) => r.url().includes("/api/reviews/") && r.request().method() === "PUT");
     await page.getByRole("button", { name: "Save temporary server review", exact: true }).click();
     const savedResponse = await saved; assert.equal(savedResponse.status(), 200);
     const result = await savedResponse.json();
     assert.equal(result.version, baseline.version + 1);
     assert.equal(result.review.notes, "Temporary real-browser QA annotation");
+    assert.equal(result.review.assessment, "industrial_heat");
+    assert.deepEqual(result.review.supportingSources, ["https://example.org/qa-evidence"]);
+    assert.equal(result.review.status, baseline.review?.status ?? "unreviewed");
+    await page.getByRole("button", { name: "Load server version", exact: true }).click();
+    assert.equal(await page.locator("#server-assessment").inputValue(), "industrial_heat");
     // Restore the pre-test review through normal concurrency checks; audit records remain.
     const restored = await page.request.put(baselineResponse.url(), { headers: { Authorization: `Bearer ${session.token}` },
       data: { version: result.version, review: baseline.review ?? { notes: "", bookmarked: false, status: "unreviewed" } } });
@@ -79,12 +87,13 @@ test("Investigations desktop/mobile, blocked storage and temporary server review
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route("**/api/capabilities", (route) => route.fulfill({ json: { reviews: true, demo: true, jobs: false } }));
     await page.route("**/api/auth/login", (route) => route.fulfill({ json: { token: "test-memory-token", actor: { username: "qa-analyst", role: "analyst" } } }));
-    let serverVersion = 0;
+    let serverVersion = 0, serverReview = null;
     await page.route("**/api/reviews/**", async (route) => {
-      if (route.request().method() === "GET") return route.fulfill({ json: { version: serverVersion, review: null } });
+      if (route.request().method() === "GET") return route.fulfill({ json: { version: serverVersion, review: serverReview } });
       assert.equal(route.request().headers().authorization, "Bearer test-memory-token");
       const body = route.request().postDataJSON(); assert.equal(body.version, serverVersion);
-      serverVersion++; return route.fulfill({ json: { version: serverVersion, review: body.review, actor: "qa-analyst", updated_at: 1791030000 } });
+      serverReview = body.review;
+      serverVersion++; return route.fulfill({ json: { version: serverVersion, review: serverReview, actor: "qa-analyst", updated_at: 1791030000 } });
     });
     await page.goto(url);
     await page.locator(".case-row").first().waitFor();
@@ -104,9 +113,31 @@ test("Investigations desktop/mobile, blocked storage and temporary server review
     await page.locator(".server-review input[type=password]").fill("test-only");
     await page.getByRole("button", { name: "Sign in to server", exact: true }).click();
     await page.getByRole("button", { name: "Load server version", exact: true }).click();
-    await page.locator(".server-review textarea").fill("Temporary server QA");
+    await page.getByLabel("Server notes", { exact: true }).fill("Temporary server QA");
+    await page.locator("#server-assessment").selectOption("industrial_heat");
+    await page.locator("#server-supporting-sources").fill("https://example.org/independent-report\nField visit report 123");
+    await page.locator("#server-uncertainty").fill("Facility operation reported; exact source unresolved.");
     await page.getByRole("button", { name: "Save temporary server review", exact: true }).click();
     await page.waitForFunction(() => document.querySelector(".server-review").textContent.includes("Temporary server save: version 1"));
+    assert.equal(serverReview.assessment, "industrial_heat");
+    assert.equal(serverReview.status, "unreviewed");
+    assert.deepEqual(serverReview.supportingSources, ["https://example.org/independent-report", "Field visit report 123"]);
+    assert.equal(serverReview.uncertainty, "Facility operation reported; exact source unresolved.");
+    assert.ok(Number.isFinite(Date.parse(serverReview.assessedAt)));
+    const assessedAt = serverReview.assessedAt;
+    await page.getByRole("button", { name: "Load server version", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector(".server-review").textContent.includes("Server version 1 loaded."));
+    assert.equal(await page.locator("#server-assessment").inputValue(), "industrial_heat");
+    assert.equal(await page.locator("#server-uncertainty").inputValue(), serverReview.uncertainty);
+    // Workflow edits preserve evidence and assessment time; dirty reload preserves edits.
+    await page.getByLabel("Server status", { exact: true }).selectOption("reviewed");
+    await page.getByRole("button", { name: "Load server version", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector(".server-review").textContent.includes("your draft retained"));
+    assert.equal(await page.getByLabel("Server status", { exact: true }).inputValue(), "reviewed");
+    await page.getByRole("button", { name: "Save temporary server review", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector(".server-review").textContent.includes("Temporary server save: version 2"));
+    assert.equal(serverReview.assessedAt, assessedAt);
+    assert.equal(serverReview.assessment, "industrial_heat");
     assert.equal(await page.evaluate(() => Object.values(localStorage).some((s) => s.includes("test-memory-token"))), false);
     if (process.env.INVESTIGATIONS_SCREENSHOT) await page.screenshot({ path: process.env.INVESTIGATIONS_SCREENSHOT.replace(".png", "-desktop.png") });
     await page.setViewportSize({ width: 390, height: 844 });

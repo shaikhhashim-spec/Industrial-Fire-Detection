@@ -21,7 +21,7 @@ DB_PATH = config.DB_PATH
 # join) — preserved as-is across runs, never recomputed by this module.
 INPUT_COLUMNS = [
     "latitude", "longitude", "brightness", "scan", "track", "acq_date", "acq_time",
-    "satellite", "instrument", "confidence", "version", "bright_t31", "frp", "daynight",
+    "satellite", "instrument", "confidence", "version", "bright_t31", "frp", "frpObserved", "daynight",
     "source", "zone_type", "zone_kind", "industrial_distance_km", "mine_distance_km", "power_distance_km",
     "nearest_industrial_name", "forest_distance_km", "water_distance_km", "in_agricultural_zone",
 ]
@@ -73,9 +73,9 @@ def upsert(df: pd.DataFrame) -> None:
     work = df[cols].copy()
     work["acq_date"] = work["acq_date"].astype(str)
     if "is_persistent" in work:
-        work["is_persistent"] = work["is_persistent"].astype(int)
+        work["is_persistent"] = work["is_persistent"].astype("Int64")
     if "in_agricultural_zone" in work:
-        work["in_agricultural_zone"] = work["in_agricultural_zone"].astype(int)
+        work["in_agricultural_zone"] = work["in_agricultural_zone"].astype("Int64")
     rows = work.astype(object).where(pd.notnull(work), None).values.tolist()
     placeholders = ",".join("?" * len(cols))
     with _connect() as conn:
@@ -104,7 +104,7 @@ def load_all() -> pd.DataFrame:
     if not df.empty:
         df["acq_date"] = pd.to_datetime(df["acq_date"])
         if "is_persistent" in df.columns:
-            df["is_persistent"] = df["is_persistent"].astype(bool)
+            df["is_persistent"] = df["is_persistent"].astype("boolean")
     return df
 
 

@@ -133,6 +133,9 @@ def build_global_payload(raw: pd.DataFrame, *, max_events: int | None = None,
         valid = (np.isfinite(original_frp) & (original_frp >= 0) & np.isfinite(times)
                  & times.between(0, 2359) & (times % 100 < 60) & (times % 1 == 0))
         valid_raw = raw[valid].copy()
+        if "frpObserved" not in valid_raw:
+            # This boundary validates raw FIRMS values before any fill/clip.
+            valid_raw["frpObserved"] = True
         valid_raw["acq_time"] = times[valid]
         valid_raw["acq_date"] = pd.to_datetime(valid_raw.acq_date, errors="coerce", utc=True).dt.tz_localize(None)
         # Public CSVs spell out VIIRS confidence; the area API uses l/n/h.
@@ -187,12 +190,21 @@ def build_global_payload(raw: pd.DataFrame, *, max_events: int | None = None,
         selected_ids = {event["id"] for event in selected}
         summary = summary[summary.id.isin(selected_ids)]
         selected_clean = clean[clean.grid_cell.isin(summary.index)]
-        daily = selected_clean.groupby(["grid_cell", "acq_date"]).agg(
-            frp=("frp", "max"), confidence=("confidence_numeric", "mean")).reset_index()
+        selected_clean = selected_clean.assign(
+            history_satellite=selected_clean.source.map(SATELLITES),
+            history_pass=selected_clean.get("daynight", pd.Series(None, index=selected_clean.index, dtype=object)))
+        daily = selected_clean.groupby(["grid_cell", "acq_date", "history_satellite", "history_pass"], dropna=False).agg(
+            frp=("frp", "max"), confidence=("confidence_numeric", "mean"),
+            frpObserved=("frpObserved", "all")).reset_index()
         daily["date"] = daily.acq_date.dt.strftime("%Y-%m-%d")
         history_by_cell = defaultdict(list)
         for day in daily.itertuples():
-            history_by_cell[day.grid_cell].append({"date": day.date, "frp": round(day.frp, 1), "confidence": round(day.confidence, 1)})
+            history_by_cell[day.grid_cell].append({
+                "date": day.date, "frp": round(day.frp, 1) if day.frpObserved else None,
+                "frpObserved": bool(day.frpObserved), "confidence": round(day.confidence, 1),
+                "satellite": day.history_satellite, "instrument": "VIIRS",
+                "daynight": day.history_pass if pd.notna(day.history_pass) else None,
+            })
         for row in summary.reset_index().to_dict(orient="records"):
             cell, frp, confidence, days = row["grid_cell"], row["frp"], row["confidence"], int(row["days"])
             score, count = int(row["score"]), int(row["detections"])

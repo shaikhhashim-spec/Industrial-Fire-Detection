@@ -7,8 +7,13 @@ detections into the `ThermalEvent` JSON schema expected by the React + MapLibre
 """
 from __future__ import annotations
 
+import gzip
 import json
 import math
+import os
+import re
+import tempfile
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +35,156 @@ CATEGORY_VALID_SET = {
 
 DEFAULT_OUTPUT_PUBLIC = config.BASE_DIR / "holo-view-maker" / "public" / "data" / "events.json"
 DEFAULT_OUTPUT_DIST = config.OUTPUT_DIR / "holo_events.json"
+
+
+_THERMAL_ALIASES = {
+    "N": "VIIRS S-NPP", "S-NPP": "VIIRS S-NPP", "VIIRS_SNPP_NRT": "VIIRS S-NPP",
+    "N20": "VIIRS NOAA-20", "NOAA-20": "VIIRS NOAA-20", "VIIRS_NOAA20_NRT": "VIIRS NOAA-20",
+    "N21": "VIIRS NOAA-21", "NOAA-21": "VIIRS NOAA-21", "VIIRS_NOAA21_NRT": "VIIRS NOAA-21",
+    "AQUA": "MODIS Aqua", "AQUA (MODIS)": "MODIS Aqua",
+    "TERRA": "MODIS Terra", "TERRA (MODIS)": "MODIS Terra",
+    **{s.upper(): s for s in ("VIIRS S-NPP", "VIIRS NOAA-20", "VIIRS NOAA-21", "MODIS Aqua", "MODIS Terra")},
+}
+
+
+def _thermal_day(value: Any) -> int | None:
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return None
+    try:
+        return date.fromisoformat(value).toordinal()
+    except ValueError:
+        return None
+
+
+def _thermal_group(row: dict) -> str | None:
+    satellite = _THERMAL_ALIASES.get(str(row.get("satellite") or "").strip().upper())
+    if not satellite or row.get("daynight") not in ("D", "N"):
+        return None
+    instrument = "VIIRS" if satellite.startswith("VIIRS") else "MODIS"
+    if row.get("instrument") and str(row["instrument"]).strip().upper() != instrument:
+        return None
+    return f"{satellite}|{instrument}|{row['daynight']}"
+
+
+def analyze_thermal_change(event: dict | None) -> dict[str, Any]:
+    """Offline mirror of site/thermal-change.mjs; cross-language parity is tested.
+
+    Unlike risk/anomaly.py's latest-row z-score and row-count trend window,
+    this uses a median of daily peaks, excludes the entire current day and
+    requires matching satellite/instrument/day-night groups. Observation days
+    are prior days, not detections. Gaps never enter FRP arithmetic as zero.
+    Thresholds are screening heuristics, not statistical or fire confirmation.
+    """
+    result = dict(status="insufficient_history", label="Insufficient history", baselineFrp=None,
+                  currentFrp=None, changePercent=None, observationDays=0, gaps=0,
+                  limitations=["Thermal change is a screening signal, not confirmation of fire or its cause.",
+                               "Cloud, overpass and pixel coverage can change daily peaks; gaps are not zero heat."],
+                  reasons=[], priorityPoints=0)
+
+    def fail(reason):
+        result["reasons"].append(reason)
+        return result
+
+    event = event or {}
+    current_day = _thermal_day(event.get("acqDate"))
+    if current_day is None:
+        return fail("A valid current acquisition date is required.")
+    if event.get("historyTruncated"):
+        return fail("History was truncated; complete daily coverage is unavailable.")
+    daily: dict[int, dict[str, float]] = {}
+    unusable_days = set()
+    invalid = unknown = unobserved = current_invalid = False
+    first = current_day
+    history = event.get("history")
+    for row in history if isinstance(history, list) else []:
+        row = row if isinstance(row, dict) else {}
+        day = _thermal_day(row.get("date"))
+        if day is None:
+            invalid = True
+            continue
+        if day > current_day or day < current_day - 30:
+            continue
+        first = min(first, day)
+        key, frp = _thermal_group(row), row.get("frp")
+        marker = row.get("frpObserved")
+        observed = (marker is None or marker is True) and (frp != 0 or marker is True)
+        usable = isinstance(frp, (int, float)) and not isinstance(frp, bool) and math.isfinite(frp) and frp >= 0 and not row.get("synthetic") and observed
+        if not usable or not key:
+            unusable_days.add(day)
+            invalid |= not usable
+            unknown |= not bool(key)
+            unobserved |= not observed
+            current_invalid |= day == current_day
+            continue
+        groups = daily.setdefault(day, {})
+        groups[key] = max(groups.get(key, -math.inf), frp)
+    if invalid:
+        result["limitations"].append("Invalid or synthetic history measurements were excluded.")
+    if unknown:
+        result["limitations"].append("History lacks reliable satellite/instrument/day-night metadata.")
+    if unobserved:
+        result["limitations"].append("Unobserved FRP and legacy zeros without measurement provenance are excluded.")
+    result["gaps"] = current_day - first
+    current = daily.get(current_day)
+    if not current or current_invalid:
+        return fail("Current-day observations with reliable sensor/pass metadata are required; the event window peak is not current FRP.")
+    # Match JavaScript rounding (including negative ties) rather than banker's rounding.
+    def rounded(value):
+        return value if abs(value) >= 1e15 else math.floor((value + 2.220446049250313e-16) * 10 + 0.5) / 10
+
+    current_peak = max(current.values())
+    result["currentFrp"] = rounded(current_peak)
+    peaks = [max(groups[key] for key in current) for day, groups in daily.items()
+             if day < current_day and day not in unusable_days and current.keys() <= groups.keys()]
+    result["observationDays"] = len(peaks)
+    result["gaps"] -= len(peaks)
+    if result["gaps"]:
+        result["limitations"].append("Some calendar days lack comparable observations.")
+    if len(peaks) < 3:
+        return fail("At least three prior observation days with matching sensor/pass coverage are required.")
+    peaks.sort()
+    middle = len(peaks) // 2
+    baseline = peaks[middle] if len(peaks) % 2 else peaks[middle - 1] / 2 + peaks[middle] / 2
+    result["baselineFrp"] = rounded(baseline)
+    if baseline <= 0:
+        return fail("A positive baseline is required for a percentage comparison.")
+    delta = current_peak - baseline
+    percent = delta / baseline * 100
+    if not math.isfinite(percent):
+        return fail("FRP range prevents a finite percentage comparison.")
+    result["changePercent"] = rounded(percent)
+    result["status"] = "elevated" if percent >= 50 and delta >= 5 else "reduced" if percent <= -100 / 3 and delta <= -5 else "stable"
+    result["label"] = {"elevated": "Elevated thermal output", "reduced": "Reduced thermal output",
+                       "stable": "Recurring thermal activity; no substantial change"}[result["status"]]
+    result["priorityPoints"] = 10 if result["status"] == "elevated" else 0
+    result["reasons"].append("Current daily peak compared with the median of prior daily peaks using matching sensor/pass coverage.")
+    return result
+
+
+def _observation_history(group: pd.DataFrame) -> list[dict[str, Any]]:
+    """Keep all rows in 30 prior days plus current, never the last 10/14 rows.
+
+    Raw provenance avoids the display normalizer's invented S-NPP default and
+    makes missing FRP null, not a zero. No aggregate/fallback peak is a history row.
+    """
+    dates = pd.to_datetime(group["acq_date"], errors="coerce")
+    latest = dates.max()
+    if pd.isna(latest):
+        return []
+    group = group.loc[dates >= latest.normalize() - pd.Timedelta(days=30)]
+    history = []
+    for _, row in group.iterrows():
+        stamp = pd.to_datetime(row["acq_date"], errors="coerce")
+        marker = row.get("frpObserved")
+        observed = bool(marker) if pd.notna(marker) and marker in (True, False, 0, 1) else None
+        frp = row.get("frp")
+        if observed is False or (frp is not None and pd.notna(frp) and frp == 0 and observed is not True):
+            frp = None
+        observation = {"date": str(stamp.date()), "frp": frp, "frpObserved": observed,
+                       "confidence": row.get("confidence_numeric"),
+                       **{key: row.get(key) for key in ("satellite", "instrument", "daynight", "acq_time", "latitude", "longitude")}}
+        history.append(_json_safe(observation))
+    return history
 
 
 def _normalize_category(label: Any) -> str:
@@ -190,17 +345,7 @@ def transform_regional_to_holo_events(
         gdf_sorted = detail_gdf.sort_values("acq_date", ascending=True)
         for cell, group in gdf_sorted.groupby("grid_cell"):
             cell_str = str(cell)
-            hist = []
-            for _, r in group.iterrows():
-                acq_d = str(pd.to_datetime(r["acq_date"]).date()) if pd.notna(r.get("acq_date")) else "2026-08-30"
-                frp_val = float(r.get("frp", 0.0))
-                conf_val = float(r.get("confidence_numeric", 70.0))
-                hist.append({
-                    "date": acq_d,
-                    "frp": round(frp_val, 1),
-                    "confidence": round(conf_val, 1),
-                })
-            history_by_cell[cell_str] = hist[-14:] if len(hist) > 14 else hist
+            history_by_cell[cell_str] = _observation_history(group)
             brightness_by_cell[cell_str] = float(group["brightness"].mean()) if "brightness" in group.columns else 328.0
             daynight_by_cell[cell_str] = str(group["daynight"].iloc[-1]) if "daynight" in group.columns and pd.notna(group["daynight"].iloc[-1]) else "D"
             if "acq_date" in group.columns:
@@ -231,12 +376,6 @@ def transform_regional_to_holo_events(
             region_desc = f"{zone_type.title()} Zone ({config.REGION_NAME})"
 
         hist = history_by_cell.get(cell, [])
-        if not hist:
-            hist = [{
-                "date": str(pd.to_datetime(row.get("last_detected", "2026-08-30")).date()),
-                "frp": round(frp, 1),
-                "confidence": 85.0,
-            }]
 
         acq_date = latest_date_by_cell.get(cell, str(pd.to_datetime(row.get("last_detected", "2026-08-30")).date()))
         brightness = brightness_by_cell.get(cell, float(row.get("brightness", 325.0)))
@@ -264,6 +403,8 @@ def transform_regional_to_holo_events(
             "history": hist,
         })
 
+    for event in events:
+        event["thermalChange"] = analyze_thermal_change(event)
     return sorted(events, key=lambda x: x["riskScore"], reverse=True)
 
 
@@ -280,15 +421,7 @@ def transform_national_to_holo_events(
         df_sorted = detail_df.sort_values("acq_date", ascending=True)
         for cell, group in df_sorted.groupby("grid_cell"):
             cell_str = str(cell)
-            hist = []
-            for _, r in group.iterrows():
-                acq_d = str(pd.to_datetime(r["acq_date"]).date()) if pd.notna(r.get("acq_date")) else "2026-08-30"
-                hist.append({
-                    "date": acq_d,
-                    "frp": round(float(r.get("frp", 0.0)), 1),
-                    "confidence": round(float(r.get("confidence_numeric", 70.0)), 1),
-                })
-            history_by_cell[cell_str] = hist[-10:] if len(hist) > 10 else hist
+            history_by_cell[cell_str] = _observation_history(group)
 
     events: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
@@ -326,8 +459,6 @@ def transform_national_to_holo_events(
                 category = "Requires Verification"
 
         hist = history_by_cell.get(cell, [])
-        if not hist:
-            hist = [{"date": (evidence or {}).get("lastSeen") or "", "frp": round(frp, 1), "confidence": 80.0}]
 
         place = row.get("place_name")
         place_ok = isinstance(place, str) and bool(place)
@@ -362,7 +493,7 @@ def transform_national_to_holo_events(
             "satellites": [_normalize_satellite(s) for s in sats],
             "daynight": "N" if (evidence or {}).get("nightPasses", 0) > 0 else "D",
             "status": _normalize_status(row),
-            "acqDate": (evidence or {}).get("lastSeen") or hist[-1]["date"],
+            "acqDate": (evidence or {}).get("lastSeen") or (hist[-1]["date"] if hist else ""),
             "facility": facility,
             "corroborated": bool(row.get("corroborated", True)),
             "reasons": list(reasons) if isinstance(reasons, (list, tuple)) else [],
@@ -376,6 +507,8 @@ def transform_national_to_holo_events(
             "history": hist,
         })
 
+    for event in events:
+        event["thermalChange"] = analyze_thermal_change(event)
     return sorted(events, key=lambda x: x["riskScore"], reverse=True)
 
 
@@ -483,6 +616,8 @@ def export_pipeline_events_for_holo_view(
 def _json_safe(obj: Any) -> Any:
     """NaN/inf → null, numpy scalars → Python — json.dumps would otherwise
     write a bare NaN, which the browser's JSON.parse rejects outright."""
+    if obj is pd.NA or obj is pd.NaT:
+        return None
     if isinstance(obj, dict):
         return {k: _json_safe(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -561,4 +696,53 @@ def load_or_export_holo_events() -> list[dict[str, Any]]:
             pass
 
     return export_pipeline_events_for_holo_view()
+
+
+def augment_thermal_snapshot(source: Path | str, destination: Path | str) -> Path:
+    """Precompute copied feeds; refresh an existing destination gzip companion.
+
+    The input remains byte-identical. JSON validation and compression finish
+    before publication; each output is atomically replaced, JSON published last.
+    """
+    source, destination = Path(source), Path(destination)
+    if source.resolve() == destination.resolve() or (destination.exists() and source.samefile(destination)):
+        raise ValueError("Thermal snapshot output must differ from the source feed")
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    events = payload if isinstance(payload, list) else payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list) or not all(isinstance(event, dict) for event in events):
+        raise ValueError("Expected an event array or a payload containing an events array")
+    for event in events:
+        event["thermalChange"] = analyze_thermal_change(event)
+    body = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    companion = destination.with_suffix(".json.gz")
+    if companion.exists() and (source.resolve() == companion.resolve() or source.samefile(companion)):
+        raise ValueError("Thermal gzip output must differ from the source feed")
+    compressed = gzip.compress(body, mtime=0) if companion.exists() else None
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if compressed is not None:
+        _atomic_snapshot_bytes(companion, compressed)
+    _atomic_snapshot_bytes(destination, body)
+    return destination
+
+
+def _atomic_snapshot_bytes(destination: Path, body: bytes) -> None:
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as file:
+            temporary = Path(file.name)
+            file.write(body)
+        os.replace(temporary, destination)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Precompute thermalChange on a copied event feed; no ingestion.")
+    parser.add_argument("--thermal-input", type=Path, required=True)
+    parser.add_argument("--thermal-output", type=Path, required=True)
+    args = parser.parse_args()
+    augment_thermal_snapshot(args.thermal_input, args.thermal_output)
 

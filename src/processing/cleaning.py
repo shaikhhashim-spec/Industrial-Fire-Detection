@@ -2,6 +2,7 @@
 of what was dropped and why, so data quality is visible rather than silent."""
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 import config
@@ -54,7 +55,17 @@ def clean_hotspots(df: pd.DataFrame, bbox: dict | None = None) -> tuple[pd.DataF
         report["dropped_outside_bbox"] = 0
 
     before = len(df)
-    df["frp"] = pd.to_numeric(df["frp"], errors="coerce").fillna(0.0).clip(lower=0)
+    raw_frp = pd.to_numeric(df["frp"], errors="coerce")
+    valid_frp = np.isfinite(raw_frp) & (raw_frp >= 0) & ~df["frp"].map(lambda v: isinstance(v, (bool, np.bool_)))
+    # An unmarked zero may be a legacy fill. Re-cleaning must never promote it
+    # to measured data; raw-feed validators can explicitly vouch for true zero.
+    if "frpObserved" in df:
+        provenance = df["frpObserved"].map(lambda v: pd.NA if pd.isna(v) else v in (True, 1)).astype("boolean").fillna(raw_frp > 0)
+    else:
+        provenance = raw_frp > 0
+    df["frpObserved"] = (valid_frp & provenance).astype(bool)
+    report["frp_unobserved"] = int((~df["frpObserved"]).sum())
+    df["frp"] = raw_frp.where(np.isfinite(raw_frp)).fillna(0.0).clip(lower=0)
     report["frp_coerced_or_clipped"] = before  # informational, not a drop
 
     df["confidence"] = df["confidence"].apply(lambda v: v if pd.notna(v) else 50)

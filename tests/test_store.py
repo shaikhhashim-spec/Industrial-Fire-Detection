@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from src import store
@@ -41,3 +42,20 @@ def test_restore_alert_removes_only_that_region():
 def test_empty_store_has_no_dismissed():
     assert store.load_dismissed() == set()
     assert store.load_dismissed("jharkhand_odisha") == set()
+
+
+@pytest.mark.parametrize("dtype", [object, "boolean", "Float64"])
+@pytest.mark.parametrize("column", ["in_agricultural_zone", "is_persistent"])
+def test_nullable_boolean_membership_roundtrip_keeps_unknown_null(dtype, column):
+    raw = pd.DataFrame([dict(latitude=22.8, longitude=86.18, acq_date=f"2026-10-0{i + 1}",
+                             acq_time=130, satellite="N20", source="live") for i in range(3)])
+    raw[column] = pd.Series([None, False, True], dtype=dtype)
+    store.upsert(raw)
+    history = store.load_all().sort_values("acq_date").reset_index(drop=True)
+    assert pd.isna(history.loc[0, column])
+    assert history.loc[1, column] == 0
+    assert history.loc[2, column] == 1
+    store.upsert(history)
+    with store._connect() as connection:
+        values = connection.execute(f"SELECT {column} FROM hotspots ORDER BY acq_date").fetchall()
+    assert values == [(None,), (0.0,), (1.0,)]

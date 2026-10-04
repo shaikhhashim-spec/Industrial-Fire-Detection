@@ -6,9 +6,11 @@ import { applyRegionBranding } from "./branding.mjs";
 import { formatLocation, RISK_COLORS, CATEGORY_COLORS } from "./overview.mjs";
 import { compactPlume, evaluateConsensus } from "./consensus.mjs";
 import { consensusPanel, explainer } from "./alerts-view.mjs";
-import { fetchInvestigations, queryCases, paginateCases, historyRows, cellKey, numeric, globeLink, snapshotFreshness } from "./investigations-data.mjs";
+import { fetchInvestigations, queryCases, paginateCases, historyRows, cellKey, numeric, globeLink, snapshotFreshness, investigationPriority } from "./investigations-data.mjs";
 import { STATUSES, MAX_IMPORT_BYTES, readReviews, writeReviews, parseReviews, serializeReviews, mergeReviews } from "./investigations-reviews.mjs";
 import { reportSnapshot, reportCsv } from "./investigations-reports.mjs";
+import { assessmentDraft } from "./investigations-reviews.mjs";
+import { assessmentEditor, assessmentLabel } from "./investigations-assessment-view.mjs";
 import { probeServerReviews, serverReviewPanel, hasServerDrafts } from "./investigations-server-view.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -80,7 +82,7 @@ function selectCase(event, push = true) {
   rememberDraft(); if (dirty) return;
   selected = event; requestedEvent = event?.id ?? null;
   const r = event ? reviews.get(cellKey(event)) : null;
-  draft = event ? { status: r?.status ?? "unreviewed", notes: r?.notes ?? "", bookmark: r?.bookmark ?? false } : null;
+  draft = event ? { status: r?.status ?? "unreviewed", notes: r?.notes ?? "", bookmark: r?.bookmark ?? false, ...assessmentDraft(r) } : null;
   dirty = false; syncUrl(push); renderQueue(); renderDossier();
   $("workspace").classList.toggle("show-dossier", !!event);
   if (event && matchMedia("(max-width: 760px)").matches) $("dossier-title")?.focus();
@@ -91,13 +93,15 @@ function renderQueue() {
   const paginated = paginateCases(filtered, page); page = paginated.page;
   $("case-count").textContent = `${filtered.length.toLocaleString()} cases`;
   $("queue").replaceChildren(...paginated.events.map((e) => {
-    const review = reviews.get(cellKey(e)), plume = compactPlume(e.plume);
+    const review = reviews.get(cellKey(e)), plume = compactPlume(e.plume), priority = investigationPriority(e);
     return h("button", { type: "button", class: `case-row${selected && cellKey(selected) === cellKey(e) ? " selected" : ""}`,
       "aria-pressed": String(!!selected && cellKey(selected) === cellKey(e)), onclick: () => selectCase(e) },
       h("span", { class: "case-row-top" }, h("b", {}, e.id), h("span", { class: "severity", style: `color:${RISK_COLORS[e.riskLevel] ?? "var(--ink2)"}` }, str(e.riskLevel))),
       h("span", { class: "case-location" }, formatLocation(e)),
       h("span", { class: "case-category", style: `border-color:${CATEGORY_COLORS[e.category] ?? "var(--line)"}` }, str(e.category)),
       h("span", { class: "case-metrics" }, `Risk ${display(e.riskScore)} | ${display(e.persistenceDays, " d")} | ${display(e.frp, " MW")}`),
+      h("span", { class: "case-metrics" }, `Thermal change: ${priority.thermal.label}`),
+      h("span", { class: "case-metrics", title: priority.contributions.map((c) => `+${c.points}: ${c.reason}`).join("\n") || "No added priority signals." }, `Review priority ${priority.points} pts | ${priority.contributions.map((c) => `${c.label} +${c.points}`).join(" | ") || "No added priority signals"}`),
       h("span", { class: "case-review" }, `${review?.bookmark ? "Bookmarked | " : ""}${labelStatus(review?.status ?? "unreviewed")} | ${e.provenance.feed}${plume ? " | Plume" : ""}`));
   }));
   if (!paginated.events.length) $("queue").append(h("p", { class: "empty" }, loading ? "Loading cases..." : events.length ? "No cases match these filters." : "No available case records in the loaded feeds."));
@@ -105,11 +109,26 @@ function renderQueue() {
     h("span", {}, `${page} / ${paginated.pages}`), button("Next", null, () => { page++; renderQueue(); }, { disabled: page >= paginated.pages }));
 }
 
+function thermalChangePanel(e, priority = investigationPriority(e)) {
+  const t = priority.thermal;
+  const signed = (v) => typeof v === "number" && Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v.toFixed(1)}%` : "Unavailable";
+  return h("section", { class: "thermal-change", "aria-label": "Thermal Change" },
+    h("h3", {}, "Thermal Change"), h("p", {}, t.label), facts([
+      ["Baseline FRP", display(t.baselineFrp, " MW")], ["Current-day peak FRP", display(t.currentFrp, " MW")],
+      ["Change", signed(t.changePercent)], ["Prior comparable days", display(t.observationDays)],
+      ["Days without comparable observations", display(t.gaps)], ["Review priority", `${priority.points} pts`],
+    ]), list(t.reasons),
+    h("details", {}, h("summary", {}, "Priority reasons and limitations"),
+      list(priority.contributions.map((c) => `+${c.points} pts: ${c.reason}`)), list(t.limitations),
+      h("p", { class: "caveat-inline" }, priority.caveat)));
+}
+
 function provenancePanel(e) {
   const p = e.provenance;
   return h("section", { class: "provenance" }, h("h3", {}, "Source snapshot"), facts([
     ["Dataset", `${p.feed} (${p.scope})`], ["Source", str(p.source)], ["Generated", str(p.generatedAt)],
-    ["Window", display(p.windowDays, " days")], ["Freshness", snapshotFreshness(p.generatedAt).label], ["Coverage", p.partial ? "Partial / sampled" : "Consult feed coverage; absence does not establish no activity"],
+    ["Current-feed window", display(p.windowDays, " days")], ["Freshness", snapshotFreshness(p.generatedAt).label], ["Coverage", p.partial ? "Partial / sampled" : "Consult feed coverage; absence does not establish no activity"],
+    ["History coverage", p.historyScope ?? "Supplied observations only; coverage is not continuous"],
     ["Record", e.id], ["Cell", cellKey(e)],
   ]), h("a", { href: p.url }, "Original feed JSON"), list(p.attribution));
 }
@@ -117,7 +136,7 @@ function provenancePanel(e) {
 function evidencePanel(e) {
   const evidence = e.evidence ?? {}, plume = compactPlume(e.plume), facility = e.facility;
   const data = (key, fallback) => Object.hasOwn(evidence, key) ? evidence[key] : e[fallback];
-  return h("div", {}, facts([
+  return h("div", {}, thermalChangePanel(e), facts([
     ["Location", formatLocation(e)], ["Coordinates", `${e.latitude.toFixed(4)}, ${e.longitude.toFixed(4)}`],
     ["Rule category", str(e.category)], ["Risk score", display(e.riskScore, "/100")],
     ["Peak FRP", display(data("maxFrp", "frp"), " MW")], ["Mean FRP", display(evidence.meanFrp, " MW")],
@@ -142,10 +161,10 @@ function evidencePanel(e) {
 
 function historyPanel(e) {
   const rows = historyRows(e);
-  if (!rows.length) return h("div", {}, h("p", { class: "empty" }, "Observation history unavailable. Summary counts cannot reconstruct daily observations or a baseline."), provenancePanel(e));
+  if (!rows.length) return h("div", {}, thermalChangePanel(e), h("p", { class: "empty" }, "Observation history unavailable. Summary counts cannot reconstruct daily observations or a baseline."), provenancePanel(e));
   const peak = Math.max(1, ...rows.map((r) => r.frp)), daily = new Map();
   rows.forEach((r) => daily.set(r.date.slice(0, 10), Math.max(daily.get(r.date.slice(0, 10)) ?? 0, r.frp)));
-  return h("div", {}, h("p", { class: "history-caption" }, `${rows.length} supplied observations${e.historyTruncated ? " (display bounded to 2,000 rows)" : ""}. Daily bars show only the maximum of supplied samples. Missing days are not zero; history may be truncated. No anomaly baseline is supplied.`),
+  return h("div", {}, thermalChangePanel(e), h("p", { class: "history-caption" }, `${rows.length} supplied observations${e.historyTruncated ? " (display bounded to 2,000 rows)" : ""}. Daily bars show only the maximum of supplied samples. Missing days are not zero; history may be truncated.`),
     h("figure", { class: "history-chart", "aria-label": "Peak FRP by supplied observation date" },
       [...daily].map(([date, frp]) => h("div", { class: "history-bar-row" }, h("span", {}, date),
         h("span", { class: "history-track" }, h("span", { class: "history-bar", style: `width:${frp / peak * 100}%` })), h("span", {}, `${frp} MW`)))),
@@ -162,6 +181,7 @@ function reviewPanel(e) {
   return h("div", { class: "review-form" }, h("p", { class: "notice" }, "Browser-local review. Personal annotations are not shared, verified evidence or ground truth. No backend account is required."),
     h("label", {}, h("span", {}, "Review status"), status), h("label", { class: "check" }, bookmark, "Bookmark this cell"),
     h("label", {}, h("span", {}, "Analyst notes"), notes),
+    assessmentEditor(draft, markDirty, { idPrefix: "local" }),
     h("p", { id: "review-time", class: "review-time" }, reviews.get(cellKey(e)) ? `Last local edit: ${reviews.get(cellKey(e)).updatedAt}` : "No local review saved."),
     button("Save local review", "download", saveReview), button("Export local reviews", "download", exportReviews), serverReviewPanel(e));
 }
@@ -208,7 +228,7 @@ async function importReviews(file) {
     const result = storageBlocked ? { ok: false, error: "Import is held in memory. Recover storage explicitly to persist it." } : writeReviews(storage, next);
     reviews = next; memoryOnly = !result.ok;
     storageNotice(result.ok ? `Imported ${imported.length} reviews. Newer timestamps win; equal timestamps preserve existing reviews. Saved locally.` : result.error, !result.ok);
-    if (selected) { const r = reviews.get(cellKey(selected)); draft = { status: r?.status ?? "unreviewed", notes: r?.notes ?? "", bookmark: r?.bookmark ?? false }; }
+    if (selected) { const r = reviews.get(cellKey(selected)); draft = { status: r?.status ?? "unreviewed", notes: r?.notes ?? "", bookmark: r?.bookmark ?? false, ...assessmentDraft(r) }; }
     renderQueue(); renderDossier();
   } catch (error) { storageNotice(`Import rejected: ${error.message}. No imported reviews applied.`, true); }
 }
@@ -222,12 +242,19 @@ function exportReport(kind, cases = null) {
 
 function printReport(cases = null) {
   rememberDraft(); if (dirty) return;
-  const snapshot = reportSnapshot(cases ?? filtered, reviews, region);
+  const sourceCases = cases ?? filtered;
+  const snapshot = reportSnapshot(sourceCases, reviews, region);
   $("print-report").replaceChildren(h("h1", {}, "Thermal investigations"), h("p", {}, `${regionById(region).label} | ${snapshot.exportedAt}`),
-    h("p", {}, snapshot.caveat), ...snapshot.cases.map(({ event: e, review: r }) => h("article", {}, h("h2", {}, e.id),
+    h("p", {}, snapshot.caveat), ...snapshot.cases.map(({ event: e, review: r }, i) => h("article", {}, h("h2", {}, e.id),
       facts([["Location", formatLocation(e)], ["Category", str(e.category)], ["Severity", str(e.riskLevel)], ["Peak FRP", display(e.frp, " MW")],
         ["Persistence", display(e.persistenceDays, " days")], ["Local status", labelStatus(r?.status ?? "unreviewed")], ["Local bookmark", r?.bookmark ? "Yes" : "No"], ["Local review timestamp", str(r?.updatedAt)]]),
+      thermalChangePanel(e, investigationPriority(sourceCases[i])),
+      h("h3", {}, "Analyst assessment"), facts([["Assessment", assessmentLabel(r?.assessment)],
+        ["Uncertainty", str(r?.uncertainty)], ["Assessed at", str(r?.assessedAt)]]),
+      h("h3", {}, "Supporting sources"), list(r?.supportingSources ?? []),
+      h("p", {}, "Analyst assessment is a personal evidence interpretation, separate from workflow status. It is not verified ground truth or a training label."),
       h("p", { class: "print-notes" }, r?.notes ?? "No local notes."), provenancePanel(e))));
+  $("print-report").querySelectorAll("details").forEach((details) => { details.open = true; });
   window.print();
 }
 
@@ -252,7 +279,7 @@ $("region").addEventListener("change", () => {
 });
 $("reset").addEventListener("click", () => {
   for (const id of ["search", "severity", "category", "persistence", "status"]) $(id).value = "";
-  $("sort").value = "risk"; $("direction").value = "desc"; $("plumes").checked = $("bookmarks").checked = false;
+  $("sort").value = "priority"; $("direction").value = "desc"; $("plumes").checked = $("bookmarks").checked = false;
   page = 1; renderQueue();
 });
 window.addEventListener("popstate", () => {

@@ -115,6 +115,9 @@ jobs:
       - name: Assemble the site
         run: python3 scripts/assemble_pages_site.py --out _site
 
+      - name: Precompute thermal evidence on published snapshot copies
+        run: python3 scripts/precompute_thermal_site.py --site _site
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -10,10 +10,10 @@ def _df():
     })
 
 
-def test_rejected_overrides_to_sun_glint():
+def test_rejected_does_not_become_training_truth():
     reviews = pd.DataFrame({"grid_cell": ["A"], "decision": ["Rejected"]})
     out = apply_review_overrides(_df(), reviews)
-    assert out.loc[out["grid_cell"] == "A", "rule_label"].iat[0] == "Sun Glint / False Positive"
+    assert out.loc[out["grid_cell"] == "A", "rule_label"].iat[0] == "Requires Verification"
 
 
 def test_confirmed_and_reviewed_leave_label_untouched():
@@ -39,3 +39,10 @@ def test_empty_reviews_returns_unchanged_copy():
 def test_empty_df_passthrough():
     empty = pd.DataFrame()
     assert apply_review_overrides(empty, pd.DataFrame({"grid_cell": ["A"], "decision": ["Rejected"]})).empty
+
+
+def test_assessment_with_links_is_still_not_verified_training_truth():
+    reviews = pd.DataFrame({'grid_cell': ['A'], 'decision': ['Rejected'],
+                            'assessment': ['false_positive'],
+                            'supportingSources': [['https://example.org/report']]})
+    pd.testing.assert_frame_equal(apply_review_overrides(_df(), reviews), _df())

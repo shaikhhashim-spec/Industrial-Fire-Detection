@@ -47,8 +47,16 @@ it revokes that user's sessions. There is no public registration endpoint.
   Send `Authorization: Bearer TOKEN`.
 - `GET /api/auth/me`: `{actor}`. `POST /api/auth/logout`: JSON `{}`, revokes token.
 - `GET /api/reviews/{event_id}?scope=india|global`: authenticated; missing review
-  has version 0. `PUT` accepts exactly `{version,review:{notes,bookmarked,status}}`.
+  has version 0. `PUT` accepts `{version,review:{notes,bookmarked,status,...}}`.
   Review fields are optional; status is unreviewed/investigating/reviewed.
+  Optional evidence fields are `assessment` (unresolved/industrial_heat/
+  suspected_fire/agricultural_burning/false_positive), `supportingSources`
+  (up to 8 safe HTTP(S) URLs or text strings, 2048 characters each), `uncertainty`
+  (1000 characters), and `assessedAt` (calendar-valid, timezone-qualified ISO time,
+  seconds required, optional 1-3 fractional digits, or null). Non-unresolved
+  assessments require sources, nonblank uncertainty and assessedAt. These fields
+  persist in the review payload and audit without changing the DB schema.
+  Reviewed is workflow status only; assessments do not become training truth.
   Analyst/admin may write; stale version returns 409. Scope defaults to india.
   Each write and audit row commit together. Reviews are analyst annotations,
   not verified evidence. Event existence is not checked against changing feeds.

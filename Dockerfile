@@ -52,6 +52,7 @@ COPY --chown=thermal:thermal data/reference/ data/reference/
 COPY --chown=thermal:thermal models/classifier.pkl models/classifier.pkl
 COPY --from=globe-build --chown=thermal:thermal /build/holo-view-maker/.output/public/ holo-view-maker/.output/public/
 RUN python scripts/assemble_pages_site.py --out /app/_site \
+    && python scripts/precompute_thermal_site.py --site /app/_site \
     && chown -R thermal:thermal /app/_site \
     && mkdir -p /var/lib/thermal/data /var/lib/thermal/output \
     && chown -R thermal:thermal /var/lib/thermal

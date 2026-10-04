@@ -17,6 +17,7 @@ from starlette.routing import Route
 from .db import Database
 from .jobs import JobQueue
 from .security import Actor, hash_password, token_hash, verify_password
+from src.review_schema import ASSESSMENT_FIELDS, validate_assessment
 
 
 def default_database_url():
@@ -217,8 +218,12 @@ class Backend:
         review = data.get('review')
         if set(data) != {'version', 'review'} or type(version) is not int or version < 0 or not isinstance(review, dict):
             raise HTTPException(400, 'Expected version and review object')
-        if set(review) - {'notes', 'bookmarked', 'status'} or not isinstance(review.get('notes', ''), str) or len(review.get('notes', '')) > 16000 or type(review.get('bookmarked', False)) is not bool or review.get('status', 'unreviewed') not in {'unreviewed', 'investigating', 'reviewed'}:
+        if set(review) - ({'notes', 'bookmarked', 'status'} | ASSESSMENT_FIELDS) or not isinstance(review.get('notes', ''), str) or len(review.get('notes', '')) > 16000 or type(review.get('bookmarked', False)) is not bool or review.get('status', 'unreviewed') not in {'unreviewed', 'investigating', 'reviewed'}:
             raise HTTPException(400, 'Invalid review fields')
+        try:
+            validate_assessment(review)
+        except (ValueError, TypeError):
+            raise HTTPException(400, 'Invalid assessment fields') from None
         payload = json.dumps(review, ensure_ascii=True, allow_nan=False)
         now = self.clock()
         with self.db.transaction():

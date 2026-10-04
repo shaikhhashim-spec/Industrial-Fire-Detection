@@ -20,7 +20,7 @@ DB_PATH = config.NATIONAL_DB_PATH
 
 INPUT_COLUMNS = [
     "latitude", "longitude", "acq_date", "acq_time", "satellite", "instrument",
-    "confidence", "confidence_numeric", "frp", "daynight", "source", "state",
+    "confidence", "confidence_numeric", "frp", "frpObserved", "daynight", "source", "state",
 ]
 NATURAL_KEY = ["latitude", "longitude", "acq_date", "acq_time", "satellite", "source"]
 DEMO_SOURCE = "DEMO_DATA"
@@ -31,6 +31,11 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     col_defs = ", ".join(f"{c} TEXT" if c in _TEXT_COLUMNS else f"{c} REAL" for c in INPUT_COLUMNS)
     conn.execute(f"CREATE TABLE IF NOT EXISTS national_hotspots ({col_defs}, PRIMARY KEY ({','.join(NATURAL_KEY)}))")
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(national_hotspots)")}
+    for column in INPUT_COLUMNS:
+        if column not in existing:
+            column_type = "TEXT" if column in _TEXT_COLUMNS else "REAL"
+            conn.execute(f"ALTER TABLE national_hotspots ADD COLUMN {column} {column_type}")
     return conn
 
 

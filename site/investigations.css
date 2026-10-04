@@ -25,6 +25,10 @@
 .case-location { font-size: .85rem; }
 .case-category { font-size: .75rem; color: var(--ink2); border-left: 2px solid var(--line); padding-left: .5rem; overflow-wrap: anywhere; }
 .case-metrics, .case-review { color: var(--ink2); font-size: .72rem; }
+.thermal-change { border-bottom: 1px solid var(--line); padding-bottom: .8rem; }
+.thermal-change h3 { margin-top: 0; }
+.thermal-change summary { cursor: pointer; font-size: .78rem; }
+.thermal-change ul { padding-left: 1.1rem; font-size: .78rem; color: var(--ink2); }
 .pagination { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .8rem; font-size: .8rem; }
 .btn:disabled { opacity: .4; cursor: default; }
 .case-dossier { min-width: 0; padding: 1rem; overflow-wrap: anywhere; }

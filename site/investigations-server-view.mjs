@@ -1,5 +1,7 @@
 import { h } from "./dom.mjs";
 import { ReviewApi } from "./investigations-api.mjs";
+import { assessmentDraft } from "./investigations-reviews.mjs";
+import { assessmentEditor } from "./investigations-assessment-view.mjs";
 
 const api = new ReviewApi();
 const drafts = new Map();
@@ -36,18 +38,23 @@ export function serverReviewPanel(event) {
     const scope = event.provenance.feed === "national" ? "india" : "global";
     const key = `${api.actor.username}:${scope}:${event.id}`;
     let state = drafts.get(key);
-    if (!state) { state = { version: null, notes: "", bookmarked: false, status: "unreviewed", dirty: false }; drafts.set(key, state); }
-    const notes = h("textarea", { rows: 6, maxlength: 16000, oninput: () => { state.notes = notes.value; state.dirty = true; tell("Unsaved server draft."); } }, state.notes);
+    if (!state) { state = { version: null, notes: "", bookmarked: false, status: "unreviewed", ...assessmentDraft(), dirty: false }; drafts.set(key, state); }
+    let assessment = assessmentEditor(state, () => { state.dirty = true; tell("Unsaved server assessment."); }, { idPrefix: "server" });
+    const notes = h("textarea", { id: "server-review-notes", "aria-label": "Server notes", rows: 6, maxlength: 16000, oninput: () => { state.notes = notes.value; state.dirty = true; tell("Unsaved server draft."); } }, state.notes);
     const bookmark = h("input", { type: "checkbox", onchange: () => { state.bookmarked = bookmark.checked; state.dirty = true; } }); bookmark.checked = state.bookmarked;
-    const select = h("select", { onchange: () => { state.status = select.value; state.dirty = true; } }, ["unreviewed", "investigating", "reviewed"].map((s) => h("option", { value: s }, s))); select.value = state.status;
+    const select = h("select", { id: "server-review-status", "aria-label": "Server status", onchange: () => { state.status = select.value; state.dirty = true; } }, ["unreviewed", "investigating", "reviewed"].map((s) => h("option", { value: s }, s))); select.value = state.status;
     const save = command("Save temporary server review", async () => {
       save.disabled = true; notes.disabled = bookmark.disabled = select.disabled = true;
+      assessment.querySelectorAll("input, select, textarea").forEach((control) => { control.disabled = true; });
       try {
-        const result = await api.review(event.id, scope, { version: state.version, review: { notes: state.notes, bookmarked: state.bookmarked, status: state.status } });
+        const result = await api.review(event.id, scope, { version: state.version, review: { notes: state.notes, bookmarked: state.bookmarked, status: state.status, ...assessmentDraft(state) } });
         state.version = result.version; state.dirty = false;
         tell(`Temporary server save: version ${result.version}, actor ${String(result.actor)}, timestamp ${String(result.updated_at)}. Not saved locally.`);
       } catch (error) { tell(error.message); }
-      finally { save.disabled = state.version === null; notes.disabled = bookmark.disabled = select.disabled = false; }
+      finally {
+        save.disabled = state.version === null; notes.disabled = bookmark.disabled = select.disabled = false;
+        assessment.querySelectorAll("input, select, textarea").forEach((control) => { control.disabled = false; });
+      }
     });
     save.disabled = state.version === null;
     const load = command("Load server version", async () => {
@@ -59,7 +66,10 @@ export function serverReviewPanel(event) {
         state.version = result.version;
         if (!state.dirty) {
           state.notes = result.review?.notes ?? ""; state.bookmarked = result.review?.bookmarked ?? false; state.status = result.review?.status ?? "unreviewed";
+          Object.assign(state, assessmentDraft(result.review));
           notes.value = state.notes; bookmark.checked = state.bookmarked; select.value = state.status;
+          const next = assessmentEditor(state, () => { state.dirty = true; tell("Unsaved server assessment."); }, { idPrefix: "server" });
+          assessment.replaceWith(next); assessment = next;
         }
         save.disabled = false;
         tell(`Server version ${result.version}${state.dirty ? "; your draft retained. Saving will explicitly apply it to this version." : " loaded."}`);
@@ -68,7 +78,7 @@ export function serverReviewPanel(event) {
     });
     content.append(h("p", { class: "review-time" }, `Server key: ${scope} / ${event.id}`), load,
       h("label", {}, "Server status", select), h("label", { class: "check" }, bookmark, "Server bookmark"),
-      h("label", {}, "Server notes", notes), save);
+      h("label", {}, "Server notes", notes), assessment, save);
   }
   render(); return details;
 }

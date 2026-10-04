@@ -1,4 +1,5 @@
 import { assetUrl } from "@/lib/asset-url";
+import type { ThermalChangeSummary } from "../../../site/investigations-data.mjs";
 
 export type Category =
   | "Likely Industrial Fire"
@@ -124,7 +125,18 @@ export interface ThermalEvent {
   daynight: "D" | "N";
   status: "NEW" | "RECURRING" | "PERSISTENT" | "HIGH RISK" | "CRITICAL";
   acqDate: string;
-  history: { date: string; frp: number; confidence: number }[];
+  history: {
+    date: string;
+    frp: number;
+    confidence: number;
+    satellite?: string;
+    instrument?: string;
+    daynight?: "D" | "N";
+    synthetic?: boolean;
+    frpObserved?: boolean | null;
+  }[];
+  historyTruncated?: boolean;
+  thermalChange?: ThermalChangeSummary;
   // open-source context (national pipeline) — absent on older exports
   state?: string;
   district?: string | null;

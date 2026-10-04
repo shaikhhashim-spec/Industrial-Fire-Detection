@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { ConsensusArena } from "@/components/ConsensusArena";
+import { ThermalChange } from "@/components/ThermalChange";
 import { formatLocation } from "../../../site/overview.mjs";
 import { Compass, ExternalLink, Factory, Moon, Sun, Wind, X } from "lucide-react";
 import { compass16 } from "@/lib/geo-layers";
@@ -381,6 +382,8 @@ export function EventDetail({
         </span>
       </div>
 
+      <ThermalChange event={event} />
+
       {event.plume && <PlumeHazardInfo plume={event.plume} frp={event.frp} />}
 
       <ConsensusArena event={event} />
@@ -444,11 +447,16 @@ export function EventDetail({
       </div>
 
       <div>
-        <span className="field-label">FRP trend (MW)</span>
+        <span className="field-label">Supplied FRP samples (MW)</span>
         <Sparkline
-          values={event.history.map((h) => h.frp)}
+          values={(event.history ?? [])
+            .filter((h) => typeof h.frp === "number" && Number.isFinite(h.frp) && h.frp >= 0)
+            .map((h) => h.frp)}
           color={CATEGORY_COLORS[event.category]}
         />
+        <p className="mt-1 text-[0.66rem] text-muted-foreground">
+          Sample order only; spacing does not represent elapsed time. Missing days are not zero.
+        </p>
       </div>
 
       <div>

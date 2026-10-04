@@ -1,6 +1,24 @@
 import { validCoordinates, compactPlume } from "./consensus.mjs";
 import { inRegion } from "./regions.mjs";
 import { formatLocation } from "./overview.mjs";
+import { analyzeThermalChange } from "./thermal-change.mjs";
+const computedThermal = new WeakMap();
+
+/** Review ordering only: points are neither probability nor operational severity. */
+export function investigationPriority(event) {
+  const thermal = computedThermal.get(event) ?? analyzeThermalChange(event);
+  const contributions = [];
+  if (numeric(thermal.priorityPoints) > 0) contributions.push({ label: "Thermal anomaly", points: thermal.priorityPoints, reason: thermal.label });
+  if (event.category === "Requires Verification") contributions.push({ label: "Unexplained label", points: 25, reason: "Rule label requires verification; cause remains unexplained." });
+  if (event.category === "Persistent Non-Industrial Thermal Source") contributions.push({ label: "Unexplained label", points: 15, reason: "Persistent heat without an industrial explanation in the rule label." });
+  const model = event.model;
+  if (model?.agrees === false && typeof model.label === "string" && model.label.trim() &&
+      typeof event.category === "string" && model.label !== event.category && numeric(model.confidence) !== null && model.confidence <= 1) {
+    contributions.push({ label: "Conflicting labels", points: 20, reason: `Rule/model label disagreement: ${event.category} / ${model.label}. Model agreement is not independent verification.` });
+  }
+  return { points: contributions.reduce((sum, c) => sum + c.points, 0), contributions, thermal,
+    caveat: "Review priority points, not fire probability. Elevated thermal change adds 10; Requires Verification adds 25; unexplained persistent non-industrial heat adds 15; rule/model disagreement adds 20. Unexplained labels intentionally outweigh thermal change because change alone does not establish cause. Ties use risk score, then event ID. Stable heat does not establish safety." };
+}
 
 export const FEEDS = [
   { name: "national", url: "globe/data/events.json" },
@@ -43,7 +61,10 @@ export function normalizeEvent(e) {
     clean.plume.estimated = true;
   }
   clean.history = historyRows(e).slice(0, 2000);
-  clean.historyTruncated = Array.isArray(e.history) && e.history.length > 2000;
+  clean.historyTruncated = e.historyTruncated === true || Array.isArray(e.history) && e.history.length > 2000;
+  // Analyze original samples before display filtering can hide invalid coverage.
+  clean.thermalChange = analyzeThermalChange({ ...e, historyTruncated: clean.historyTruncated });
+  computedThermal.set(clean, clean.thermalChange);
   clean.corroborated = typeof e.corroborated === "boolean" ? e.corroborated : null;
   return clean;
 }
@@ -75,8 +96,10 @@ export function mergeFeeds(feeds) {
         feed: feed.name, url: feed.url, source: feed.meta.source,
         scope: feed.meta.scope ?? feed.name, generatedAt: feed.meta.generatedAt ?? null,
         windowDays: feed.meta.windowDays ?? null, partial: feed.meta.partial === true,
+        historyScope: string(feed.meta.historyScope),
         attribution: Array.isArray(feed.meta.attribution) ? feed.meta.attribution.filter((v) => typeof v === "string") : [],
       }, aliases: [e.id] };
+      if (computedThermal.has(e)) computedThermal.set(candidate, computedThermal.get(e));
       const key = cellKey(e), previous = cells.get(key);
       if (!previous) { cells.set(key, candidate); continue; }
       const aliases = [...new Set([...previous.aliases, e.id])];
@@ -117,9 +140,13 @@ export function queryCases(events, filters = {}, reviews = new Map()) {
     (!filters.plumes || validCoordinates(e.latitude, e.longitude) && !!compactPlume(e.plume)) &&
     (!filters.bookmarks || reviews.get(cellKey(e))?.bookmark === true) &&
     (!filters.status || (reviews.get(cellKey(e))?.status ?? "unreviewed") === filters.status));
-  const key = { risk: "riskScore", persistence: "persistenceDays", frp: "frp" }[filters.sort ?? "risk"];
+  const sort = filters.sort ?? "priority";
+  const key = { risk: "riskScore", persistence: "persistenceDays", frp: "frp" }[sort];
   const ascending = filters.direction === "asc";
+  const priorities = sort === "priority" ? new Map(filtered.map((e) => [e, investigationPriority(e).points])) : null;
   return filtered.sort((a, b) => {
+    if (priorities) return (ascending ? 1 : -1) * (priorities.get(a) - priorities.get(b)) ||
+      (numeric(b.riskScore) ?? -Infinity) - (numeric(a.riskScore) ?? -Infinity) || a.id.localeCompare(b.id);
     const av = key ? numeric(a[key]) : observed(a), bv = key ? numeric(b[key]) : observed(b);
     if (av === null && bv !== null) return 1;
     if (bv === null && av !== null) return -1;
@@ -137,7 +164,11 @@ export function historyRows(event) {
   return (Array.isArray(event.history) ? event.history : []).filter((row) => row &&
     typeof row.date === "string" && Number.isFinite(Date.parse(row.date)) && numeric(row.frp) !== null)
     .map((row) => ({ date: row.date, frp: row.frp, confidence:
-      numeric(row.confidence) !== null && row.confidence <= 100 ? row.confidence : null }))
+      numeric(row.confidence) !== null && row.confidence <= 100 ? row.confidence : null,
+      ...Object.fromEntries(["satellite", "instrument", "daynight"].filter((key) => Object.hasOwn(row, key)).map((key) => [key, string(row[key])])),
+      ...(Object.hasOwn(row, "synthetic") ? { synthetic: row.synthetic !== false } : {}),
+      ...(Object.hasOwn(row, "frpObserved") ? { frpObserved: row.frpObserved === true ? true : row.frpObserved == null ? null : false } : {}),
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 

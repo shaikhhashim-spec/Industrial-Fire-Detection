@@ -156,6 +156,16 @@ National accumulated detection history also needs a durable shared contract.
 
 ## Verification And Cross-Review
 
+### Thermal Intelligence Release
+
+The Docker build now precomputes thermal summaries on assembled snapshot copies
+after the globe build. This needs no ingestion, new service, or startup job.
+Investigations and globe details share the historical comparison contract;
+assessments remain separate from reviewed status. See
+[thermal intelligence](docs/thermal-intelligence.md) for evidence limits, offline
+evaluation and export commands. Free-demo server assessments are still temporary;
+this upgrade does not make Render files durable or establish model accuracy.
+
 Run `python -m pytest tests/test_cloud_launcher.py -q` for mocked process/signal,
 port, readiness timeout, demo/production database policy, startup failure and
 cleanup regression checks. Tests neither contact services nor run refresh/build.

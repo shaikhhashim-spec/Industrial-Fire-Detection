@@ -41,6 +41,33 @@ def test_missing_frp_is_filled_not_dropped():
     out, _ = clean_hotspots(_df(rows))
     assert len(out) == 1
     assert out.loc[0, "frp"] == 0.0
+    assert not out.loc[0, "frpObserved"]
+
+
+def test_frp_validity_is_captured_before_fill_clip_and_survives_recleaning():
+    values = [None, "bad", -1, float("inf"), float("nan"), 0, 5, True]
+    rows = [{**GOOD_ROW, "frp": value, "acq_time": 130 + i} for i, value in enumerate(values)]
+    out, report = clean_hotspots(_df(rows))
+    assert out["frpObserved"].tolist() == [False, False, False, False, False, False, True, False]
+    assert report["frp_unobserved"] == 7
+    again, _ = clean_hotspots(out)
+    assert again["frpObserved"].tolist() == out["frpObserved"].tolist()
+
+
+def test_explicit_measured_zero_survives_but_unknown_cached_zero_stays_unknown():
+    rows = [{**GOOD_ROW, "frp": 0, "frpObserved": validity, "acq_time": 130 + i}
+            for i, validity in enumerate([True, False, None])]
+    out, _ = clean_hotspots(_df(rows))
+    assert out["frpObserved"].tolist() == [True, False, False]
+    out, _ = clean_hotspots(out)
+    assert out["frpObserved"].tolist() == [True, False, False]
+
+
+def test_nullable_migrated_marker_preserves_valid_legacy_positive_readings():
+    out, _ = clean_hotspots(_df([{**GOOD_ROW, "frpObserved": None}]))
+    assert out.loc[0, "frpObserved"]
+    out, _ = clean_hotspots(out)
+    assert out["frpObserved"].tolist() == [True]
 
 
 def test_duplicates_removed():
